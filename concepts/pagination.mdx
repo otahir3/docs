@@ -1,0 +1,85 @@
+---
+title: Pagination
+description: Cursor-based pagination used on every list endpoint.
+---
+
+Every list endpoint in the MarketBox API uses **cursor-based pagination**.
+There are no page numbers — you ask for a page of results, and the
+response tells you whether more exist.
+
+## Query parameters
+
+| Parameter | Type    | Default | Notes                                                          |
+| --------- | ------- | ------- | -------------------------------------------------------------- |
+| `limit`   | integer | `50`    | Max items per page. Maximum `200`. Requests above `200` → 400. |
+| `cursor`  | string  | —       | Opaque token returned from the previous page.                  |
+
+Both are optional. Omitting `cursor` returns the first page.
+
+## Response shape
+
+```json
+{
+  "data": [ /* up to `limit` items */ ],
+  "nextCursor": "eyJwayI6IkJPT0tJTkcjcHJv..."
+}
+```
+
+- `data` — the items on this page, in the endpoint's natural ordering.
+- `nextCursor` — the token for the next page, or `null` if there are no
+  more results.
+
+## Iterating in code
+
+<CodeGroup>
+
+```ts TypeScript
+async function* listAllBookings(projectId: string) {
+  let cursor: string | undefined;
+  do {
+    const url = new URL(`/v1/projects/${projectId}/bookings`, 'https://api.marketbox.io');
+    url.searchParams.set('limit', '200');
+    if (cursor) url.searchParams.set('cursor', cursor);
+
+    const res = await fetch(url, {
+      headers: { 'x-api-key': process.env.MARKETBOX_API_KEY! },
+    });
+    const { data, nextCursor } = await res.json();
+    for (const b of data) yield b;
+    cursor = nextCursor ?? undefined;
+  } while (cursor);
+}
+```
+
+```bash bash
+cursor=""
+while :; do
+  resp=$(curl -s "https://api.marketbox.io/v1/projects/$PROJECT_ID/bookings?limit=200${cursor:+&cursor=$cursor}" \
+    -H "x-api-key: $MARKETBOX_API_KEY")
+  echo "$resp" | jq '.data[]'
+  cursor=$(echo "$resp" | jq -r '.nextCursor // empty')
+  [ -z "$cursor" ] && break
+done
+```
+
+</CodeGroup>
+
+## Rules
+
+- **Opaque cursors.** A `cursor` is a base64-encoded blob with internal
+  structure. Treat it as a magic token — never parse, decode, or
+  construct one yourself. Its format may change without notice.
+- **Cursors are tied to a filter set.** If you change the query params
+  (`status`, `startDate`, etc.) between calls, the cursor's behavior is
+  undefined. Either keep filters identical across the iteration, or
+  start a fresh iteration with no cursor.
+- **`nextCursor: null` means done.** Don't loop again when the response
+  says there are no more pages.
+- **No total counts.** The API does not return how many items remain.
+  If you need a count, walk the full iteration.
+
+## Errors
+
+- `400 Bad Request` — `limit` is non-numeric, less than 1, or above 200.
+- `400 Bad Request` — `cursor` is malformed (e.g. not valid base64, or
+  doesn't match the endpoint that issued it).

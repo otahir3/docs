@@ -1,0 +1,95 @@
+---
+title: Timezones
+description: How MarketBox represents booking times in UTC and a customer-facing local timezone.
+---
+
+Booking times in MarketBox are stored as **explicit UTC instants** plus
+an **IANA timezone** identifier. Local-time fields exist for
+convenience — they're derived on the server, not provided by clients.
+
+## The fields
+
+A booking's time is described by three input fields:
+
+| Field             | Type                          | Example                       |
+| ----------------- | ----------------------------- | ----------------------------- |
+| `bookingStartUtc` | ISO 8601 instant (UTC)        | `"2026-06-01T17:00:00.000Z"`  |
+| `bookingEndUtc`   | ISO 8601 instant (UTC)        | `"2026-06-01T18:00:00.000Z"`  |
+| `bookingTz`       | IANA timezone identifier      | `"America/New_York"`          |
+
+And four derived local fields that the server **computes for you**:
+
+| Field                   | Example       | Meaning                                          |
+| ----------------------- | ------------- | ------------------------------------------------ |
+| `bookingLocalDate`      | `2026-06-01`  | The local calendar date the booking starts on.   |
+| `bookingLocalStartTime` | `13:00`       | Local clock time the booking starts.             |
+| `bookingLocalEndTime`   | `14:00`       | Local clock time the booking ends.               |
+| `bookingLocalEndDate`   | `2026-06-01`  | Local calendar date the booking ends on.         |
+
+## Why both?
+
+UTC is the only sane storage format — but a customer thinks in
+"Tuesday at 1pm in New York." Storing both:
+
+- Keeps the math correct across DST transitions, region changes, and
+  multi-day bookings.
+- Lets list endpoints filter by UTC windows without expanding every row.
+- Lets the dashboard and your UI display the booking exactly as the
+  customer scheduled it, without re-deriving the timezone on every
+  read.
+
+## Server derives, you do not
+
+When you create or reschedule a booking, you supply only the UTC
+instants and `bookingTz`. The server computes the four local fields
+using `bookingTz` as the source of truth and writes them alongside.
+
+Attempting to send the local fields in a request body is silently
+ignored on create and rejected as a validation error on patch — you
+**cannot** override what the server derives.
+
+If you change `bookingTz` on a reschedule, the local fields are
+re-derived automatically.
+
+## Querying by date
+
+List endpoints that filter on time accept **UTC bounds only**:
+
+```
+GET /v1/projects/{projectId}/bookings?startDate=2026-06-01T00:00:00Z&endDate=2026-06-02T00:00:00Z
+```
+
+There is no `localDate` filter. If you want "all bookings on Tuesday in
+New York," compute the UTC window yourself:
+
+```ts
+import { fromZonedTime } from 'date-fns-tz';
+
+const tzStart = fromZonedTime('2026-06-01T00:00:00', 'America/New_York');
+const tzEnd   = fromZonedTime('2026-06-02T00:00:00', 'America/New_York');
+// then pass tzStart.toISOString() / tzEnd.toISOString() as startDate / endDate.
+```
+
+<Note>
+Bookings that **started** before your window but end inside it are not
+included by a naive UTC filter — expand the window backward by your
+longest expected booking duration if you need to catch overnight or
+multi-day bookings.
+</Note>
+
+## Invalid timezones
+
+If `bookingTz` is not a recognized IANA identifier (e.g. `EST`, `PST`,
+`UTC+5`), the API rejects the request with:
+
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Invalid bookingTz: EST",
+  "statusCode": 400,
+  "requestId": "req_..."
+}
+```
+
+Use the canonical zone name — `America/New_York`, not `EST`;
+`Europe/London`, not `BST`.

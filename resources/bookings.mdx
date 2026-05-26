@@ -1,0 +1,163 @@
+---
+title: Bookings
+description: Create, manage, and operate on bookings — the core scheduling primitive.
+---
+
+A **booking** is the central scheduling primitive in MarketBox. It pins
+a `provider` and a `client` to a window of time, against one or more
+service offerings, with optional notes and participants.
+
+## The booking lifecycle
+
+```
+PENDING ─┬─► CONFIRMED ──► COMPLETED
+         │
+         └─► CANCELLED
+```
+
+You move a booking through these states with
+`POST /v1/projects/{projectId}/bookings/{bookingId}/status`. Not every
+transition is allowed — see [Errors](/concepts/errors) for
+`INVALID_STATUS_TRANSITION`.
+
+A booking is **soft-deleted** with
+`DELETE /v1/projects/{projectId}/bookings/{bookingId}`. Soft-deleted
+bookings disappear from list endpoints but their data is retained for
+audit purposes.
+
+## Anatomy
+
+A booking has three nested collections beyond its own metadata:
+
+<CardGroup cols={3}>
+  <Card title="Services" icon="briefcase">
+    The offerings booked — each line carries the offering snapshot,
+    quantity, duration, and price at the time the booking was made.
+  </Card>
+  <Card title="Participants" icon="users">
+    The clients attending. Used for group/class-style bookings with
+    capacity above 1. Supports check-in.
+  </Card>
+  <Card title="Notes" icon="note-sticky">
+    Free-form notes scoped to either the booking or one of its
+    services. Soft-deletable.
+  </Card>
+</CardGroup>
+
+Fetch all three in one call with the **aggregate** endpoint:
+
+```
+GET /v1/projects/{projectId}/bookings/{bookingId}/aggregate
+```
+
+This is the right call for "show me everything about this booking" —
+one round trip instead of four.
+
+## Creating a booking
+
+`POST /v1/projects/{projectId}/bookings` creates a booking and its
+services in one transaction. The body carries:
+
+- **`providerId`** and **`clientId`** — who serves and who is served.
+- **`bookingStartUtc`**, **`bookingEndUtc`**, **`bookingTz`** — when.
+  Local-time fields are derived. See [Timezones](/concepts/timezones).
+- **`capacity`** — how many participants this booking can hold (1 for
+  one-to-one bookings; >1 for classes).
+- **`services`** — at least one service line. Each line names a
+  `serviceId` + `offeringId`; price and duration are pulled from the
+  offering at create time and **snapshotted** into the booking.
+- **`notes`** — optional initial notes.
+
+The server validates:
+
+- `bookingEndUtc > bookingStartUtc`.
+- Every referenced offering exists and is `ACTIVE` (otherwise 400).
+- All service lines share a single currency (otherwise 400).
+- `bookingTz` is a valid IANA identifier.
+
+<Note>
+  **Note fan-out is non-atomic.** If a note write fails after the
+  booking is created, the booking still exists with fewer notes than
+  requested, and the error propagates to you. Retry the note creation
+  against the existing `bookingId`.
+</Note>
+
+## Rescheduling
+
+`PATCH /v1/projects/{projectId}/bookings/{bookingId}` updates time and
+core fields. The body may include any subset of:
+
+- `bookingStartUtc`, `bookingEndUtc`, `bookingTz`
+- `providerId`, `clientId`
+- `capacity`
+
+You cannot send the four `bookingLocal*` fields — they're server-derived.
+
+If you change any time field, the server recomputes all four local
+fields against the (possibly new) `bookingTz`.
+
+## Listing bookings
+
+Three list endpoints — all paginated, all returning `BookingDto`:
+
+| Endpoint                                                     | Scope                                    |
+| ------------------------------------------------------------ | ---------------------------------------- |
+| `GET /v1/projects/{projectId}/bookings`                      | All bookings in a project.               |
+| `GET /v1/projects/{projectId}/providers/{providerId}/bookings` | Bookings assigned to one provider.       |
+| `GET /v1/projects/{projectId}/clients/{clientId}/bookings`   | Bookings owned by one client.            |
+
+All three accept the same query params: `startDate`, `endDate`,
+`status`, `limit`, `cursor`.
+
+`startDate` / `endDate` are **UTC** windows. See
+[Timezones](/concepts/timezones) for how to convert from a local
+window.
+
+## Participants
+
+Group bookings (`capacity > 1`) support a participant list:
+
+- `POST .../bookings/{bookingId}/participants` — register a client.
+  409 if capacity is full or the client is already on the list.
+- `GET .../bookings/{bookingId}/participants` — list the current
+  roster. Not paginated — bounded by capacity.
+- `POST .../bookings/{bookingId}/participants/{clientId}/check-in` —
+  mark a participant as checked in.
+- `DELETE .../bookings/{bookingId}/participants/{clientId}` — cancel
+  the participant (soft-delete; capacity recovers).
+
+## Notes
+
+Notes are attached at one of two scopes:
+
+| Scope                | When to use                                                   |
+| -------------------- | ------------------------------------------------------------- |
+| `BOOKING`            | Applies to the whole booking. Set `bookingServiceId: null`.    |
+| `BOOKING_SERVICE`    | Applies to one service line. Set `bookingServiceId: <id>`.    |
+
+CRUD lives under `.../bookings/{bookingId}/notes[/{noteId}]`. The list
+is not paginated — it's bounded by what fits in the aggregate.
+
+## Endpoint index
+
+See the [API reference](/api-reference/introduction) for full schemas
+and a live playground for every endpoint:
+
+- `POST /v1/projects/{projectId}/bookings`
+- `GET  /v1/projects/{projectId}/bookings`
+- `GET  /v1/projects/{projectId}/bookings/{bookingId}`
+- `GET  /v1/projects/{projectId}/bookings/{bookingId}/aggregate`
+- `PATCH /v1/projects/{projectId}/bookings/{bookingId}`
+- `POST /v1/projects/{projectId}/bookings/{bookingId}/status`
+- `DELETE /v1/projects/{projectId}/bookings/{bookingId}`
+- `GET  /v1/projects/{projectId}/providers/{providerId}/bookings`
+- `GET  /v1/projects/{projectId}/clients/{clientId}/bookings`
+- `POST /v1/projects/{projectId}/bookings/{bookingId}/participants`
+- `GET  /v1/projects/{projectId}/bookings/{bookingId}/participants`
+- `GET  /v1/projects/{projectId}/bookings/{bookingId}/participants/{clientId}`
+- `POST /v1/projects/{projectId}/bookings/{bookingId}/participants/{clientId}/check-in`
+- `DELETE /v1/projects/{projectId}/bookings/{bookingId}/participants/{clientId}`
+- `POST /v1/projects/{projectId}/bookings/{bookingId}/notes`
+- `GET  /v1/projects/{projectId}/bookings/{bookingId}/notes`
+- `PATCH /v1/projects/{projectId}/bookings/{bookingId}/notes/{noteId}`
+- `DELETE /v1/projects/{projectId}/bookings/{bookingId}/notes/{noteId}`

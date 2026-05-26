@@ -1,0 +1,138 @@
+---
+title: Orders
+description: Build and manage orders — the commerce primitive for tracking what a client owes.
+---
+
+An **order** in MarketBox is the commerce ledger sitting alongside the
+booking ledger. It records what a client is paying for: line items
+referencing offerings, with frozen unit prices and a tax field.
+
+Where a booking answers "what's scheduled?", an order answers "what's
+owed?".
+
+## The order lifecycle
+
+```
+DRAFT ──► OPEN ──► PAID ──► COMPLETED
+   │        │
+   └────────┴─► CANCELLED
+```
+
+Move an order through these states with
+`POST /v1/projects/{projectId}/orders/{orderId}/status`. Disallowed
+transitions return `400 INVALID_STATUS_TRANSITION`.
+
+`DELETE /v1/projects/{projectId}/orders/{orderId}` is a **soft-delete** —
+the order is hidden from lists but its data is retained.
+
+## Anatomy
+
+An order is two things stored together:
+
+- **The order**: client, currency, tax, status, totals, audit metadata.
+- **The items**: line-by-line, each referencing one offering with a
+  frozen `unitPrice` and a `quantity`.
+
+Fetch both in one call:
+
+```
+GET /v1/projects/{projectId}/orders/{orderId}/aggregate
+```
+
+## Currency is set once
+
+When you create an order, you commit to a single currency. The currency
+is **immutable** thereafter — there is no `PATCH` that changes it.
+
+Every item added to the order must match the order's currency. The API
+enforces this at add-item time and at create-time:
+
+```json
+{
+  "code": "CURRENCY_MISMATCH",
+  "message": "Item off_xxx currency EUR does not match order currency USD",
+  "statusCode": 400,
+  "requestId": "req_..."
+}
+```
+
+This rule eliminates the order/item currency desync that plagues most
+naive commerce schemas.
+
+## Creating an order
+
+`POST /v1/projects/{projectId}/orders`:
+
+```json
+{
+  "clientId": "cli_456",
+  "currency": "USD",
+  "items": [
+    {
+      "skuType": "SERVICE",
+      "serviceId":  "svc_...",
+      "offeringId": "off_...",
+      "quantity": 1
+    }
+  ]
+}
+```
+
+You can also create an order with `items: []` and add items afterwards.
+
+The server pulls each offering's current price into the item as the
+frozen `unitPrice`. From then on, the line's price is decoupled from
+the offering — if the offering's price changes later, existing order
+items keep the price they were captured at.
+
+The server validates:
+
+- Every offering exists and is `ACTIVE` (else 404 / 400).
+- Every offering's currency equals the order's currency (else 400).
+
+## Managing items
+
+Items have their own sub-resource under an order:
+
+- `POST .../orders/{orderId}/items` — add an item. `unitPrice` is
+  derived from the offering and snapshotted.
+- `PATCH .../orders/{orderId}/items/{orderItemId}` — change
+  **quantity only**. `skuType`, `serviceId`, `offeringId`, and the
+  frozen `unitPrice` are immutable.
+- `DELETE .../orders/{orderId}/items/{orderItemId}` — remove the
+  item from the order.
+
+The snapshot pattern is deliberate: an order is a historical record of
+"what the client bought at the price it was when they bought it."
+
+## Updating an order
+
+`PATCH /v1/projects/{projectId}/orders/{orderId}` accepts a narrow set
+of mutable fields — currently just `tax`. Client and currency are not
+mutable. To change them, cancel the order and create a new one.
+
+## Listing orders
+
+| Endpoint                                                     | Notes                                              |
+| ------------------------------------------------------------ | -------------------------------------------------- |
+| `GET /v1/projects/{projectId}/orders?status=OPEN`            | List by status — `status` is **required**.         |
+| `GET /v1/projects/{projectId}/clients/{clientId}/orders`     | All orders for one client (any status).            |
+
+The project-scoped list **requires** `status` as a query param. This
+is a deliberate design choice driven by the underlying index — listing
+"all orders across all statuses" isn't a supported access pattern.
+If you need that, query each status in turn.
+
+## Endpoint index
+
+- `POST /v1/projects/{projectId}/orders`
+- `GET  /v1/projects/{projectId}/orders` (requires `?status=`)
+- `GET  /v1/projects/{projectId}/orders/{orderId}`
+- `GET  /v1/projects/{projectId}/orders/{orderId}/aggregate`
+- `PATCH /v1/projects/{projectId}/orders/{orderId}`
+- `POST /v1/projects/{projectId}/orders/{orderId}/status`
+- `DELETE /v1/projects/{projectId}/orders/{orderId}`
+- `GET  /v1/projects/{projectId}/clients/{clientId}/orders`
+- `POST /v1/projects/{projectId}/orders/{orderId}/items`
+- `PATCH /v1/projects/{projectId}/orders/{orderId}/items/{orderItemId}`
+- `DELETE /v1/projects/{projectId}/orders/{orderId}/items/{orderItemId}`

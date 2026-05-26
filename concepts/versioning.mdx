@@ -1,0 +1,77 @@
+---
+title: Versioning
+description: How the API surface evolves without breaking your integration.
+---
+
+Every resource path in the MarketBox API is prefixed with a major version:
+
+```
+/v1/projects/{projectId}/bookings
+```
+
+The version belongs in the **URL**, not a header. There is no `Accept`
+negotiation, no version parameter, and no implicit "latest" — every call
+explicitly names the version it expects.
+
+## What "v1" means
+
+Within `v1`, MarketBox commits to backwards-compatible changes only.
+Specifically, we may:
+
+- **Add** new endpoints.
+- **Add** new optional request fields.
+- **Add** new response fields.
+- **Add** new values to existing enums *only* when documented as open-ended.
+- **Add** new error codes (treat unknown codes as the HTTP status implies).
+- **Relax** validation that was previously stricter than necessary.
+
+We will **not**, within `v1`:
+
+- Remove or rename fields.
+- Change a field's type or semantics.
+- Add required request fields.
+- Remove enum values.
+- Change HTTP status codes for the same condition.
+- Change the meaning of an existing error `code`.
+
+## When we'd bump to `v2`
+
+A `v2` only ships when a change is genuinely incompatible — a rename
+nobody can avoid, a semantic change to a core concept, or a restructure
+that doesn't fit under "additive."
+
+When a new major version ships:
+
+- `/v1` keeps working for an explicit, announced deprecation window.
+- Both versions run side by side during that window.
+- Deprecation announcements include migration guidance per endpoint.
+
+You will get advance notice. We don't silently sunset versions.
+
+## Forward-compatibility on your side
+
+Help your integration weather additive changes:
+
+- **Don't fail on unknown response fields.** Use a permissive JSON
+  parser that ignores fields you don't know about.
+- **Don't fail on unknown enum values.** Have a "unknown" branch in
+  your handling — don't crash if a `status` shows up that your code
+  hasn't seen.
+- **Don't fail on unknown error codes.** Fall back to handling by
+  HTTP status when you encounter a `code` you don't recognize.
+- **Pin the version in your client.** Make `/v1` an explicit part of
+  the URLs you generate, not a discoverable default.
+
+## The spec
+
+The machine-readable OpenAPI document for the current version is served
+at:
+
+```
+https://api.marketbox.io/v1/openapi.json
+```
+
+The same document powers this site's [API reference](/api-reference/introduction).
+If you generate clients from the spec, regenerate when you see additive
+changes — your old client will still work, but won't expose the new
+fields or endpoints.

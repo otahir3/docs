@@ -1,0 +1,92 @@
+---
+title: Concurrency and versioning
+description: How MarketBox handles concurrent updates and what to do when you hit a 409.
+---
+
+MarketBox uses **optimistic concurrency** on every mutable resource.
+There's no row-level locking, no advisory leases — instead, each record
+carries a `version` field that's incremented on every write. If two
+writers race, one wins and the other gets a `409 VERSION_CONFLICT`.
+
+## The version field
+
+Every booking, order, and order item DTO includes a numeric `version`:
+
+```json
+{
+  "bookingId": "bkg_...",
+  "version": 4,
+  "status": "CONFIRMED",
+  ...
+}
+```
+
+You don't have to track it manually for most flows — the server reads
+the current version on each PATCH/DELETE and applies your update
+atomically. But you'll see the field in responses, and you'll see it
+move when something changes.
+
+## When you'll see 409
+
+Two scenarios produce `VERSION_CONFLICT`:
+
+1. **Two concurrent updates.** Your PATCH and someone else's PATCH
+   land at roughly the same time. The faster one wins; the slower one
+   gets `409`.
+2. **Stale view + update.** You read a booking, hold it for a while,
+   then PATCH. In between, something else (a status change from the
+   dashboard, another integration, etc.) advanced the version.
+
+Both look the same from the caller's perspective.
+
+## Recovering
+
+The recovery pattern is always:
+
+1. **GET** the resource again — you'll see the new `version` and the
+   current state.
+2. **Reapply** your change on top of the fresh state. If the new state
+   makes your update irrelevant (someone else already cancelled the
+   booking you were about to cancel), you can skip the retry.
+3. **PATCH** again.
+
+```ts
+async function rescheduleWithRetry(projectId: string, bookingId: string, patch: Patch) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(`/v1/projects/${projectId}/bookings/${bookingId}`, {
+      method: 'PATCH',
+      headers: { 'x-api-key': KEY, 'content-type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    if (res.status !== 409) return res;
+
+    const fresh = await (await fetch(`/v1/projects/${projectId}/bookings/${bookingId}`)).json();
+    if (alreadyDone(fresh.data, patch)) return fresh;
+  }
+  throw new Error('Too many version conflicts');
+}
+```
+
+## Where you'll see it
+
+| Endpoint                                                       | Can 409?                                              |
+| -------------------------------------------------------------- | ----------------------------------------------------- |
+| `PATCH /v1/projects/{projectId}/bookings/{bookingId}`          | Yes — booking version moved.                          |
+| `POST /v1/projects/{projectId}/bookings/{bookingId}/status`    | Yes — booking version moved.                          |
+| `DELETE /v1/projects/{projectId}/bookings/{bookingId}`         | Yes — booking version moved.                          |
+| `PATCH /v1/projects/{projectId}/orders/{orderId}`              | Yes — order version moved.                            |
+| `POST /v1/projects/{projectId}/orders/{orderId}/status`        | Yes — order version moved.                            |
+| `DELETE /v1/projects/{projectId}/orders/{orderId}`             | Yes — order version moved.                            |
+| `POST /v1/projects/{projectId}/bookings/{bookingId}/participants` | `409 CAPACITY_EXCEEDED` or `PARTICIPANT_ALREADY_REGISTERED` — different conflict, same status. |
+
+## Capacity and duplicate conflicts
+
+`409` also covers business-level conflicts that aren't version-based:
+
+- **`CAPACITY_EXCEEDED`** — registering a participant would put the
+  booking past its `capacity`. The booking's version is unchanged.
+- **`PARTICIPANT_ALREADY_REGISTERED`** — the client is already on
+  the participant list (and not in a cancelled state).
+
+These aren't fixable by re-reading and retrying — the action just
+can't proceed. Surface them to the user rather than looping.

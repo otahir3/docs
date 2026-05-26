@@ -1,33 +1,85 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: API reference
+description: Every endpoint, schema, and example for the MarketBox public API.
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+The MarketBox API is a RESTful, JSON-over-HTTPS surface. This reference
+section is **auto-generated from the OpenAPI specification** that the
+API serves at `/v1/openapi.json` — every endpoint listed here is a
+direct projection of what the running service accepts and returns.
 
-## Welcome
+## Base URLs
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+| Environment | Base URL                                |
+| ----------- | --------------------------------------- |
+| Production  | `https://api.marketbox.io`              |
+| Staging     | `https://api.staging.marketbox.io`      |
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+Choose the environment in the playground dropdown on each endpoint
+page below.
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+Every endpoint under `/v1` requires an `x-api-key` header. The
+playground accepts your key in the authorization slot — paste a
+**staging** key when testing here, never a production key.
 
-```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+See [Authentication](/concepts/authentication) for the full model.
+
+```http
+x-api-key: mb_test_********************************
 ```
+
+## Conventions
+
+The same shapes show up everywhere:
+
+- **List responses** wrap items in `{ data: [...], nextCursor }`. See
+  [Pagination](/concepts/pagination).
+- **Single-item responses** wrap the item in `{ data: {...} }`.
+- **Errors** are returned with a shared envelope. See
+  [Errors](/concepts/errors).
+- **Times** are ISO 8601 strings in UTC, paired with an IANA timezone
+  identifier on resources that have a customer-facing local time.
+  See [Timezones](/concepts/timezones).
+- **Money** is `{ amount: integer, currency: 3-letter ISO }` — amounts
+  are integers in the currency's **minor unit** (cents, pence, etc.).
+
+## Tags
+
+Endpoints are grouped by tag in the sidebar:
+
+<CardGroup cols={2}>
+  <Card title="Bookings" icon="calendar-check" href="/resources/bookings">
+    Scheduling primitive. Includes participants and notes.
+  </Card>
+  <Card title="Orders" icon="receipt" href="/resources/orders">
+    Commerce primitive. Includes items.
+  </Card>
+  <Card title="Offerings" icon="tags" href="/resources/offerings">
+    Read-only catalog of bookable / orderable items.
+  </Card>
+  <Card title="Providers" icon="user-tie" href="/resources/providers">
+    Read-only list of providers in a project, enriched with services and skills.
+  </Card>
+</CardGroup>
+
+## The raw spec
+
+If you'd rather work directly from the OpenAPI document — generating a
+client, importing into Postman, or writing your own playground — pull
+it straight from the running service:
+
+```bash
+curl https://api.marketbox.io/v1/openapi.json
+```
+
+The same document is bundled with this site and can be fetched at
+[`/api-reference/openapi.json`](/api-reference/openapi.json).
+
+<Tip>
+  The spec is OpenAPI 3.0. Tools like
+  [openapi-typescript](https://github.com/drwpow/openapi-typescript),
+  [openapi-generator](https://openapi-generator.tech/), and
+  [orval](https://orval.dev/) all consume it directly.
+</Tip>

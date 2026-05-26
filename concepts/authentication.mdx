@@ -1,0 +1,88 @@
+---
+title: Authentication
+description: How API keys, project scope, and tenancy work.
+---
+
+The MarketBox API authenticates every request with an **API key** carried
+in the `x-api-key` header. There are no OAuth flows, no session cookies,
+and no per-user tokens — keys are minted in the MarketBox dashboard and
+behave as long-lived service credentials.
+
+## The header
+
+```http
+GET /v1/projects/proj_acme/bookings HTTP/1.1
+Host: api.marketbox.io
+x-api-key: mb_live_********************************
+```
+
+A request without a valid `x-api-key` is rejected at the edge with `401`
+before reaching any business logic.
+
+## What a key carries
+
+When you mint a key in the dashboard, MarketBox stores the following
+metadata against it:
+
+| Field           | Meaning                                                                |
+| --------------- | ---------------------------------------------------------------------- |
+| `friendlyName`  | Human-readable label, shown only in the dashboard.                     |
+| `userId`        | The MarketBox user who owns the key. Becomes the `tenantId` on writes. |
+| `projectScope`  | Which projects the key may act on. See below.                          |
+| `createdAt`     | When the key was minted.                                               |
+| `lastUsedAt`    | Updated periodically as the key is used (not on every request).        |
+
+The raw key value is shown **once**, at create time. MarketBox stores only
+the hash — if you lose it, you must mint a new one.
+
+## Project scope
+
+`projectScope` is an array of project ids that gates every authenticated
+call. There are three meaningful shapes:
+
+| Scope                              | Meaning                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------ |
+| `["*"]`                            | Wildcard — every project the owning user has access to.                  |
+| `["proj_acme", "proj_other"]`      | Restricted — only those two projects.                                    |
+| `[]`                               | Kill switch — no access. Use to pause a key without deleting it.         |
+
+Mixing the wildcard with explicit ids (e.g. `["*", "proj_acme"]`) is
+rejected at create time as malformed.
+
+The wildcard expands **only within the owning user's blast radius** — it
+never crosses users. A compromised wildcard key from one user can never
+touch another user's projects.
+
+## Scope enforcement
+
+Every tenant-scoped endpoint has a `{projectId}` path parameter. On each
+request, the API:
+
+1. Validates the API key and resolves it to its scope.
+2. Reads `{projectId}` from the URL.
+3. Checks `scope.includes("*") || scope.includes(projectId)`.
+4. Returns `403` if not allowed.
+
+You'll get a `403` — not a `404` — if a project exists but your key isn't
+scoped to it. A `404` means the project itself doesn't exist.
+
+## Rotating keys
+
+To rotate:
+
+1. Mint a new key with the same scope in the dashboard.
+2. Roll out the new key to your callers.
+3. Revoke the old key once traffic is fully off it.
+
+Keys cannot be edited in place — name and scope are immutable after
+creation. Rotation = mint + revoke.
+
+## Tenancy
+
+Every write (`POST`, `PATCH`, `DELETE`) is tagged with the API key's
+owning `userId` as `tenantId` on the underlying record. This means the
+audit log shows **which key minted what** even if multiple keys share a
+project's scope.
+
+You don't pass `tenantId` yourself — MarketBox derives it from the key on
+the server.

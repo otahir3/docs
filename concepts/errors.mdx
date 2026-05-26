@@ -1,0 +1,102 @@
+---
+title: Errors
+description: Error envelope, HTTP status codes, and what to do about them.
+---
+
+Every error response from the MarketBox API uses the same envelope.
+
+## The envelope
+
+```json
+{
+  "code": "NOT_FOUND",
+  "message": "Booking not found",
+  "statusCode": 404,
+  "requestId": "req_2hY3..."
+}
+```
+
+| Field        | Meaning                                                                     |
+| ------------ | --------------------------------------------------------------------------- |
+| `code`       | Stable, machine-readable identifier. Use this for branching.                |
+| `message`    | Human-readable explanation. May change over time.                           |
+| `statusCode` | The same status as the HTTP response — included for clients that hide it.   |
+| `requestId`  | Unique id for this request. Also returned in the `X-Request-Id` header.     |
+
+<Tip>
+  Always log `requestId` alongside the request you made — it's what
+  MarketBox support uses to look up a single call in our logs.
+</Tip>
+
+## Status codes
+
+| Status | When you'll see it                                                                                 |
+| ------ | -------------------------------------------------------------------------------------------------- |
+| `400`  | The request is malformed: invalid JSON, invalid query parameters, a violated business invariant.   |
+| `401`  | The `x-api-key` header is missing, malformed, or the key has been revoked.                         |
+| `403`  | The key is valid but its `projectScope` does not allow the `{projectId}` in the URL.               |
+| `404`  | The resource you targeted doesn't exist (or has been soft-deleted).                                |
+| `409`  | Version conflict on an optimistic update, capacity exceeded, or duplicate registration.            |
+| `5xx`  | Something went wrong on our side. Safe to retry idempotent requests with backoff.                  |
+
+## Common error codes
+
+| `code`                                  | Status | Notes                                                                                   |
+| --------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| `VALIDATION_ERROR`                      | 400    | Request body or query failed schema validation. `message` names the field.              |
+| `INVALID_CURSOR`                        | 400    | The `cursor` query parameter is unparseable. Start a fresh iteration.                   |
+| `INVALID_STATUS_TRANSITION`             | 400    | The status change isn't allowed from the resource's current state.                      |
+| `CURRENCY_MISMATCH`                     | 400    | An order item's currency doesn't match the order's currency.                            |
+| `OFFERING_NOT_BOOKABLE`                 | 400    | The targeted offering is not `ACTIVE` — it can't be added to a new booking or order.    |
+| `UNAUTHORIZED`                          | 401    | API key is missing or revoked.                                                          |
+| `FORBIDDEN`                             | 403    | API key cannot access this project.                                                     |
+| `NOT_FOUND`                             | 404    | Resource doesn't exist or has been soft-deleted.                                        |
+| `VERSION_CONFLICT`                      | 409    | Concurrent modification — re-read the resource and try again.                           |
+| `CAPACITY_EXCEEDED`                     | 409    | A booking is full; another participant can't be registered.                             |
+| `PARTICIPANT_ALREADY_REGISTERED`        | 409    | The client is already a participant on this booking.                                    |
+
+The exact list of codes is also captured in
+[`/v1/openapi.json`](/api-reference/introduction). New codes may be added
+over time; treat unknown codes as the generic class implied by the HTTP
+status.
+
+## Validation errors
+
+For schema validation failures, `message` names the offending field:
+
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "message": "bookingEndUtc must be strictly after bookingStartUtc",
+  "statusCode": 400,
+  "requestId": "req_..."
+}
+```
+
+We do **not** return a nested errors array — one error per response. If
+multiple fields are wrong, you'll fix the first, retry, and surface the
+next.
+
+## Retry guidance
+
+- **`4xx`** — never retry blindly. Fix the request and try again.
+- **`409 VERSION_CONFLICT`** — re-read the resource (its `version` field
+  has advanced), reapply your patch, and retry.
+- **`5xx`** — retry idempotent requests (`GET`, `DELETE`, `PATCH` with
+  the same body, status changes to the same target) with exponential
+  backoff. Avoid blind retries on `POST`, since the original may have
+  succeeded.
+- **`429`** — not currently emitted, but reserved. If introduced,
+  respect the `Retry-After` header.
+
+## Surfacing errors to support
+
+When opening a support ticket, include:
+
+1. The `requestId` from the failed call.
+2. The approximate time (with timezone).
+3. The endpoint and HTTP method.
+4. The `code` and `message` from the response.
+
+That's enough for MarketBox support to find the exact request in our
+logs.

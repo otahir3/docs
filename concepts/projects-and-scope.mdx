@@ -1,0 +1,69 @@
+---
+title: Projects and scope
+description: How the API is organized around projects, and how scope shapes what a key can do.
+---
+
+Every resource in the MarketBox API lives inside a **project**. Bookings,
+orders, offerings, and providers all carry a `projectId` and are listed,
+created, and modified through paths of the form:
+
+```
+/v1/projects/{projectId}/<resource>
+```
+
+A project is the unit of isolation: data, configuration, and API key
+authorization all line up at the project boundary.
+
+## Why every path is project-scoped
+
+Even read-only endpoints take a `{projectId}`. This is intentional:
+
+- **Security** — your key's `projectScope` is checked against the
+  `{projectId}` in the URL on every request, with no global fallback.
+- **Cardinality** — listing across all projects would scan unbounded
+  amounts of data. Project-scoped listing keeps every query bounded.
+- **Multi-tenancy** — most MarketBox customers run multiple projects
+  (per brand, per region, per environment). Forcing the `{projectId}`
+  into the path keeps that explicit at every call site.
+
+If you need to operate across projects, make N requests — one per project.
+A wildcard-scoped key (`["*"]`) can hit any project the owning user has
+access to, but the `{projectId}` is still required in the URL.
+
+## How `tenantId` relates
+
+The API key carries a `userId` (the human or service account that minted
+it). On every write, MarketBox tags the record with `tenantId = userId`.
+
+Project membership is a separate concept managed in the dashboard:
+"who owns / collaborates on this project." The API key inherits its
+allowed projects from the owning user's membership — narrowed further by
+the key's `projectScope`.
+
+Concretely:
+
+```
+api key  →  owning user  →  user's projects  →  key's projectScope
+```
+
+A scope check passes only if the project the key targets sits at the end
+of that chain.
+
+## Resolving project ids
+
+Project ids are minted in the dashboard. You can also retrieve them via
+the dashboard UI; a public API endpoint that lists projects is not part
+of the open API surface — by design, projects are a control-plane
+concept, not a data-plane one.
+
+## What's not in a project
+
+A handful of endpoints are unversioned and project-agnostic:
+
+| Endpoint                | Auth?            | Purpose                              |
+| ----------------------- | ---------------- | ------------------------------------ |
+| `GET /health`           | No               | Liveness check for monitoring.       |
+| `GET /v1/openapi.json`  | No               | Machine-readable spec for codegen.   |
+
+Everything under `/v1/projects/...` requires a valid API key and a
+matching project scope.
