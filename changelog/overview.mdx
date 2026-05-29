@@ -1,0 +1,26 @@
+---
+title: "Changelog"
+description: "New features, updates, and fixes to the MarketBox API."
+---
+
+<Update label="May 29, 2026" tags={["API"]}>
+
+## Catalog management endpoints
+
+You can now manage your service catalog directly through the API. This release adds full create, read, update, and delete (CRUD) support for services, their offerings, and the business models attached to them — so you can build, sync, and automate catalogs without using the dashboard.
+
+**New**
+
+- **Services** — Create, list, retrieve, update, soft-delete, and toggle status for services on a project. See [Services](/api-reference/introduction).
+- **Offerings** — Add offerings to a service, list them, fetch a single offering, update or soft-delete it, and change its status.
+- **Business models** — Attach pricing/business models to a service, list them, update them, and toggle active status.
+
+**What this means for you**
+
+- Sync your catalog from an external system of record on a schedule.
+- Build admin tooling that lives outside the MarketBox dashboard.
+- Programmatically enable or disable offerings as inventory and availability shift.
+
+All new endpoints are project-scoped and follow the existing [authentication](/concepts/authentication), [pagination](/concepts/pagination), and [error](/concepts/errors) conventions. Browse the full list under [API reference → Endpoints](/api-reference/introduction).
+
+</Update>
