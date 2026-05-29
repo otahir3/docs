@@ -31,13 +31,14 @@ A provider response combines two layers:
 | `externalId`, `externalData` | Pass-through fields for your own ids/metadata.  |
 | `updatedAt`      | Last modification timestamp.                                |
 
-**Enriched mappings** — what the provider can do, joined against the
-project's catalog:
+**Enriched mappings** — what the provider can do and where, joined
+against the project's catalog and schedules:
 
-| Field      | Shape                                                              |
-| ---------- | ------------------------------------------------------------------ |
-| `services` | Array of `{ serviceId, name: { en, fr, ... } }`.                   |
-| `skills`   | Array of `{ skillId, name: { en, fr, ... } }`.                     |
+| Field       | Shape                                                              |
+| ----------- | ------------------------------------------------------------------ |
+| `services`  | Array of `{ serviceId, name: { en, fr, ... } }`.                   |
+| `skills`    | Array of `{ skillId, name: { en, fr, ... } }`.                     |
+| `locations` | Array of location records the provider delivers services at. See [Locations](#locations). |
 
 Both `services` and `skills` carry **localized name maps**. If your
 project's services are named in multiple languages, the response
@@ -46,6 +47,36 @@ contains all of them — pick the locale you want client-side.
 If a provider has a service or skill that no longer exists in the
 catalog (deleted or never present), the `name` map will be empty
 rather than dropping the id.
+
+## Locations
+
+The `locations[]` array is **derived from the provider's schedules** —
+not stored directly on the provider record. Each schedule attached to
+the provider contributes one or more locations via three reference
+shapes:
+
+| Source on the schedule                         | Resolves against |
+| ---------------------------------------------- | ---------------- |
+| `locationRefs[]`                               | Locations table  |
+| `physicalLocationIdsInsideTravelZone[]`        | Locations table  |
+| `travelZoneRef` with `PROVIDER_TRAVEL_ZONE`    | TravelZones table |
+
+Locations are **deduped by `locationId`**. References that don't
+resolve (deleted location, missing travel zone) are skipped silently
+rather than surfaced as nulls.
+
+Each location record:
+
+| Field            | Notes                                                       |
+| ---------------- | ----------------------------------------------------------- |
+| `locationId`     | Stable identifier. For travel zones, this is the `providerTravelZoneId`. |
+| `locationType`   | `PHYSICAL`, `VIRTUAL`, or `TRAVEL_ZONE`.                    |
+| `name`           | Display name.                                               |
+| `country`, `state`, `city`, `street`, `addressOneLine` | Address fields. Any may be `null`. |
+| `latitude`, `longitude` | Geolocation. May be `null`.                          |
+| `travelZoneType` | `CIRCULAR` or `DRAWN`. Only set on `TRAVEL_ZONE` locations. |
+
+A provider with no active schedules will have `locations: []`.
 
 ## Listing providers
 
@@ -60,13 +91,13 @@ GET /v1/projects/{projectId}/providers
 
 Providers are returned in the project index's natural ordering (by
 name). The response includes the full enriched payload — providers,
-their services, and their skills — in a single round trip.
+their services, skills, and locations — in a single round trip.
 
 <Note>
-  Each list response performs the service/skill name join across the
-  whole page. If you only need provider ids and basic fields, you'll
-  still get the joined response — the API does not currently offer a
-  "lite" projection.
+  Each list response performs the service/skill name join and the
+  schedule-to-locations resolution across the whole page. If you only
+  need provider ids and basic fields, you'll still get the joined
+  response — the API does not currently offer a "lite" projection.
 </Note>
 
 ## Booking against a provider
