@@ -3,7 +3,7 @@
   "info": {
     "title": "MarketBox 2.0 Open API",
     "version": "1.0.0",
-    "description": "The MarketBox public API. Use this API to manage bookings, orders, service offerings, and providers across your MarketBox projects. All endpoints are versioned under `/v1` and authenticated with an API key in the `x-api-key` header.",
+    "description": "The MarketBox public API. Use this API to manage bookings, orders, service offerings, and suppliers across your MarketBox projects. All endpoints are versioned under `/v1` and authenticated with an API key in the `x-api-key` header.",
     "contact": {
       "name": "MarketBox support",
       "url": "https://marketbox.io/support"
@@ -56,7 +56,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "providerId": {
+                  "supplierId": {
                     "type": "string",
                     "minLength": 1
                   },
@@ -195,7 +195,7 @@
                         "isException": {
                           "type": "boolean"
                         },
-                        "providerId": {
+                        "supplierId": {
                           "type": "string",
                           "nullable": true
                         },
@@ -307,7 +307,7 @@
                         "projectId",
                         "tenantId",
                         "bookingId",
-                        "providerId",
+                        "supplierId",
                         "clientId",
                         "bookingStartUtc",
                         "bookingEndUtc",
@@ -514,7 +514,7 @@
                           "isException": {
                             "type": "boolean"
                           },
-                          "providerId": {
+                          "supplierId": {
                             "type": "string",
                             "nullable": true
                           },
@@ -626,7 +626,7 @@
                           "projectId",
                           "tenantId",
                           "bookingId",
-                          "providerId",
+                          "supplierId",
                           "clientId",
                           "bookingStartUtc",
                           "bookingEndUtc",
@@ -776,7 +776,7 @@
                         "isException": {
                           "type": "boolean"
                         },
-                        "providerId": {
+                        "supplierId": {
                           "type": "string",
                           "nullable": true
                         },
@@ -888,7 +888,7 @@
                         "projectId",
                         "tenantId",
                         "bookingId",
-                        "providerId",
+                        "supplierId",
                         "clientId",
                         "bookingStartUtc",
                         "bookingEndUtc",
@@ -1008,7 +1008,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "providerId": {
+                  "supplierId": {
                     "type": "string",
                     "minLength": 1
                   },
@@ -1065,7 +1065,7 @@
                         "isException": {
                           "type": "boolean"
                         },
-                        "providerId": {
+                        "supplierId": {
                           "type": "string",
                           "nullable": true
                         },
@@ -1177,7 +1177,7 @@
                         "projectId",
                         "tenantId",
                         "bookingId",
-                        "providerId",
+                        "supplierId",
                         "clientId",
                         "bookingStartUtc",
                         "bookingEndUtc",
@@ -1468,7 +1468,7 @@
                             "isException": {
                               "type": "boolean"
                             },
-                            "providerId": {
+                            "supplierId": {
                               "type": "string",
                               "nullable": true
                             },
@@ -1580,7 +1580,7 @@
                             "projectId",
                             "tenantId",
                             "bookingId",
-                            "providerId",
+                            "supplierId",
                             "clientId",
                             "bookingStartUtc",
                             "bookingEndUtc",
@@ -2156,7 +2156,7 @@
                         "isException": {
                           "type": "boolean"
                         },
-                        "providerId": {
+                        "supplierId": {
                           "type": "string",
                           "nullable": true
                         },
@@ -2268,7 +2268,7 @@
                         "projectId",
                         "tenantId",
                         "bookingId",
-                        "providerId",
+                        "supplierId",
                         "clientId",
                         "bookingStartUtc",
                         "bookingEndUtc",
@@ -2396,10 +2396,10 @@
         }
       }
     },
-    "/v1/projects/{projectId}/providers/{providerId}/bookings": {
+    "/v1/projects/{projectId}/suppliers/{supplierId}/bookings": {
       "get": {
         "tags": ["Bookings"],
-        "summary": "List bookings for a provider",
+        "summary": "List bookings for a supplier",
         "parameters": [
           {
             "schema": {
@@ -2416,7 +2416,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "providerId",
+            "name": "supplierId",
             "in": "path"
           },
           {
@@ -2505,7 +2505,7 @@
                           "isException": {
                             "type": "boolean"
                           },
-                          "providerId": {
+                          "supplierId": {
                             "type": "string",
                             "nullable": true
                           },
@@ -2617,7 +2617,7 @@
                           "projectId",
                           "tenantId",
                           "bookingId",
-                          "providerId",
+                          "supplierId",
                           "clientId",
                           "bookingStartUtc",
                           "bookingEndUtc",
@@ -2821,7 +2821,7 @@
                           "isException": {
                             "type": "boolean"
                           },
-                          "providerId": {
+                          "supplierId": {
                             "type": "string",
                             "nullable": true
                           },
@@ -2933,7 +2933,7 @@
                           "projectId",
                           "tenantId",
                           "bookingId",
-                          "providerId",
+                          "supplierId",
                           "clientId",
                           "bookingStartUtc",
                           "bookingEndUtc",
@@ -7320,10 +7320,10 @@
         }
       }
     },
-    "/v1/projects/{projectId}/providers": {
+    "/v1/projects/{projectId}/suppliers": {
       "get": {
-        "tags": ["Providers"],
-        "summary": "List providers for a project, enriched with services and skills",
+        "tags": ["Suppliers"],
+        "summary": "List suppliers for a project, enriched with services and skills",
         "parameters": [
           {
             "schema": {
@@ -7356,27 +7356,27 @@
           {
             "schema": {
               "type": "string",
-              "description": "Comma-separated service IDs. Returns only providers offering every listed service (AND). Combined with `skills` using AND. Empty value is treated as no filter."
+              "description": "Comma-separated service IDs. Returns only suppliers offering every listed service (AND). Combined with `skills` using AND. Empty value is treated as no filter."
             },
             "required": false,
-            "description": "Comma-separated service IDs. Returns only providers offering every listed service (AND). Combined with `skills` using AND. Empty value is treated as no filter.",
+            "description": "Comma-separated service IDs. Returns only suppliers offering every listed service (AND). Combined with `skills` using AND. Empty value is treated as no filter.",
             "name": "services",
             "in": "query"
           },
           {
             "schema": {
               "type": "string",
-              "description": "Comma-separated skill IDs. Returns only providers having every listed skill (AND). Combined with `services` using AND. Empty value is treated as no filter."
+              "description": "Comma-separated skill IDs. Returns only suppliers having every listed skill (AND). Combined with `services` using AND. Empty value is treated as no filter."
             },
             "required": false,
-            "description": "Comma-separated skill IDs. Returns only providers having every listed skill (AND). Combined with `services` using AND. Empty value is treated as no filter.",
+            "description": "Comma-separated skill IDs. Returns only suppliers having every listed skill (AND). Combined with `services` using AND. Empty value is treated as no filter.",
             "name": "skills",
             "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "Providers list",
+            "description": "Suppliers list",
             "content": {
               "application/json": {
                 "schema": {
@@ -7387,7 +7387,7 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "providerId": {
+                          "supplierId": {
                             "type": "string"
                           },
                           "firstName": {
@@ -7539,7 +7539,7 @@
                           }
                         },
                         "required": [
-                          "providerId",
+                          "supplierId",
                           "firstName",
                           "lastName",
                           "email",
@@ -7622,8 +7622,8 @@
         }
       },
       "post": {
-        "tags": ["Providers"],
-        "summary": "Create a provider",
+        "tags": ["Suppliers"],
+        "summary": "Create a supplier",
         "parameters": [
           {
             "schema": {
@@ -7636,7 +7636,7 @@
           }
         ],
         "requestBody": {
-          "description": "Provider data",
+          "description": "Supplier data",
           "required": true,
           "content": {
             "application/json": {
@@ -7727,7 +7727,7 @@
         },
         "responses": {
           "201": {
-            "description": "Provider created",
+            "description": "Supplier created",
             "content": {
               "application/json": {
                 "schema": {
@@ -7736,7 +7736,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "providerId": {
+                        "supplierId": {
                           "type": "string"
                         },
                         "firstName": {
@@ -7888,7 +7888,7 @@
                         }
                       },
                       "required": [
-                        "providerId",
+                        "supplierId",
                         "firstName",
                         "lastName",
                         "email",
@@ -7985,10 +7985,10 @@
         }
       }
     },
-    "/v1/projects/{projectId}/providers/{providerId}": {
+    "/v1/projects/{projectId}/suppliers/{supplierId}": {
       "put": {
-        "tags": ["Providers"],
-        "summary": "Update a provider; sync its service/skill mappings when arrays are supplied",
+        "tags": ["Suppliers"],
+        "summary": "Update a supplier; sync its service/skill mappings when arrays are supplied",
         "parameters": [
           {
             "schema": {
@@ -8005,7 +8005,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "providerId",
+            "name": "supplierId",
             "in": "path"
           }
         ],
@@ -8097,7 +8097,7 @@
         },
         "responses": {
           "200": {
-            "description": "Updated provider",
+            "description": "Updated supplier",
             "content": {
               "application/json": {
                 "schema": {
@@ -8106,7 +8106,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "providerId": {
+                        "supplierId": {
                           "type": "string"
                         },
                         "firstName": {
@@ -8258,7 +8258,7 @@
                         }
                       },
                       "required": [
-                        "providerId",
+                        "supplierId",
                         "firstName",
                         "lastName",
                         "email",
@@ -8334,7 +8334,7 @@
             }
           },
           "404": {
-            "description": "Provider not found",
+            "description": "Supplier not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8374,8 +8374,8 @@
         }
       },
       "delete": {
-        "tags": ["Providers"],
-        "summary": "Soft-delete a provider (cascade-removes its mappings and avatar)",
+        "tags": ["Suppliers"],
+        "summary": "Soft-delete a supplier (cascade-removes its mappings and avatar)",
         "parameters": [
           {
             "schema": {
@@ -8392,7 +8392,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "providerId",
+            "name": "supplierId",
             "in": "path"
           }
         ],
@@ -8439,7 +8439,7 @@
             }
           },
           "404": {
-            "description": "Provider not found",
+            "description": "Supplier not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8460,10 +8460,10 @@
         }
       }
     },
-    "/v1/projects/{projectId}/providers/{providerId}/services/{serviceId}": {
+    "/v1/projects/{projectId}/suppliers/{supplierId}/services/{serviceId}": {
       "post": {
-        "tags": ["Providers"],
-        "summary": "Add a service to a provider",
+        "tags": ["Suppliers"],
+        "summary": "Add a service to a supplier",
         "parameters": [
           {
             "schema": {
@@ -8480,7 +8480,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "providerId",
+            "name": "supplierId",
             "in": "path"
           },
           {
@@ -8495,7 +8495,7 @@
         ],
         "responses": {
           "201": {
-            "description": "Provider with the service added",
+            "description": "Supplier with the service added",
             "content": {
               "application/json": {
                 "schema": {
@@ -8504,7 +8504,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "providerId": {
+                        "supplierId": {
                           "type": "string"
                         },
                         "firstName": {
@@ -8656,7 +8656,7 @@
                         }
                       },
                       "required": [
-                        "providerId",
+                        "supplierId",
                         "firstName",
                         "lastName",
                         "email",
@@ -8732,7 +8732,7 @@
             }
           },
           "404": {
-            "description": "Provider not found",
+            "description": "Supplier not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8753,8 +8753,8 @@
         }
       },
       "delete": {
-        "tags": ["Providers"],
-        "summary": "Remove a service from a provider",
+        "tags": ["Suppliers"],
+        "summary": "Remove a service from a supplier",
         "parameters": [
           {
             "schema": {
@@ -8771,7 +8771,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "providerId",
+            "name": "supplierId",
             "in": "path"
           },
           {
@@ -8827,7 +8827,7 @@
             }
           },
           "404": {
-            "description": "Provider not found",
+            "description": "Supplier not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8848,10 +8848,10 @@
         }
       }
     },
-    "/v1/projects/{projectId}/providers/{providerId}/skills/{skillId}": {
+    "/v1/projects/{projectId}/suppliers/{supplierId}/skills/{skillId}": {
       "post": {
-        "tags": ["Providers"],
-        "summary": "Add a skill to a provider",
+        "tags": ["Suppliers"],
+        "summary": "Add a skill to a supplier",
         "parameters": [
           {
             "schema": {
@@ -8868,7 +8868,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "providerId",
+            "name": "supplierId",
             "in": "path"
           },
           {
@@ -8883,7 +8883,7 @@
         ],
         "responses": {
           "201": {
-            "description": "Provider with the skill added",
+            "description": "Supplier with the skill added",
             "content": {
               "application/json": {
                 "schema": {
@@ -8892,7 +8892,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "providerId": {
+                        "supplierId": {
                           "type": "string"
                         },
                         "firstName": {
@@ -9044,7 +9044,7 @@
                         }
                       },
                       "required": [
-                        "providerId",
+                        "supplierId",
                         "firstName",
                         "lastName",
                         "email",
@@ -9120,7 +9120,7 @@
             }
           },
           "404": {
-            "description": "Provider not found",
+            "description": "Supplier not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -9141,8 +9141,8 @@
         }
       },
       "delete": {
-        "tags": ["Providers"],
-        "summary": "Remove a skill from a provider",
+        "tags": ["Suppliers"],
+        "summary": "Remove a skill from a supplier",
         "parameters": [
           {
             "schema": {
@@ -9159,7 +9159,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "providerId",
+            "name": "supplierId",
             "in": "path"
           },
           {
@@ -9215,7 +9215,7 @@
             }
           },
           "404": {
-            "description": "Provider not found",
+            "description": "Supplier not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -9236,10 +9236,10 @@
         }
       }
     },
-    "/v1/projects/{projectId}/providers/{providerId}/avatar/upload-url": {
+    "/v1/projects/{projectId}/suppliers/{supplierId}/avatar/upload-url": {
       "post": {
-        "tags": ["Providers"],
-        "summary": "Get a presigned URL to upload a provider avatar",
+        "tags": ["Suppliers"],
+        "summary": "Get a presigned URL to upload a supplier avatar",
         "parameters": [
           {
             "schema": {
@@ -9256,7 +9256,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "providerId",
+            "name": "supplierId",
             "in": "path"
           }
         ],
@@ -9394,7 +9394,7 @@
             }
           },
           "404": {
-            "description": "Provider not found",
+            "description": "Supplier not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -9415,10 +9415,10 @@
         }
       }
     },
-    "/v1/projects/{projectId}/providers/{providerId}/avatar": {
+    "/v1/projects/{projectId}/suppliers/{supplierId}/avatar": {
       "put": {
-        "tags": ["Providers"],
-        "summary": "Confirm an uploaded avatar and attach it to the provider",
+        "tags": ["Suppliers"],
+        "summary": "Confirm an uploaded avatar and attach it to the supplier",
         "parameters": [
           {
             "schema": {
@@ -9435,7 +9435,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "providerId",
+            "name": "supplierId",
             "in": "path"
           }
         ],
@@ -9461,7 +9461,7 @@
         },
         "responses": {
           "200": {
-            "description": "Provider with avatar attached",
+            "description": "Supplier with avatar attached",
             "content": {
               "application/json": {
                 "schema": {
@@ -9470,7 +9470,7 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "providerId": {
+                        "supplierId": {
                           "type": "string"
                         },
                         "firstName": {
@@ -9622,7 +9622,7 @@
                         }
                       },
                       "required": [
-                        "providerId",
+                        "supplierId",
                         "firstName",
                         "lastName",
                         "email",
@@ -9698,7 +9698,7 @@
             }
           },
           "404": {
-            "description": "Provider not found",
+            "description": "Supplier not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -9719,8 +9719,8 @@
         }
       },
       "delete": {
-        "tags": ["Providers"],
-        "summary": "Remove a provider's avatar",
+        "tags": ["Suppliers"],
+        "summary": "Remove a supplier's avatar",
         "parameters": [
           {
             "schema": {
@@ -9737,7 +9737,7 @@
               "minLength": 1
             },
             "required": true,
-            "name": "providerId",
+            "name": "supplierId",
             "in": "path"
           }
         ],
@@ -9784,7 +9784,7 @@
             }
           },
           "404": {
-            "description": "Provider not found",
+            "description": "Supplier not found",
             "content": {
               "application/json": {
                 "schema": {
