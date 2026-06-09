@@ -38,7 +38,8 @@
             "pages": [
               "resources/bookings",
               "resources/orders",
-              "resources/providers"
+              "resources/providers",
+              "resources/availability"
             ]
           }
         ]

@@ -33,6 +33,241 @@
     "parameters": {}
   },
   "paths": {
+    "/v1/projects/{projectId}/availability/search": {
+      "post": {
+        "tags": ["Availability"],
+        "summary": "Find providers + suggested/open slots for a service, location and window",
+        "description": "Resolves matching providers from project data and returns suggested slots, open slots, and (for recurring requests) recurrence patterns. Requires `serviceId` + `offeringId` and EITHER `locationId` OR both `lat` + `lng`.\n\nFor recurring requests (`bookingType: \"recurring\"`): `lookAheadStartDate` MUST carry a numeric timezone offset (e.g. `+00:00`), not a `Z` suffix, and `rrule` MUST include a bounded `COUNT` — either omission returns a 400.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Service + offering + location + window",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "serviceId": { "type": "string", "minLength": 1 },
+                  "offeringId": { "type": "string", "minLength": 1 },
+                  "locationId": { "type": "string", "description": "Stored location id. Provide this OR lat+lng." },
+                  "lat": { "type": "number", "description": "Discovery latitude. Required with lng if locationId is absent." },
+                  "lng": { "type": "number", "description": "Discovery longitude. Required with lat if locationId is absent." },
+                  "durationMinutes": { "type": "integer", "minimum": 1, "description": "Override the offering duration (FLEXIBLE offerings)." },
+                  "lookAheadStartDate": { "type": "string", "description": "ISO start of the search window. For recurring requests must carry a numeric offset (e.g. +00:00), not Z." },
+                  "lookAheadDays": { "type": "integer", "minimum": 1 },
+                  "timezone": { "type": "string", "description": "IANA timezone for returned local times." },
+                  "distanceUnit": { "type": "string", "enum": ["km", "mi"] },
+                  "interval": { "type": "integer", "minimum": 1, "description": "Open-slot granularity in minutes." },
+                  "timeSuggestionsLimit": { "type": "integer", "minimum": 1 },
+                  "sortBy": { "type": "string", "enum": ["leastTravelTime", "nearestDate"] },
+                  "bookingType": { "type": "string", "enum": ["single", "recurring"], "default": "single" },
+                  "rrule": { "type": "string", "description": "Required when bookingType is recurring. Must include a bounded COUNT (e.g. FREQ=WEEKLY;BYDAY=TU;COUNT=3)." },
+                  "daysOfWeek": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 6 } },
+                  "consistencyAsPercentage": { "type": "boolean" }
+                },
+                "required": ["serviceId", "offeringId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suggested slots + open slots. For recurring requests, `timeSlots` holds pattern objects.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "timeSlots": { "type": "array", "items": { "type": "object" }, "description": "Suggested slots, or recurring time patterns when bookingType=recurring." },
+                    "openSlots": { "type": "array", "items": { "type": "object" } },
+                    "timezone": { "type": "string" },
+                    "errors": { "type": "array", "items": { "type": "string" } }
+                  },
+                  "required": ["status", "timeSlots", "openSlots", "errors"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error (missing location, missing/invalid recurring rrule, Z offset on recurring lookAheadStartDate, or unbounded COUNT)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "message": { "type": "string" } },
+                  "required": ["message"],
+                  "example": { "message": "Hello World" }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "message": { "type": "string" } },
+                  "required": ["message"],
+                  "example": { "message": "Hello World" }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "message": { "type": "string" } },
+                  "required": ["message"],
+                  "example": { "message": "Hello World" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/availability/time-slots": {
+      "post": {
+        "tags": ["Availability"],
+        "summary": "Generate clustered time slots from providers + engine config",
+        "description": "Lower-level direct engine invocation. You pass the providers (their availability, bookings, blocked time) and an engine config; the engine returns clustered suggested slots plus metrics and KPIs. Reads no project data.",
+        "parameters": [
+          {
+            "schema": { "type": "string", "minLength": 1 },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Providers + engine config",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "config": {
+                    "type": "object",
+                    "description": "Engine ClusterConfig (validated loosely; the engine owns the contract).",
+                    "additionalProperties": true
+                  },
+                  "providers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "providerId": { "type": "string" },
+                        "maxTravelTimeMins": { "type": "number" },
+                        "bufferTimeMins": { "type": "number" },
+                        "availability": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "startDateAndTime": { "type": "string" },
+                              "endDateAndTime": { "type": "string" },
+                              "rrule": { "type": "string" }
+                            }
+                          }
+                        },
+                        "bookings": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string" },
+                              "startDateAndTime": { "type": "string" },
+                              "durationMins": { "type": "number" },
+                              "geoLocation": { "type": "array", "items": { "type": "number" } },
+                              "isGeoAnchoring": { "type": "boolean" }
+                            }
+                          }
+                        },
+                        "blockedTime": { "type": "array", "items": { "type": "object" } }
+                      },
+                      "required": ["providerId"]
+                    }
+                  }
+                },
+                "required": ["config", "providers"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suggested slots + metrics/kpis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "timeSlots": { "type": "array", "items": { "type": "object" }, "description": "Clustered suggested slots." },
+                    "errors": { "type": "array", "items": { "type": "string" } },
+                    "metrics": { "type": "object" },
+                    "kpis": { "type": "object" }
+                  },
+                  "required": ["status", "timeSlots", "errors"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error (e.g. missing providers)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "message": { "type": "string" } },
+                  "required": ["message"],
+                  "example": { "message": "Hello World" }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "message": { "type": "string" } },
+                  "required": ["message"],
+                  "example": { "message": "Hello World" }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "message": { "type": "string" } },
+                  "required": ["message"],
+                  "example": { "message": "Hello World" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/projects/{projectId}/bookings": {
       "post": {
         "tags": ["Bookings"],
