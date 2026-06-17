@@ -1,0 +1,154 @@
+---
+title: Availability
+description: Find when and where providers can fulfill a service — suggested slots, open slots, and recurring patterns.
+---
+
+**Availability** is the public face of the MarketBox clustering engine.
+Given a service, a location, and a window of time, it returns the slots
+a provider can realistically be booked into — accounting for existing
+bookings, schedules, and travel time between jobs.
+
+There are two endpoints, both project-scoped and authenticated with the
+`x-api-key` header:
+
+| Endpoint                                              | Use it when                                                            |
+| ---------------------------------------------------- | --------------------------------------------------------------------- |
+| `POST .../availability/search`                       | You have a service + offering + location and want the API to find providers and slots from project data. |
+| `POST .../availability/time-slots`                   | You already have providers + their bookings and want to run the engine directly, passing everything in the body. |
+
+<Note>
+  Both endpoints are authenticated with the `x-api-key` header, not
+  `Authorization`. See [Authentication](/concepts/authentication).
+</Note>
+
+## Search (who-is-available)
+
+```
+POST /v1/projects/{projectId}/availability/search
+```
+
+You pass a service, an offering, and a discovery location; the API
+resolves matching providers from project data and returns suggested
+slots, open slots, and (for recurring requests) recurrence patterns.
+
+**Required:** `serviceId`, `offeringId`, and **either** `locationId`
+**or** both `lat` and `lng`. Omitting the location entirely is a `400`.
+
+| Field                  | Notes                                                                 |
+| ---------------------- | --------------------------------------------------------------------- |
+| `serviceId`            | Required. The service to book.                                         |
+| `offeringId`           | Required. The offering under that service.                            |
+| `locationId`           | Stored location id — or pass `lat` + `lng` instead.                   |
+| `lat`, `lng`           | Discovery coordinates (travel-zone branch).                          |
+| `durationMinutes`      | Override the offering duration (FLEXIBLE offerings).                  |
+| `lookAheadStartDate`   | ISO start of the search window.                                       |
+| `lookAheadDays`        | Window length in days.                                                |
+| `timezone`             | IANA timezone for the returned local times.                          |
+| `distanceUnit`         | `km` or `mi`.                                                         |
+| `interval`             | Open-slot granularity in minutes.                                    |
+| `timeSuggestionsLimit` | Cap on suggested slots returned.                                     |
+| `sortBy`               | `leastTravelTime` or `nearestDate`.                                  |
+
+The response envelope:
+
+```json
+{
+  "status": "success",
+  "timeSlots": [
+    { "providerId": "prv_…", "timeSlotDateAndTime": "2026-06-23T10:00:00+00:00", "travelType": "TO-NEXT-BOOKING", "travelTimeMins": 8 }
+  ],
+  "openSlots": [ { "providerId": "prv_…", "start": "…", "end": "…" } ],
+  "timezone": "UTC",
+  "errors": []
+}
+```
+
+No matching providers returns the same envelope with empty
+`timeSlots` / `openSlots` and `errors: []`.
+
+## Recurring search
+
+To find a repeating slot pattern, set `bookingType` to `recurring`
+and pass an `rrule`. The recurring branch returns **pattern objects**
+(`mostAvailableStartTime`, `startTimeConsistencyPercent`) in
+`timeSlots[]` rather than individual slots.
+
+Recurring requests have two strict requirements — each returns a
+`400 VALIDATION_ERROR` if not met:
+
+<Warning>
+  **`lookAheadStartDate` must carry a numeric timezone offset** (e.g.
+  `2026-06-23T00:00:00+00:00`), **not** a `Z` suffix. The recurring
+  builder derives the request's offset from the last six characters of
+  the string, so `Z` yields a garbage offset and no results.
+</Warning>
+
+<Warning>
+  **`rrule` must include a bounded `COUNT`** (e.g.
+  `FREQ=WEEKLY;BYDAY=TU;COUNT=3`). The builder expands each occurrence
+  set to `COUNT` dates and needs a slot on every one; an unbounded rule
+  defaults to 10 occurrences and almost always returns nothing.
+</Warning>
+
+```json
+{
+  "serviceId": "svc_…",
+  "offeringId": "off_…",
+  "lat": 45.4215,
+  "lng": -75.6972,
+  "bookingType": "recurring",
+  "rrule": "FREQ=WEEKLY;INTERVAL=1;BYDAY=TU;COUNT=3",
+  "daysOfWeek": [2],
+  "lookAheadStartDate": "2026-06-23T00:00:00+00:00",
+  "lookAheadDays": 16,
+  "timezone": "UTC"
+}
+```
+
+## Time-slots (direct engine)
+
+```
+POST /v1/projects/{projectId}/availability/time-slots
+```
+
+The lower-level endpoint. Instead of resolving providers from project
+data, you pass them in: their availability, existing bookings, and an
+engine config. Use it when you already hold the scheduling state and
+just want the engine's clustering + travel-time logic.
+
+The body is `{ config, providers[] }`:
+
+- **`config`** — engine settings: `targetGeoLocation`,
+  `targetServiceDurationMins`, `lookAheadStartDate` / `lookAheadEndDate`,
+  `distanceUnit`, `sortBy`, `timezone`, and so on.
+- **`providers[]`** — each with `providerId`, `maxTravelTimeMins`,
+  `bufferTimeMins`, an `availability[]` array (each with an `rrule`),
+  `bookings[]`, and `blockedTime[]`.
+
+Omitting `providers` is a `400`. The response adds `metrics` and `kpis`
+to the slot list:
+
+```json
+{
+  "status": "success",
+  "timeSlots": [ { "providerId": "prov-1", "travelType": "TO-NEXT-BOOKING", "travelTimeMins": 8 } ],
+  "errors": [],
+  "metrics": { "totalBookings": 1, "totalProviders": 1, "lookAheadDays": 5 },
+  "kpis": { "requestOptimizationRatio": 0.42 }
+}
+```
+
+## Errors
+
+| Status | When                                                                 |
+| ------ | -------------------------------------------------------------------- |
+| `400`  | Missing location, missing `rrule` on a recurring request, recurring `lookAheadStartDate` using `Z`, recurring `rrule` without `COUNT`, or `time-slots` without `providers`. |
+| `401`  | Missing or invalid API key.                                          |
+| `403`  | API key cannot access this project.                                  |
+
+See [Errors](/concepts/errors) for the full error envelope.
+
+## Endpoint index
+
+- `POST /v1/projects/{projectId}/availability/search`
+- `POST /v1/projects/{projectId}/availability/time-slots`
