@@ -76,6 +76,23 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "locationType": {
+                    "type": "string",
+                    "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "nullable": true,
+                    "minLength": 1
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "nullable": true
+                  },
                   "capacity": {
                     "type": "integer",
                     "minimum": 0,
@@ -158,6 +175,7 @@
                   "bookingStartUtc",
                   "bookingEndUtc",
                   "bookingTz",
+                  "locationType",
                   "services"
                 ]
               }
@@ -202,6 +220,10 @@
                         "clientId": {
                           "type": "string"
                         },
+                        "packageOrderItemId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "bookingStartUtc": {
                           "type": "string",
                           "format": "date-time"
@@ -224,6 +246,22 @@
                         },
                         "bookingLocalEndDate": {
                           "type": "string"
+                        },
+                        "locationType": {
+                          "type": "string",
+                          "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                        },
+                        "locationId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "latitude": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "longitude": {
+                          "type": "number",
+                          "nullable": true
                         },
                         "capacity": {
                           "type": "integer",
@@ -316,6 +354,10 @@
                         "bookingLocalStartTime",
                         "bookingLocalEndTime",
                         "bookingLocalEndDate",
+                        "locationType",
+                        "locationId",
+                        "latitude",
+                        "longitude",
                         "capacity",
                         "participantCount",
                         "waitlistCount",
@@ -521,6 +563,10 @@
                           "clientId": {
                             "type": "string"
                           },
+                          "packageOrderItemId": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "bookingStartUtc": {
                             "type": "string",
                             "format": "date-time"
@@ -543,6 +589,22 @@
                           },
                           "bookingLocalEndDate": {
                             "type": "string"
+                          },
+                          "locationType": {
+                            "type": "string",
+                            "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                          },
+                          "locationId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "latitude": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "longitude": {
+                            "type": "number",
+                            "nullable": true
                           },
                           "capacity": {
                             "type": "integer",
@@ -635,6 +697,10 @@
                           "bookingLocalStartTime",
                           "bookingLocalEndTime",
                           "bookingLocalEndDate",
+                          "locationType",
+                          "locationId",
+                          "latitude",
+                          "longitude",
                           "capacity",
                           "participantCount",
                           "waitlistCount",
@@ -783,6 +849,10 @@
                         "clientId": {
                           "type": "string"
                         },
+                        "packageOrderItemId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "bookingStartUtc": {
                           "type": "string",
                           "format": "date-time"
@@ -805,6 +875,22 @@
                         },
                         "bookingLocalEndDate": {
                           "type": "string"
+                        },
+                        "locationType": {
+                          "type": "string",
+                          "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                        },
+                        "locationId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "latitude": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "longitude": {
+                          "type": "number",
+                          "nullable": true
                         },
                         "capacity": {
                           "type": "integer",
@@ -897,6 +983,10 @@
                         "bookingLocalStartTime",
                         "bookingLocalEndTime",
                         "bookingLocalEndDate",
+                        "locationType",
+                        "locationId",
+                        "latitude",
+                        "longitude",
                         "capacity",
                         "participantCount",
                         "waitlistCount",
@@ -1024,6 +1114,14 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "latitude": {
+                    "type": "number",
+                    "nullable": true
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "nullable": true
+                  },
                   "capacity": {
                     "type": "integer",
                     "minimum": 0,
@@ -1072,6 +1170,10 @@
                         "clientId": {
                           "type": "string"
                         },
+                        "packageOrderItemId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "bookingStartUtc": {
                           "type": "string",
                           "format": "date-time"
@@ -1094,6 +1196,22 @@
                         },
                         "bookingLocalEndDate": {
                           "type": "string"
+                        },
+                        "locationType": {
+                          "type": "string",
+                          "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                        },
+                        "locationId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "latitude": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "longitude": {
+                          "type": "number",
+                          "nullable": true
                         },
                         "capacity": {
                           "type": "integer",
@@ -1186,6 +1304,10 @@
                         "bookingLocalStartTime",
                         "bookingLocalEndTime",
                         "bookingLocalEndDate",
+                        "locationType",
+                        "locationId",
+                        "latitude",
+                        "longitude",
                         "capacity",
                         "participantCount",
                         "waitlistCount",
@@ -1475,6 +1597,10 @@
                             "clientId": {
                               "type": "string"
                             },
+                            "packageOrderItemId": {
+                              "type": "string",
+                              "nullable": true
+                            },
                             "bookingStartUtc": {
                               "type": "string",
                               "format": "date-time"
@@ -1497,6 +1623,22 @@
                             },
                             "bookingLocalEndDate": {
                               "type": "string"
+                            },
+                            "locationType": {
+                              "type": "string",
+                              "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                            },
+                            "locationId": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "latitude": {
+                              "type": "number",
+                              "nullable": true
+                            },
+                            "longitude": {
+                              "type": "number",
+                              "nullable": true
                             },
                             "capacity": {
                               "type": "integer",
@@ -1589,6 +1731,10 @@
                             "bookingLocalStartTime",
                             "bookingLocalEndTime",
                             "bookingLocalEndDate",
+                            "locationType",
+                            "locationId",
+                            "latitude",
+                            "longitude",
                             "capacity",
                             "participantCount",
                             "waitlistCount",
@@ -2163,6 +2309,10 @@
                         "clientId": {
                           "type": "string"
                         },
+                        "packageOrderItemId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "bookingStartUtc": {
                           "type": "string",
                           "format": "date-time"
@@ -2185,6 +2335,22 @@
                         },
                         "bookingLocalEndDate": {
                           "type": "string"
+                        },
+                        "locationType": {
+                          "type": "string",
+                          "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                        },
+                        "locationId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "latitude": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "longitude": {
+                          "type": "number",
+                          "nullable": true
                         },
                         "capacity": {
                           "type": "integer",
@@ -2277,6 +2443,10 @@
                         "bookingLocalStartTime",
                         "bookingLocalEndTime",
                         "bookingLocalEndDate",
+                        "locationType",
+                        "locationId",
+                        "latitude",
+                        "longitude",
                         "capacity",
                         "participantCount",
                         "waitlistCount",
@@ -2512,6 +2682,10 @@
                           "clientId": {
                             "type": "string"
                           },
+                          "packageOrderItemId": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "bookingStartUtc": {
                             "type": "string",
                             "format": "date-time"
@@ -2534,6 +2708,22 @@
                           },
                           "bookingLocalEndDate": {
                             "type": "string"
+                          },
+                          "locationType": {
+                            "type": "string",
+                            "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                          },
+                          "locationId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "latitude": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "longitude": {
+                            "type": "number",
+                            "nullable": true
                           },
                           "capacity": {
                             "type": "integer",
@@ -2626,6 +2816,10 @@
                           "bookingLocalStartTime",
                           "bookingLocalEndTime",
                           "bookingLocalEndDate",
+                          "locationType",
+                          "locationId",
+                          "latitude",
+                          "longitude",
                           "capacity",
                           "participantCount",
                           "waitlistCount",
@@ -2828,6 +3022,10 @@
                           "clientId": {
                             "type": "string"
                           },
+                          "packageOrderItemId": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "bookingStartUtc": {
                             "type": "string",
                             "format": "date-time"
@@ -2850,6 +3048,22 @@
                           },
                           "bookingLocalEndDate": {
                             "type": "string"
+                          },
+                          "locationType": {
+                            "type": "string",
+                            "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                          },
+                          "locationId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "latitude": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "longitude": {
+                            "type": "number",
+                            "nullable": true
                           },
                           "capacity": {
                             "type": "integer",
@@ -2942,6 +3156,10 @@
                           "bookingLocalStartTime",
                           "bookingLocalEndTime",
                           "bookingLocalEndDate",
+                          "locationType",
+                          "locationId",
+                          "latitude",
+                          "longitude",
                           "capacity",
                           "participantCount",
                           "waitlistCount",
@@ -4514,6 +4732,10 @@
                             "DEPOSIT"
                           ]
                         },
+                        "packageId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
                         "serviceId": {
                           "type": "string",
                           "minLength": 1
@@ -4527,12 +4749,7 @@
                           "minimum": 1
                         }
                       },
-                      "required": [
-                        "skuType",
-                        "serviceId",
-                        "offeringId",
-                        "quantity"
-                      ]
+                      "required": ["skuType"]
                     },
                     "default": []
                   }
@@ -5957,6 +6174,10 @@
                               "offeringId": {
                                 "type": "string"
                               },
+                              "packageId": {
+                                "type": "string",
+                                "nullable": true
+                              },
                               "quantity": {
                                 "type": "integer",
                                 "minimum": 0,
@@ -6798,6 +7019,10 @@
                         "offeringId": {
                           "type": "string"
                         },
+                        "packageId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "quantity": {
                           "type": "integer",
                           "minimum": 0,
@@ -7054,6 +7279,10 @@
                         },
                         "offeringId": {
                           "type": "string"
+                        },
+                        "packageId": {
+                          "type": "string",
+                          "nullable": true
                         },
                         "quantity": {
                           "type": "integer",
@@ -7320,10 +7549,1356 @@
         }
       }
     },
+    "/v1/projects/{projectId}/orders/{orderId}/package-bookings": {
+      "post": {
+        "tags": ["Orders"],
+        "summary": "Create N package sessions atomically (or best-effort) from one PACKAGE order item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "orderId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Order item + sessions + atomicity",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderItemId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "atomicity": {
+                    "type": "string",
+                    "enum": ["all_or_nothing", "best_effort"],
+                    "default": "all_or_nothing"
+                  },
+                  "sessions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "supplierId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "bookingStartUtc": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "bookingEndUtc": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "bookingTz": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "locationType": {
+                          "type": "string",
+                          "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                        },
+                        "locationId": {
+                          "type": "string",
+                          "nullable": true,
+                          "minLength": 1
+                        },
+                        "latitude": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "longitude": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "services": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "serviceId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "offeringId": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": ["serviceId", "offeringId"]
+                          },
+                          "minItems": 1
+                        }
+                      },
+                      "required": [
+                        "supplierId",
+                        "bookingStartUtc",
+                        "bookingEndUtc",
+                        "bookingTz",
+                        "locationType",
+                        "services"
+                      ]
+                    },
+                    "minItems": 1
+                  },
+                  "slateId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "slotIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": ["orderItemId", "idempotencyKey"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Package bookings created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "orderItemId": {
+                      "type": "string"
+                    },
+                    "packageOrderItemId": {
+                      "type": "string"
+                    },
+                    "atomicity": {
+                      "type": "string",
+                      "enum": ["all_or_nothing", "best_effort"]
+                    },
+                    "created": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sessionIndex": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "bookingId": {
+                            "type": "string"
+                          },
+                          "allocationId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "sessionIndex",
+                          "bookingId",
+                          "allocationId"
+                        ]
+                      }
+                    },
+                    "failed": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sessionIndex": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["sessionIndex", "reason"]
+                      }
+                    },
+                    "quantityRemaining": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "orderId",
+                    "orderItemId",
+                    "packageOrderItemId",
+                    "atomicity",
+                    "created",
+                    "failed",
+                    "quantityRemaining"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order / item / offering not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Expired or insufficient quantity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Slate too large, or best-effort not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Orders"],
+        "summary": "List the bookings created for a PACKAGE order item",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "orderId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "orderItemId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "startDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "endDate",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Package bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "tenantId": {
+                            "type": "string"
+                          },
+                          "bookingId": {
+                            "type": "string"
+                          },
+                          "seriesId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "occurrenceLocalDate": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "isException": {
+                            "type": "boolean"
+                          },
+                          "supplierId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "clientId": {
+                            "type": "string"
+                          },
+                          "packageOrderItemId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "bookingStartUtc": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "bookingEndUtc": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "bookingTz": {
+                            "type": "string"
+                          },
+                          "bookingLocalDate": {
+                            "type": "string"
+                          },
+                          "bookingLocalStartTime": {
+                            "type": "string"
+                          },
+                          "bookingLocalEndTime": {
+                            "type": "string"
+                          },
+                          "bookingLocalEndDate": {
+                            "type": "string"
+                          },
+                          "locationType": {
+                            "type": "string",
+                            "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                          },
+                          "locationId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "latitude": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "longitude": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "capacity": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true
+                          },
+                          "participantCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "waitlistCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "isGroupBooking": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "SCHEDULED",
+                              "STARTED",
+                              "COMPLETED",
+                              "CANCELLED",
+                              "NO_SHOW"
+                            ]
+                          },
+                          "statusUpdatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "cancellationReason": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "cancelledBy": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "counts": {
+                            "type": "object",
+                            "properties": {
+                              "services": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "notes": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "participants": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": ["services", "notes", "participants"]
+                          },
+                          "deleted": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "createdBy": {
+                            "type": "string"
+                          },
+                          "updatedBy": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "projectId",
+                          "tenantId",
+                          "bookingId",
+                          "supplierId",
+                          "clientId",
+                          "bookingStartUtc",
+                          "bookingEndUtc",
+                          "bookingTz",
+                          "bookingLocalDate",
+                          "bookingLocalStartTime",
+                          "bookingLocalEndTime",
+                          "bookingLocalEndDate",
+                          "locationType",
+                          "locationId",
+                          "latitude",
+                          "longitude",
+                          "capacity",
+                          "participantCount",
+                          "waitlistCount",
+                          "isGroupBooking",
+                          "status",
+                          "statusUpdatedAt",
+                          "counts",
+                          "deleted",
+                          "version",
+                          "createdAt",
+                          "updatedAt",
+                          "createdBy",
+                          "updatedBy"
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order or item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/orders/{orderId}/package-bookings/convert": {
+      "post": {
+        "tags": ["Orders"],
+        "summary": "Convert a held reservation to confirmed bookings (idempotent purchase hook)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "orderId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "reservationId + orderItemId + atomicity",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reservationId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "orderItemId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "heldBy": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "atomicity": {
+                    "type": "string",
+                    "enum": ["all_or_nothing", "best_effort"],
+                    "default": "all_or_nothing"
+                  }
+                },
+                "required": ["reservationId", "orderItemId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Hold converted to confirmed bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "orderId": {
+                      "type": "string"
+                    },
+                    "orderItemId": {
+                      "type": "string"
+                    },
+                    "packageOrderItemId": {
+                      "type": "string"
+                    },
+                    "atomicity": {
+                      "type": "string",
+                      "enum": ["all_or_nothing", "best_effort"]
+                    },
+                    "created": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sessionIndex": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "bookingId": {
+                            "type": "string"
+                          },
+                          "allocationId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "sessionIndex",
+                          "bookingId",
+                          "allocationId"
+                        ]
+                      }
+                    },
+                    "failed": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sessionIndex": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["sessionIndex", "reason"]
+                      }
+                    },
+                    "quantityRemaining": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "orderId",
+                    "orderItemId",
+                    "packageOrderItemId",
+                    "atomicity",
+                    "created",
+                    "failed",
+                    "quantityRemaining"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order / item not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Hold expired / stale — returns fresh suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "freshSuggestions": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": ["OK", "NO_COMPLETE_SLATE", "NO_AVAILABILITY"]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "suggestionRequestId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "resolvableUntil": {
+                          "type": "string",
+                          "nullable": true,
+                          "format": "date-time"
+                        },
+                        "primarySlate": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "slateId": {
+                              "type": "string"
+                            },
+                            "providerId": {
+                              "type": "string"
+                            },
+                            "completeness": {
+                              "type": "string",
+                              "enum": ["COMPLETE", "PARTIAL"]
+                            },
+                            "sessionsRequested": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "exclusiveMinimum": true
+                            },
+                            "sessionsFilled": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "startTimeConsistencyPercent": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "totalTravelTimeMins": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "slots": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "slotId": {
+                                    "type": "string"
+                                  },
+                                  "sessionIndex": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true
+                                  },
+                                  "providerId": {
+                                    "type": "string"
+                                  },
+                                  "serviceId": {
+                                    "type": "string"
+                                  },
+                                  "offeringId": {
+                                    "type": "string"
+                                  },
+                                  "bookingStartUtc": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "bookingEndUtc": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "bookingTz": {
+                                    "type": "string"
+                                  },
+                                  "locationType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "PHYSICAL",
+                                      "VIRTUAL",
+                                      "TRAVEL_ZONE"
+                                    ]
+                                  },
+                                  "locationId": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "latitude": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "longitude": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "travelTimeMins": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "minimum": 0
+                                  },
+                                  "capacity": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true
+                                  },
+                                  "reservationStatus": {
+                                    "type": "string",
+                                    "enum": [
+                                      "FREE",
+                                      "HELD",
+                                      "CONVERTED",
+                                      "RELEASED"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "slotId",
+                                  "sessionIndex",
+                                  "providerId",
+                                  "serviceId",
+                                  "offeringId",
+                                  "bookingStartUtc",
+                                  "bookingEndUtc",
+                                  "bookingTz",
+                                  "locationType",
+                                  "locationId",
+                                  "latitude",
+                                  "longitude",
+                                  "travelTimeMins",
+                                  "capacity",
+                                  "reservationStatus"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "slateId",
+                            "providerId",
+                            "completeness",
+                            "sessionsRequested",
+                            "sessionsFilled",
+                            "startTimeConsistencyPercent",
+                            "totalTravelTimeMins",
+                            "slots"
+                          ]
+                        },
+                        "alternates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "slateId": {
+                                "type": "string"
+                              },
+                              "providerId": {
+                                "type": "string"
+                              },
+                              "completeness": {
+                                "type": "string",
+                                "enum": ["COMPLETE", "PARTIAL"]
+                              },
+                              "sessionsRequested": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "sessionsFilled": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "startTimeConsistencyPercent": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              "totalTravelTimeMins": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "slots": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "slotId": {
+                                      "type": "string"
+                                    },
+                                    "sessionIndex": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "providerId": {
+                                      "type": "string"
+                                    },
+                                    "serviceId": {
+                                      "type": "string"
+                                    },
+                                    "offeringId": {
+                                      "type": "string"
+                                    },
+                                    "bookingStartUtc": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "bookingEndUtc": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "bookingTz": {
+                                      "type": "string"
+                                    },
+                                    "locationType": {
+                                      "type": "string",
+                                      "enum": [
+                                        "PHYSICAL",
+                                        "VIRTUAL",
+                                        "TRAVEL_ZONE"
+                                      ]
+                                    },
+                                    "locationId": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "latitude": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "longitude": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "travelTimeMins": {
+                                      "type": "number",
+                                      "nullable": true,
+                                      "minimum": 0
+                                    },
+                                    "capacity": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "reservationStatus": {
+                                      "type": "string",
+                                      "enum": [
+                                        "FREE",
+                                        "HELD",
+                                        "CONVERTED",
+                                        "RELEASED"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "slotId",
+                                    "sessionIndex",
+                                    "providerId",
+                                    "serviceId",
+                                    "offeringId",
+                                    "bookingStartUtc",
+                                    "bookingEndUtc",
+                                    "bookingTz",
+                                    "locationType",
+                                    "locationId",
+                                    "latitude",
+                                    "longitude",
+                                    "travelTimeMins",
+                                    "capacity",
+                                    "reservationStatus"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "slateId",
+                              "providerId",
+                              "completeness",
+                              "sessionsRequested",
+                              "sessionsFilled",
+                              "startTimeConsistencyPercent",
+                              "totalTravelTimeMins",
+                              "slots"
+                            ]
+                          }
+                        },
+                        "partial": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "slateId": {
+                              "type": "string"
+                            },
+                            "providerId": {
+                              "type": "string"
+                            },
+                            "completeness": {
+                              "type": "string",
+                              "enum": ["COMPLETE", "PARTIAL"]
+                            },
+                            "sessionsRequested": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "exclusiveMinimum": true
+                            },
+                            "sessionsFilled": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "startTimeConsistencyPercent": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "totalTravelTimeMins": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "slots": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "slotId": {
+                                    "type": "string"
+                                  },
+                                  "sessionIndex": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true
+                                  },
+                                  "providerId": {
+                                    "type": "string"
+                                  },
+                                  "serviceId": {
+                                    "type": "string"
+                                  },
+                                  "offeringId": {
+                                    "type": "string"
+                                  },
+                                  "bookingStartUtc": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "bookingEndUtc": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "bookingTz": {
+                                    "type": "string"
+                                  },
+                                  "locationType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "PHYSICAL",
+                                      "VIRTUAL",
+                                      "TRAVEL_ZONE"
+                                    ]
+                                  },
+                                  "locationId": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "latitude": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "longitude": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "travelTimeMins": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "minimum": 0
+                                  },
+                                  "capacity": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true
+                                  },
+                                  "reservationStatus": {
+                                    "type": "string",
+                                    "enum": [
+                                      "FREE",
+                                      "HELD",
+                                      "CONVERTED",
+                                      "RELEASED"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "slotId",
+                                  "sessionIndex",
+                                  "providerId",
+                                  "serviceId",
+                                  "offeringId",
+                                  "bookingStartUtc",
+                                  "bookingEndUtc",
+                                  "bookingTz",
+                                  "locationType",
+                                  "locationId",
+                                  "latitude",
+                                  "longitude",
+                                  "travelTimeMins",
+                                  "capacity",
+                                  "reservationStatus"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "slateId",
+                            "providerId",
+                            "completeness",
+                            "sessionsRequested",
+                            "sessionsFilled",
+                            "startTimeConsistencyPercent",
+                            "totalTravelTimeMins",
+                            "slots"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "reason",
+                        "suggestionRequestId",
+                        "resolvableUntil",
+                        "primarySlate",
+                        "alternates",
+                        "partial"
+                      ]
+                    }
+                  },
+                  "required": ["code", "message", "freshSuggestions"]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Slate too large, or best-effort not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/projects/{projectId}/suppliers": {
       "get": {
         "tags": ["Suppliers"],
-        "summary": "List suppliers for a project, enriched with services and skills",
+        "summary": "List suppliers for a project, enriched with services and skills; filter by service/skill/location",
         "parameters": [
           {
             "schema": {
@@ -7371,6 +8946,36 @@
             "required": false,
             "description": "Comma-separated skill IDs. Returns only suppliers having every listed skill (AND). Combined with `services` using AND. Empty value is treated as no filter.",
             "name": "skills",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Country to filter by. Required when `state` or `city` is provided."
+            },
+            "required": false,
+            "description": "Country to filter by. Required when `state` or `city` is provided.",
+            "name": "country",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "State/region to filter by. Requires `country`. Required when `city` is provided."
+            },
+            "required": false,
+            "description": "State/region to filter by. Requires `country`. Required when `city` is provided.",
+            "name": "state",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "City to filter by. Requires both `country` and `state`."
+            },
+            "required": false,
+            "description": "City to filter by. Requires both `country` and `state`.",
+            "name": "city",
             "in": "query"
           }
         ],
@@ -9785,6 +11390,2027 @@
           },
           "404": {
             "description": "Supplier not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/availability/search": {
+      "post": {
+        "tags": ["Availability"],
+        "summary": "Find suppliers + suggested/open slots for a service, location and window",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Service + location + window",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "serviceId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "offeringId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "locationId": {
+                    "type": "string"
+                  },
+                  "lat": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "lng": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "durationMinutes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "lookAheadStartDate": {
+                    "type": "string"
+                  },
+                  "lookAheadDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "timezone": {
+                    "type": "string"
+                  },
+                  "distanceUnit": {
+                    "type": "string",
+                    "enum": ["km", "mi"]
+                  },
+                  "order": {
+                    "type": "string",
+                    "nullable": true,
+                    "enum": ["mustBeFirst", "mustBeLast", null]
+                  },
+                  "preferredDays": {
+                    "type": "array",
+                    "nullable": true,
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "preferredTimes": {
+                    "type": "array",
+                    "nullable": true,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "startTime": {
+                          "type": "string"
+                        },
+                        "endTime": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["startTime", "endTime"]
+                    }
+                  },
+                  "emptyDayAnchorTime": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "maxNumberOfBookingsPerDay": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "preferredTimeSlotThresholdMins": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "timeSuggestionsLimit": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "sortBy": {
+                    "type": "string",
+                    "enum": ["leastTravelTime", "nearestDate"]
+                  },
+                  "interval": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "language": {
+                    "type": "string"
+                  },
+                  "bookingType": {
+                    "type": "string",
+                    "enum": ["single", "recurring"],
+                    "default": "single"
+                  },
+                  "rrule": {
+                    "type": "string"
+                  },
+                  "endDate": {
+                    "type": "string"
+                  },
+                  "daysOfWeek": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    }
+                  },
+                  "package": {
+                    "type": "boolean"
+                  },
+                  "consistencyAsPercentage": {
+                    "type": "boolean"
+                  },
+                  "fromMb": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["serviceId", "offeringId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suggested slots + open slots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "timeSlots": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      },
+                      "description": "Suggested slots, or recurring time patterns when bookingType=recurring"
+                    },
+                    "openSlots": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      }
+                    },
+                    "timezone": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["status", "timeSlots", "openSlots", "errors"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/availability/time-slots": {
+      "post": {
+        "tags": ["Availability"],
+        "summary": "Generate clustered time slots from providers + engine config",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Providers + engine config",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "config": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": {
+                      "nullable": true
+                    }
+                  },
+                  "providers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "providerId": {
+                          "type": "string"
+                        },
+                        "maxTravelTimeMins": {
+                          "type": "number"
+                        },
+                        "bufferTimeMins": {
+                          "type": "number"
+                        },
+                        "availability": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "startDateAndTime": {
+                                "type": "string"
+                              },
+                              "endDateAndTime": {
+                                "type": "string"
+                              },
+                              "rrule": {
+                                "type": "string"
+                              },
+                              "startGeoLocation": {
+                                "type": "array",
+                                "items": {
+                                  "type": "number"
+                                },
+                                "minItems": 2,
+                                "maxItems": 2
+                              },
+                              "endGeoLocation": {
+                                "type": "array",
+                                "items": {
+                                  "type": "number"
+                                },
+                                "minItems": 2,
+                                "maxItems": 2
+                              }
+                            },
+                            "required": ["startDateAndTime", "endDateAndTime"]
+                          }
+                        },
+                        "bookings": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "startDateAndTime": {
+                                "type": "string"
+                              },
+                              "durationMins": {
+                                "type": "number"
+                              },
+                              "geoLocation": {
+                                "type": "array",
+                                "nullable": true,
+                                "items": {
+                                  "type": "number"
+                                },
+                                "minItems": 2,
+                                "maxItems": 2
+                              },
+                              "isGeoAnchoring": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": ["startDateAndTime", "durationMins"]
+                          }
+                        },
+                        "blockedTime": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "startDateAndTime": {
+                                "type": "string"
+                              },
+                              "endDateAndTime": {
+                                "type": "string"
+                              },
+                              "rrule": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            },
+                            "required": ["startDateAndTime", "endDateAndTime"]
+                          }
+                        },
+                        "maxTravelTimeFromStartGeoLocationMins": {
+                          "type": "number",
+                          "nullable": true
+                        },
+                        "maxTravelTimeToEndGeoLocationMins": {
+                          "type": "number",
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "providerId",
+                        "maxTravelTimeMins",
+                        "availability"
+                      ]
+                    }
+                  }
+                },
+                "required": ["config", "providers"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suggested slots + metrics/kpis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "timeSlots": {
+                      "type": "array",
+                      "items": {
+                        "nullable": true
+                      },
+                      "description": "Clustered suggested slots"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "metrics": {
+                      "nullable": true
+                    },
+                    "kpis": {
+                      "nullable": true
+                    }
+                  },
+                  "required": ["status", "timeSlots", "errors"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/availability/package-slate": {
+      "post": {
+        "tags": ["Availability"],
+        "summary": "Build a single-provider N-session package slate (policy-driven), persisting suggestions",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Service + location + cadence + policy knobs",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "packageId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "lat": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "lng": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "lookAheadStartDate": {
+                    "type": "string"
+                  },
+                  "rrule": {
+                    "type": "string"
+                  },
+                  "lookAheadDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "endDate": {
+                    "type": "string"
+                  },
+                  "preferredTimes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "startTime": {
+                          "type": "string"
+                        },
+                        "endTime": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["startTime", "endTime"]
+                    }
+                  },
+                  "maxAlternates": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 3
+                  },
+                  "persist": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": ["packageId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Primary slate (OK), or NO_COMPLETE_SLATE / NO_AVAILABILITY with a reason",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["OK", "NO_COMPLETE_SLATE", "NO_AVAILABILITY"]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "suggestionRequestId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "resolvableUntil": {
+                      "type": "string",
+                      "nullable": true,
+                      "format": "date-time"
+                    },
+                    "primarySlate": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "slateId": {
+                          "type": "string"
+                        },
+                        "providerId": {
+                          "type": "string"
+                        },
+                        "completeness": {
+                          "type": "string",
+                          "enum": ["COMPLETE", "PARTIAL"]
+                        },
+                        "sessionsRequested": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "sessionsFilled": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "startTimeConsistencyPercent": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "totalTravelTimeMins": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "slots": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "slotId": {
+                                "type": "string"
+                              },
+                              "sessionIndex": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "providerId": {
+                                "type": "string"
+                              },
+                              "serviceId": {
+                                "type": "string"
+                              },
+                              "offeringId": {
+                                "type": "string"
+                              },
+                              "bookingStartUtc": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "bookingEndUtc": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "bookingTz": {
+                                "type": "string"
+                              },
+                              "locationType": {
+                                "type": "string",
+                                "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                              },
+                              "locationId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "latitude": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "longitude": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "travelTimeMins": {
+                                "type": "number",
+                                "nullable": true,
+                                "minimum": 0
+                              },
+                              "capacity": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "reservationStatus": {
+                                "type": "string",
+                                "enum": [
+                                  "FREE",
+                                  "HELD",
+                                  "CONVERTED",
+                                  "RELEASED"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "slotId",
+                              "sessionIndex",
+                              "providerId",
+                              "serviceId",
+                              "offeringId",
+                              "bookingStartUtc",
+                              "bookingEndUtc",
+                              "bookingTz",
+                              "locationType",
+                              "locationId",
+                              "latitude",
+                              "longitude",
+                              "travelTimeMins",
+                              "capacity",
+                              "reservationStatus"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "slateId",
+                        "providerId",
+                        "completeness",
+                        "sessionsRequested",
+                        "sessionsFilled",
+                        "startTimeConsistencyPercent",
+                        "totalTravelTimeMins",
+                        "slots"
+                      ]
+                    },
+                    "alternates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "slateId": {
+                            "type": "string"
+                          },
+                          "providerId": {
+                            "type": "string"
+                          },
+                          "completeness": {
+                            "type": "string",
+                            "enum": ["COMPLETE", "PARTIAL"]
+                          },
+                          "sessionsRequested": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true
+                          },
+                          "sessionsFilled": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "startTimeConsistencyPercent": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "totalTravelTimeMins": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "slots": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "slotId": {
+                                  "type": "string"
+                                },
+                                "sessionIndex": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true
+                                },
+                                "providerId": {
+                                  "type": "string"
+                                },
+                                "serviceId": {
+                                  "type": "string"
+                                },
+                                "offeringId": {
+                                  "type": "string"
+                                },
+                                "bookingStartUtc": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "bookingEndUtc": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "bookingTz": {
+                                  "type": "string"
+                                },
+                                "locationType": {
+                                  "type": "string",
+                                  "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                                },
+                                "locationId": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "latitude": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "longitude": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "travelTimeMins": {
+                                  "type": "number",
+                                  "nullable": true,
+                                  "minimum": 0
+                                },
+                                "capacity": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true
+                                },
+                                "reservationStatus": {
+                                  "type": "string",
+                                  "enum": [
+                                    "FREE",
+                                    "HELD",
+                                    "CONVERTED",
+                                    "RELEASED"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "slotId",
+                                "sessionIndex",
+                                "providerId",
+                                "serviceId",
+                                "offeringId",
+                                "bookingStartUtc",
+                                "bookingEndUtc",
+                                "bookingTz",
+                                "locationType",
+                                "locationId",
+                                "latitude",
+                                "longitude",
+                                "travelTimeMins",
+                                "capacity",
+                                "reservationStatus"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "slateId",
+                          "providerId",
+                          "completeness",
+                          "sessionsRequested",
+                          "sessionsFilled",
+                          "startTimeConsistencyPercent",
+                          "totalTravelTimeMins",
+                          "slots"
+                        ]
+                      }
+                    },
+                    "partial": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "slateId": {
+                          "type": "string"
+                        },
+                        "providerId": {
+                          "type": "string"
+                        },
+                        "completeness": {
+                          "type": "string",
+                          "enum": ["COMPLETE", "PARTIAL"]
+                        },
+                        "sessionsRequested": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "sessionsFilled": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "startTimeConsistencyPercent": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "totalTravelTimeMins": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "slots": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "slotId": {
+                                "type": "string"
+                              },
+                              "sessionIndex": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "providerId": {
+                                "type": "string"
+                              },
+                              "serviceId": {
+                                "type": "string"
+                              },
+                              "offeringId": {
+                                "type": "string"
+                              },
+                              "bookingStartUtc": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "bookingEndUtc": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "bookingTz": {
+                                "type": "string"
+                              },
+                              "locationType": {
+                                "type": "string",
+                                "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                              },
+                              "locationId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "latitude": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "longitude": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "travelTimeMins": {
+                                "type": "number",
+                                "nullable": true,
+                                "minimum": 0
+                              },
+                              "capacity": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "reservationStatus": {
+                                "type": "string",
+                                "enum": [
+                                  "FREE",
+                                  "HELD",
+                                  "CONVERTED",
+                                  "RELEASED"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "slotId",
+                              "sessionIndex",
+                              "providerId",
+                              "serviceId",
+                              "offeringId",
+                              "bookingStartUtc",
+                              "bookingEndUtc",
+                              "bookingTz",
+                              "locationType",
+                              "locationId",
+                              "latitude",
+                              "longitude",
+                              "travelTimeMins",
+                              "capacity",
+                              "reservationStatus"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "slateId",
+                        "providerId",
+                        "completeness",
+                        "sessionsRequested",
+                        "sessionsFilled",
+                        "startTimeConsistencyPercent",
+                        "totalTravelTimeMins",
+                        "slots"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "reason",
+                    "suggestionRequestId",
+                    "resolvableUntil",
+                    "primarySlate",
+                    "alternates",
+                    "partial"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/suggestions/holds": {
+      "post": {
+        "tags": ["Suggestions"],
+        "summary": "Hold a slate (or cherry-picked slots) for checkout — returns reservationId + heldUntil",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "slateId | slotIds (+ optional heldBy, holdDurationMins)",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "slateId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "slotIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1
+                  },
+                  "heldBy": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "holdDurationMins": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Hold placed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reservationId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["HELD"]
+                    },
+                    "heldUntil": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "slateId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "slotIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "reservationId",
+                    "status",
+                    "heldUntil",
+                    "slateId",
+                    "slotIds"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A targeted slot is already held / stale — returns fresh suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "freshSuggestions": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": ["OK", "NO_COMPLETE_SLATE", "NO_AVAILABILITY"]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "suggestionRequestId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "resolvableUntil": {
+                          "type": "string",
+                          "nullable": true,
+                          "format": "date-time"
+                        },
+                        "primarySlate": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "slateId": {
+                              "type": "string"
+                            },
+                            "providerId": {
+                              "type": "string"
+                            },
+                            "completeness": {
+                              "type": "string",
+                              "enum": ["COMPLETE", "PARTIAL"]
+                            },
+                            "sessionsRequested": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "exclusiveMinimum": true
+                            },
+                            "sessionsFilled": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "startTimeConsistencyPercent": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "totalTravelTimeMins": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "slots": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "slotId": {
+                                    "type": "string"
+                                  },
+                                  "sessionIndex": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true
+                                  },
+                                  "providerId": {
+                                    "type": "string"
+                                  },
+                                  "serviceId": {
+                                    "type": "string"
+                                  },
+                                  "offeringId": {
+                                    "type": "string"
+                                  },
+                                  "bookingStartUtc": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "bookingEndUtc": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "bookingTz": {
+                                    "type": "string"
+                                  },
+                                  "locationType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "PHYSICAL",
+                                      "VIRTUAL",
+                                      "TRAVEL_ZONE"
+                                    ]
+                                  },
+                                  "locationId": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "latitude": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "longitude": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "travelTimeMins": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "minimum": 0
+                                  },
+                                  "capacity": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true
+                                  },
+                                  "reservationStatus": {
+                                    "type": "string",
+                                    "enum": [
+                                      "FREE",
+                                      "HELD",
+                                      "CONVERTED",
+                                      "RELEASED"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "slotId",
+                                  "sessionIndex",
+                                  "providerId",
+                                  "serviceId",
+                                  "offeringId",
+                                  "bookingStartUtc",
+                                  "bookingEndUtc",
+                                  "bookingTz",
+                                  "locationType",
+                                  "locationId",
+                                  "latitude",
+                                  "longitude",
+                                  "travelTimeMins",
+                                  "capacity",
+                                  "reservationStatus"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "slateId",
+                            "providerId",
+                            "completeness",
+                            "sessionsRequested",
+                            "sessionsFilled",
+                            "startTimeConsistencyPercent",
+                            "totalTravelTimeMins",
+                            "slots"
+                          ]
+                        },
+                        "alternates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "slateId": {
+                                "type": "string"
+                              },
+                              "providerId": {
+                                "type": "string"
+                              },
+                              "completeness": {
+                                "type": "string",
+                                "enum": ["COMPLETE", "PARTIAL"]
+                              },
+                              "sessionsRequested": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "sessionsFilled": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "startTimeConsistencyPercent": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              "totalTravelTimeMins": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "slots": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "slotId": {
+                                      "type": "string"
+                                    },
+                                    "sessionIndex": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "providerId": {
+                                      "type": "string"
+                                    },
+                                    "serviceId": {
+                                      "type": "string"
+                                    },
+                                    "offeringId": {
+                                      "type": "string"
+                                    },
+                                    "bookingStartUtc": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "bookingEndUtc": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "bookingTz": {
+                                      "type": "string"
+                                    },
+                                    "locationType": {
+                                      "type": "string",
+                                      "enum": [
+                                        "PHYSICAL",
+                                        "VIRTUAL",
+                                        "TRAVEL_ZONE"
+                                      ]
+                                    },
+                                    "locationId": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "latitude": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "longitude": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "travelTimeMins": {
+                                      "type": "number",
+                                      "nullable": true,
+                                      "minimum": 0
+                                    },
+                                    "capacity": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "reservationStatus": {
+                                      "type": "string",
+                                      "enum": [
+                                        "FREE",
+                                        "HELD",
+                                        "CONVERTED",
+                                        "RELEASED"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "slotId",
+                                    "sessionIndex",
+                                    "providerId",
+                                    "serviceId",
+                                    "offeringId",
+                                    "bookingStartUtc",
+                                    "bookingEndUtc",
+                                    "bookingTz",
+                                    "locationType",
+                                    "locationId",
+                                    "latitude",
+                                    "longitude",
+                                    "travelTimeMins",
+                                    "capacity",
+                                    "reservationStatus"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "slateId",
+                              "providerId",
+                              "completeness",
+                              "sessionsRequested",
+                              "sessionsFilled",
+                              "startTimeConsistencyPercent",
+                              "totalTravelTimeMins",
+                              "slots"
+                            ]
+                          }
+                        },
+                        "partial": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "slateId": {
+                              "type": "string"
+                            },
+                            "providerId": {
+                              "type": "string"
+                            },
+                            "completeness": {
+                              "type": "string",
+                              "enum": ["COMPLETE", "PARTIAL"]
+                            },
+                            "sessionsRequested": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "exclusiveMinimum": true
+                            },
+                            "sessionsFilled": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "startTimeConsistencyPercent": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "totalTravelTimeMins": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "slots": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "slotId": {
+                                    "type": "string"
+                                  },
+                                  "sessionIndex": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true
+                                  },
+                                  "providerId": {
+                                    "type": "string"
+                                  },
+                                  "serviceId": {
+                                    "type": "string"
+                                  },
+                                  "offeringId": {
+                                    "type": "string"
+                                  },
+                                  "bookingStartUtc": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "bookingEndUtc": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "bookingTz": {
+                                    "type": "string"
+                                  },
+                                  "locationType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "PHYSICAL",
+                                      "VIRTUAL",
+                                      "TRAVEL_ZONE"
+                                    ]
+                                  },
+                                  "locationId": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "latitude": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "longitude": {
+                                    "type": "number",
+                                    "nullable": true
+                                  },
+                                  "travelTimeMins": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "minimum": 0
+                                  },
+                                  "capacity": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true
+                                  },
+                                  "reservationStatus": {
+                                    "type": "string",
+                                    "enum": [
+                                      "FREE",
+                                      "HELD",
+                                      "CONVERTED",
+                                      "RELEASED"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "slotId",
+                                  "sessionIndex",
+                                  "providerId",
+                                  "serviceId",
+                                  "offeringId",
+                                  "bookingStartUtc",
+                                  "bookingEndUtc",
+                                  "bookingTz",
+                                  "locationType",
+                                  "locationId",
+                                  "latitude",
+                                  "longitude",
+                                  "travelTimeMins",
+                                  "capacity",
+                                  "reservationStatus"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "slateId",
+                            "providerId",
+                            "completeness",
+                            "sessionsRequested",
+                            "sessionsFilled",
+                            "startTimeConsistencyPercent",
+                            "totalTravelTimeMins",
+                            "slots"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "reason",
+                        "suggestionRequestId",
+                        "resolvableUntil",
+                        "primarySlate",
+                        "alternates",
+                        "partial"
+                      ]
+                    }
+                  },
+                  "required": ["code", "message", "freshSuggestions"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/suggestions/holds/{reservationId}/release": {
+      "post": {
+        "tags": ["Suggestions"],
+        "summary": "Release a hold (HELD→FREE). Idempotent; lazy expiry covers timeouts.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "reservationId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Released (or already released / not found)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reservationId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["RELEASED", "CONVERTED", "NOT_FOUND"]
+                    }
+                  },
+                  "required": ["reservationId", "status"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/:projectId/clients/me": {
+      "post": {
+        "tags": ["Clients"],
+        "summary": "Onboard the authenticated client to a project",
+        "description": "Idempotently registers the signed-in end user as a CLIENT of the project: ensures a ProjectUsers membership, creates a Stripe customer on the project's connected account (when Stripe is configured), and writes the ClientProfile. Requires both an API key (`x-api-key`) and a client user JWT (`Authorization: Bearer`). Returns 201 on first onboarding, 200 if the client was already onboarded.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Client already onboarded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "entityType": {
+                          "type": "string",
+                          "enum": ["CLIENT_PROFILE"]
+                        },
+                        "clientId": {
+                          "type": "string"
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "userId": {
+                          "type": "string"
+                        },
+                        "stripeCustomerId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "stripeAccountId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "lifetimeSpend": {
+                          "type": "number"
+                        },
+                        "orderCount": {
+                          "type": "number"
+                        },
+                        "lastPurchaseAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "entityType",
+                        "clientId",
+                        "projectId",
+                        "userId",
+                        "stripeCustomerId",
+                        "stripeAccountId",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Client onboarded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "entityType": {
+                          "type": "string",
+                          "enum": ["CLIENT_PROFILE"]
+                        },
+                        "clientId": {
+                          "type": "string"
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "userId": {
+                          "type": "string"
+                        },
+                        "stripeCustomerId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "stripeAccountId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "lifetimeSpend": {
+                          "type": "number"
+                        },
+                        "orderCount": {
+                          "type": "number"
+                        },
+                        "lastPurchaseAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "entityType",
+                        "clientId",
+                        "projectId",
+                        "userId",
+                        "stripeCustomerId",
+                        "stripeAccountId",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid user token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to project or unregistered user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -12346,6 +15972,12 @@
                       ]
                     },
                     "default": []
+                  },
+                  "holdDurationMinsOverride": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "exclusiveMinimum": true
                   }
                 },
                 "required": ["price", "duration"]
@@ -12514,6 +16146,12 @@
                         "status": {
                           "type": "string",
                           "enum": ["ACTIVE", "INACTIVE"]
+                        },
+                        "holdDurationMinsOverride": {
+                          "type": "integer",
+                          "nullable": true,
+                          "minimum": 0,
+                          "exclusiveMinimum": true
                         },
                         "deleted": {
                           "type": "boolean"
@@ -12830,6 +16468,12 @@
                             "type": "string",
                             "enum": ["ACTIVE", "INACTIVE"]
                           },
+                          "holdDurationMinsOverride": {
+                            "type": "integer",
+                            "nullable": true,
+                            "minimum": 0,
+                            "exclusiveMinimum": true
+                          },
                           "deleted": {
                             "type": "boolean"
                           },
@@ -13112,6 +16756,12 @@
                           "type": "string",
                           "enum": ["ACTIVE", "INACTIVE"]
                         },
+                        "holdDurationMinsOverride": {
+                          "type": "integer",
+                          "nullable": true,
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
                         "deleted": {
                           "type": "boolean"
                         },
@@ -13385,6 +17035,12 @@
                         "attributeType"
                       ]
                     }
+                  },
+                  "holdDurationMinsOverride": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "exclusiveMinimum": true
                   }
                 }
               }
@@ -13552,6 +17208,12 @@
                         "status": {
                           "type": "string",
                           "enum": ["ACTIVE", "INACTIVE"]
+                        },
+                        "holdDurationMinsOverride": {
+                          "type": "integer",
+                          "nullable": true,
+                          "minimum": 0,
+                          "exclusiveMinimum": true
                         },
                         "deleted": {
                           "type": "boolean"
@@ -13962,6 +17624,12 @@
                           "type": "string",
                           "enum": ["ACTIVE", "INACTIVE"]
                         },
+                        "holdDurationMinsOverride": {
+                          "type": "integer",
+                          "nullable": true,
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
                         "deleted": {
                           "type": "boolean"
                         },
@@ -14043,6 +17711,963 @@
           },
           "403": {
             "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/services/{serviceId}/offerings/{offeringId}/packages": {
+      "post": {
+        "tags": ["ServicePackages"],
+        "summary": "Create a sellable package (bundle) for an offering",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serviceId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "offeringId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Package data",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "description": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "pricingModel": {
+                    "type": "string",
+                    "enum": ["PER_SESSION", "FLAT"]
+                  },
+                  "price": {
+                    "type": "object",
+                    "properties": {
+                      "amount": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "currency": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 3
+                      }
+                    },
+                    "required": ["amount", "currency"]
+                  },
+                  "creditCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true
+                  },
+                  "validityDays": {
+                    "type": "integer",
+                    "nullable": true,
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "default": null
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["DRAFT", "ACTIVE", "ARCHIVED"],
+                    "default": "ACTIVE"
+                  },
+                  "capacity": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "default": 1
+                  }
+                },
+                "required": ["pricingModel", "price", "creditCount"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Package created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "entityType": {
+                          "type": "string",
+                          "enum": ["SERVICE_PACKAGE"]
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "serviceId": {
+                          "type": "string"
+                        },
+                        "offeringId": {
+                          "type": "string"
+                        },
+                        "packageId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "description": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "pricingModel": {
+                          "type": "string",
+                          "enum": ["PER_SESSION", "FLAT"]
+                        },
+                        "price": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "currency": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 3
+                            }
+                          },
+                          "required": ["amount", "currency"]
+                        },
+                        "creditCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "validityDays": {
+                          "type": "integer",
+                          "nullable": true,
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": ["DRAFT", "ACTIVE", "ARCHIVED"]
+                        },
+                        "capacity": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "deleted": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "createdBy": {
+                          "type": "string"
+                        },
+                        "updatedBy": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "entityType",
+                        "projectId",
+                        "serviceId",
+                        "offeringId",
+                        "packageId",
+                        "pricingModel",
+                        "price",
+                        "creditCount",
+                        "validityDays",
+                        "status",
+                        "capacity",
+                        "deleted",
+                        "createdAt",
+                        "updatedAt",
+                        "createdBy",
+                        "updatedBy"
+                      ]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Offering not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["ServicePackages"],
+        "summary": "List packages for an offering (storefront)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serviceId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "offeringId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["DRAFT", "ACTIVE", "ARCHIVED"]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Packages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "entityType": {
+                            "type": "string",
+                            "enum": ["SERVICE_PACKAGE"]
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "serviceId": {
+                            "type": "string"
+                          },
+                          "offeringId": {
+                            "type": "string"
+                          },
+                          "packageId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "description": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "pricingModel": {
+                            "type": "string",
+                            "enum": ["PER_SESSION", "FLAT"]
+                          },
+                          "price": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "currency": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 3
+                              }
+                            },
+                            "required": ["amount", "currency"]
+                          },
+                          "creditCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true
+                          },
+                          "validityDays": {
+                            "type": "integer",
+                            "nullable": true,
+                            "minimum": 0,
+                            "exclusiveMinimum": true
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": ["DRAFT", "ACTIVE", "ARCHIVED"]
+                          },
+                          "capacity": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true
+                          },
+                          "deleted": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "createdBy": {
+                            "type": "string"
+                          },
+                          "updatedBy": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "entityType",
+                          "projectId",
+                          "serviceId",
+                          "offeringId",
+                          "packageId",
+                          "pricingModel",
+                          "price",
+                          "creditCount",
+                          "validityDays",
+                          "status",
+                          "capacity",
+                          "deleted",
+                          "createdAt",
+                          "updatedAt",
+                          "createdBy",
+                          "updatedBy"
+                        ]
+                      }
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": ["data", "nextCursor"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/packages/{packageId}": {
+      "get": {
+        "tags": ["ServicePackages"],
+        "summary": "Get a package by id",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "packageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Package",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "entityType": {
+                          "type": "string",
+                          "enum": ["SERVICE_PACKAGE"]
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "serviceId": {
+                          "type": "string"
+                        },
+                        "offeringId": {
+                          "type": "string"
+                        },
+                        "packageId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "description": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "pricingModel": {
+                          "type": "string",
+                          "enum": ["PER_SESSION", "FLAT"]
+                        },
+                        "price": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "currency": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 3
+                            }
+                          },
+                          "required": ["amount", "currency"]
+                        },
+                        "creditCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "validityDays": {
+                          "type": "integer",
+                          "nullable": true,
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": ["DRAFT", "ACTIVE", "ARCHIVED"]
+                        },
+                        "capacity": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "deleted": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "createdBy": {
+                          "type": "string"
+                        },
+                        "updatedBy": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "entityType",
+                        "projectId",
+                        "serviceId",
+                        "offeringId",
+                        "packageId",
+                        "pricingModel",
+                        "price",
+                        "creditCount",
+                        "validityDays",
+                        "status",
+                        "capacity",
+                        "deleted",
+                        "createdAt",
+                        "updatedAt",
+                        "createdBy",
+                        "updatedBy"
+                      ]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/packages/{packageId}/status": {
+      "post": {
+        "tags": ["ServicePackages"],
+        "summary": "Change package status (rewrites the storefront sort key)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "packageId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "New status",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["DRAFT", "ACTIVE", "ARCHIVED"]
+                  }
+                },
+                "required": ["status"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "entityType": {
+                          "type": "string",
+                          "enum": ["SERVICE_PACKAGE"]
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "serviceId": {
+                          "type": "string"
+                        },
+                        "offeringId": {
+                          "type": "string"
+                        },
+                        "packageId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "description": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        },
+                        "pricingModel": {
+                          "type": "string",
+                          "enum": ["PER_SESSION", "FLAT"]
+                        },
+                        "price": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "currency": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 3
+                            }
+                          },
+                          "required": ["amount", "currency"]
+                        },
+                        "creditCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "validityDays": {
+                          "type": "integer",
+                          "nullable": true,
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": ["DRAFT", "ACTIVE", "ARCHIVED"]
+                        },
+                        "capacity": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true
+                        },
+                        "deleted": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "createdBy": {
+                          "type": "string"
+                        },
+                        "updatedBy": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "entityType",
+                        "projectId",
+                        "serviceId",
+                        "offeringId",
+                        "packageId",
+                        "pricingModel",
+                        "price",
+                        "creditCount",
+                        "validityDays",
+                        "status",
+                        "capacity",
+                        "deleted",
+                        "createdAt",
+                        "updatedAt",
+                        "createdBy",
+                        "updatedBy"
+                      ]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
             "content": {
               "application/json": {
                 "schema": {
