@@ -4,9 +4,14 @@ description: How API keys, project scope, and tenancy work.
 ---
 
 The MarketBox API authenticates every request with an **API key** carried
-in the `x-api-key` header. There are no OAuth flows, no session cookies,
-and no per-user tokens — keys are minted in the MarketBox dashboard and
-behave as long-lived service credentials.
+in the `x-api-key` header. The key identifies *your application* and behaves
+as a long-lived service credential, minted in the MarketBox dashboard.
+
+Some routes also act on behalf of a *signed-in end user* and additionally
+require a per-user token. Those routes are the exception — most of the API
+needs only the API key. See
+[End-user authentication](/concepts/end-user-authentication) for that second
+plane and when you need it.
 
 ## The header
 

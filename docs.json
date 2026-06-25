@@ -25,12 +25,19 @@
             "group": "Core concepts",
             "pages": [
               "concepts/authentication",
+              "concepts/end-user-authentication",
               "concepts/projects-and-scope",
               "concepts/pagination",
               "concepts/errors",
               "concepts/versioning",
               "concepts/timezones",
               "concepts/concurrency"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/booking-flow-auth"
             ]
           },
           {

@@ -1,0 +1,62 @@
+---
+title: End-user authentication
+description: How end users sign in to your booking flow, and how the two auth planes fit together.
+---
+
+Most MarketBox API calls are made by **your application** and authenticate with
+an API key. But some flows act on behalf of a **signed-in end user** — for
+example, "show me _my_ bookings" or "use _my_ remaining credits". Those routes
+require a second credential: a user token obtained when the end user signs in.
+
+This page explains the model. For a step-by-step integration, see
+[Build a booking flow](/guides/booking-flow-auth).
+
+## Two auth planes
+
+Every request to an end-user route carries **two** credentials, each with a
+distinct job:
+
+| Plane | Header | Identifies | Used for |
+| --- | --- | --- | --- |
+| Application | `x-api-key` | Your application and its project scope | Every API call |
+| End user | `Authorization: Bearer <jwt>` | The signed-in end user | End-user routes only |
+
+The API key proves _which integration_ is calling. The user token proves _which
+person_ the call is for. End-user routes need both; everything else needs only
+the API key (see [Authentication](/concepts/authentication)).
+
+## The golden rule
+
+<Warning>
+The API key is a server-only secret. Your browser must never see it.
+</Warning>
+
+The browser holds only the user token and sends authenticated requests to **your
+own backend**. Your backend attaches the API key before forwarding to MarketBox.
+This is non-negotiable: leaking the API key gives anyone access to your project's
+entire client data.
+
+```
+Browser                Your backend (BFF)          MarketBox API
+  |   GET /bff/credits   |                               |
+  |  + Bearer <jwt>  --> |                               |
+  |                      |  GET /v1/projects/.../credits |
+  |                      |  x-api-key: <secret>     --> |
+  |                      |  Authorization: Bearer <jwt>  |
+  |  <-- 200 { data }    |  <-- 200 { data }             |
+```
+
+This shape is the **backend-for-frontend (BFF)** pattern: a thin server you own
+that is the only place the API key lives.
+
+## Where the user token comes from
+
+End users sign in through **MarketBox hosted login** using the OAuth 2.0
+Authorization Code flow with PKCE. Your booking flow redirects the user to the
+hosted sign-in page; after they authenticate, MarketBox redirects back to your
+callback URL with an authorization code, which you exchange for tokens. The
+access token from that exchange is the `Bearer` token you forward to end-user
+routes.
+
+You configure the OAuth client and endpoints once — see
+[Build a booking flow](/guides/booking-flow-auth) for the full walkthrough.
