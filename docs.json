@@ -37,7 +37,8 @@
           {
             "group": "Guides",
             "pages": [
-              "guides/booking-flow-auth"
+              "guides/booking-flow-auth",
+              "guides/accept-payments-with-stripe"
             ]
           },
           {
