@@ -27,6 +27,7 @@
               "concepts/authentication",
               "concepts/end-user-authentication",
               "concepts/projects-and-scope",
+              "concepts/booking-engine-model",
               "concepts/pagination",
               "concepts/errors",
               "concepts/versioning",
@@ -38,6 +39,10 @@
             "group": "Guides",
             "pages": [
               "guides/booking-flow-auth",
+              "guides/create-a-single-booking",
+              "guides/create-a-package-booking",
+              "guides/availability-and-slates",
+              "guides/booking-addresses",
               "guides/accept-payments-with-stripe"
             ]
           },

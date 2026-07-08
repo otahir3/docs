@@ -3,7 +3,7 @@
   "info": {
     "title": "MarketBox 2.0 Open API",
     "version": "1.0.0",
-    "description": "The MarketBox public API. Use this API to manage bookings, orders, service offerings, and suppliers across your MarketBox projects. All endpoints are versioned under `/v1` and authenticated with an API key in the `x-api-key` header.",
+    "description": "The MarketBox public API for building booking experiences. Core model: create an order, then draw its order items down into bookings. Single bookings reference an order item per service line; package bookings draw one PACKAGE item down across N sessions. To schedule a package, build a slate (POST /availability/package-slate) and book it by slateId (POST /orders/{orderId}/package-bookings). See the guides for end-to-end walkthroughs.",
     "contact": {
       "name": "MarketBox support",
       "url": "https://marketbox.io/support"
@@ -39,6 +39,7 @@
           "Bookings"
         ],
         "summary": "Create a new booking",
+        "description": "Creates a single booking. Each service line must reference an existing order + order item (orderId + orderItemId) to draw down — create and pay for an order first. Location fields depend on locationType: TRAVEL_ZONE requires locationId, latitude, longitude, and a structured address; PHYSICAL requires only locationId; VIRTUAL requires none. Local-time fields are derived server-side from bookingTz and must not be sent.",
         "parameters": [
           {
             "schema": {
@@ -60,23 +61,33 @@
                 "properties": {
                   "supplierId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "Assigned provider. Omit to create an unassigned booking.",
+                    "example": "sup_01kv60qgnef2kt3pvqgwmkbzfr"
                   },
                   "clientId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "The client this booking is for.",
+                    "example": "clt_dolphin_web"
                   },
                   "bookingStartUtc": {
                     "type": "string",
-                    "format": "date-time"
+                    "format": "date-time",
+                    "description": "Start time in UTC (ISO 8601).",
+                    "example": "2026-07-09T13:30:00.000Z"
                   },
                   "bookingEndUtc": {
                     "type": "string",
-                    "format": "date-time"
+                    "format": "date-time",
+                    "description": "End time in UTC (ISO 8601). Must be after start.",
+                    "example": "2026-07-09T14:00:00.000Z"
                   },
                   "bookingTz": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "IANA timezone the booking occurs in; local-time fields are derived from this.",
+                    "example": "America/Toronto"
                   },
                   "locationType": {
                     "type": "string",
@@ -84,26 +95,100 @@
                       "PHYSICAL",
                       "VIRTUAL",
                       "TRAVEL_ZONE"
-                    ]
+                    ],
+                    "description": "VIRTUAL, PHYSICAL, or TRAVEL_ZONE. Determines which location fields are required.",
+                    "example": "TRAVEL_ZONE"
                   },
                   "locationId": {
                     "type": "string",
                     "nullable": true,
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "For PHYSICAL: the Location id. For TRAVEL_ZONE: the supplierTravelZoneId. Null for VIRTUAL.",
+                    "example": "stz_01kv60qgs4e4nbjhzradnqtj0h"
                   },
                   "latitude": {
                     "type": "number",
-                    "nullable": true
+                    "nullable": true,
+                    "description": "Client latitude. Required for TRAVEL_ZONE; must be omitted for PHYSICAL/VIRTUAL.",
+                    "example": 43.6532
                   },
                   "longitude": {
                     "type": "number",
-                    "nullable": true
+                    "nullable": true,
+                    "description": "Client longitude. Required for TRAVEL_ZONE; must be omitted for PHYSICAL/VIRTUAL.",
+                    "example": -79.3832
+                  },
+                  "address": {
+                    "type": "object",
+                    "nullable": true,
+                    "properties": {
+                      "addressOneLine": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Full formatted address on one line.",
+                        "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                      },
+                      "streetNumber": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Street/house number.",
+                        "example": "100"
+                      },
+                      "streetName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Street name.",
+                        "example": "Queen St W"
+                      },
+                      "city": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "City.",
+                        "example": "Toronto"
+                      },
+                      "state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "State or province.",
+                        "example": "ON"
+                      },
+                      "country": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "ISO 3166-1 alpha-2 country code.",
+                        "example": "CA"
+                      },
+                      "zipCode": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Postal/ZIP code (any format).",
+                        "example": "M5H 2N2"
+                      },
+                      "unitNumber": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Unit/apartment number, if any.",
+                        "example": "4B"
+                      }
+                    },
+                    "required": [
+                      "addressOneLine",
+                      "streetNumber",
+                      "streetName",
+                      "city",
+                      "state",
+                      "country",
+                      "zipCode"
+                    ],
+                    "description": "Structured client address. Required for TRAVEL_ZONE bookings."
                   },
                   "capacity": {
                     "type": "integer",
                     "minimum": 0,
                     "exclusiveMinimum": true,
-                    "default": 1
+                    "default": 1,
+                    "description": "Max participants for this booking.",
+                    "example": 1
                   },
                   "services": {
                     "type": "array",
@@ -112,11 +197,15 @@
                       "properties": {
                         "serviceId": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "The service being booked.",
+                          "example": "srv_01kv60qg12e82acr78edfnjhvv"
                         },
                         "offeringId": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "The specific offering (variant) of the service.",
+                          "example": "off_01kv60qge5eh59ap0gw0pqrrys"
                         },
                         "businessModelType": {
                           "type": "string",
@@ -126,21 +215,29 @@
                             "SCHEDULED_PACKAGE",
                             "SCHEDULED_SUBSCRIPTION",
                             "FLEXIBLE_SUBSCRIPTION"
-                          ]
+                          ],
+                          "description": "How the service is sold (e.g. SINGLE_BOOKING).",
+                          "example": "SINGLE_BOOKING"
                         },
                         "quantity": {
                           "type": "integer",
                           "minimum": 0,
                           "exclusiveMinimum": true,
-                          "default": 1
+                          "default": 1,
+                          "description": "How many units of the order item this line draws down.",
+                          "example": 1
                         },
                         "orderId": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "The order that paid for this line.",
+                          "example": "ord_01kx16ek2jf4r9da74adf6m4h0"
                         },
                         "orderItemId": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "The specific order item (SINGLE_SESSION) to draw down.",
+                          "example": "oi_01kx16ek2kf2fsc9x7b2n1dfc9"
                         }
                       },
                       "required": [
@@ -151,7 +248,8 @@
                         "orderItemId"
                       ]
                     },
-                    "minItems": 1
+                    "minItems": 1,
+                    "description": "One line per service booked; each draws down an order item."
                   },
                   "notes": {
                     "type": "array",
@@ -179,7 +277,8 @@
                         "noteText"
                       ]
                     },
-                    "default": []
+                    "default": [],
+                    "description": "Optional notes attached to the booking."
                   }
                 },
                 "required": [
@@ -278,6 +377,69 @@
                         "longitude": {
                           "type": "number",
                           "nullable": true
+                        },
+                        "address": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "addressOneLine": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Full formatted address on one line.",
+                              "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                            },
+                            "streetNumber": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Street/house number.",
+                              "example": "100"
+                            },
+                            "streetName": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Street name.",
+                              "example": "Queen St W"
+                            },
+                            "city": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "City.",
+                              "example": "Toronto"
+                            },
+                            "state": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "State or province.",
+                              "example": "ON"
+                            },
+                            "country": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "ISO 3166-1 alpha-2 country code.",
+                              "example": "CA"
+                            },
+                            "zipCode": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Postal/ZIP code (any format).",
+                              "example": "M5H 2N2"
+                            },
+                            "unitNumber": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Unit/apartment number, if any.",
+                              "example": "4B"
+                            }
+                          },
+                          "required": [
+                            "addressOneLine",
+                            "streetNumber",
+                            "streetName",
+                            "city",
+                            "state",
+                            "country",
+                            "zipCode"
+                          ]
                         },
                         "capacity": {
                           "type": "integer",
@@ -378,6 +540,7 @@
                         "locationId",
                         "latitude",
                         "longitude",
+                        "address",
                         "capacity",
                         "participantCount",
                         "waitlistCount",
@@ -642,6 +805,69 @@
                             "type": "number",
                             "nullable": true
                           },
+                          "address": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "addressOneLine": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Full formatted address on one line.",
+                                "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                              },
+                              "streetNumber": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Street/house number.",
+                                "example": "100"
+                              },
+                              "streetName": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Street name.",
+                                "example": "Queen St W"
+                              },
+                              "city": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "City.",
+                                "example": "Toronto"
+                              },
+                              "state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "State or province.",
+                                "example": "ON"
+                              },
+                              "country": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "ISO 3166-1 alpha-2 country code.",
+                                "example": "CA"
+                              },
+                              "zipCode": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Postal/ZIP code (any format).",
+                                "example": "M5H 2N2"
+                              },
+                              "unitNumber": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Unit/apartment number, if any.",
+                                "example": "4B"
+                              }
+                            },
+                            "required": [
+                              "addressOneLine",
+                              "streetNumber",
+                              "streetName",
+                              "city",
+                              "state",
+                              "country",
+                              "zipCode"
+                            ]
+                          },
                           "capacity": {
                             "type": "integer",
                             "minimum": 0,
@@ -741,6 +967,7 @@
                           "locationId",
                           "latitude",
                           "longitude",
+                          "address",
                           "capacity",
                           "participantCount",
                           "waitlistCount",
@@ -947,6 +1174,69 @@
                           "type": "number",
                           "nullable": true
                         },
+                        "address": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "addressOneLine": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Full formatted address on one line.",
+                              "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                            },
+                            "streetNumber": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Street/house number.",
+                              "example": "100"
+                            },
+                            "streetName": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Street name.",
+                              "example": "Queen St W"
+                            },
+                            "city": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "City.",
+                              "example": "Toronto"
+                            },
+                            "state": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "State or province.",
+                              "example": "ON"
+                            },
+                            "country": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "ISO 3166-1 alpha-2 country code.",
+                              "example": "CA"
+                            },
+                            "zipCode": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Postal/ZIP code (any format).",
+                              "example": "M5H 2N2"
+                            },
+                            "unitNumber": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Unit/apartment number, if any.",
+                              "example": "4B"
+                            }
+                          },
+                          "required": [
+                            "addressOneLine",
+                            "streetNumber",
+                            "streetName",
+                            "city",
+                            "state",
+                            "country",
+                            "zipCode"
+                          ]
+                        },
                         "capacity": {
                           "type": "integer",
                           "minimum": 0,
@@ -1046,6 +1336,7 @@
                         "locationId",
                         "latitude",
                         "longitude",
+                        "address",
                         "capacity",
                         "participantCount",
                         "waitlistCount",
@@ -1191,6 +1482,69 @@
                     "type": "number",
                     "nullable": true
                   },
+                  "address": {
+                    "type": "object",
+                    "nullable": true,
+                    "properties": {
+                      "addressOneLine": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Full formatted address on one line.",
+                        "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                      },
+                      "streetNumber": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Street/house number.",
+                        "example": "100"
+                      },
+                      "streetName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Street name.",
+                        "example": "Queen St W"
+                      },
+                      "city": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "City.",
+                        "example": "Toronto"
+                      },
+                      "state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "State or province.",
+                        "example": "ON"
+                      },
+                      "country": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "ISO 3166-1 alpha-2 country code.",
+                        "example": "CA"
+                      },
+                      "zipCode": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Postal/ZIP code (any format).",
+                        "example": "M5H 2N2"
+                      },
+                      "unitNumber": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Unit/apartment number, if any.",
+                        "example": "4B"
+                      }
+                    },
+                    "required": [
+                      "addressOneLine",
+                      "streetNumber",
+                      "streetName",
+                      "city",
+                      "state",
+                      "country",
+                      "zipCode"
+                    ]
+                  },
                   "capacity": {
                     "type": "integer",
                     "minimum": 0,
@@ -1285,6 +1639,69 @@
                         "longitude": {
                           "type": "number",
                           "nullable": true
+                        },
+                        "address": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "addressOneLine": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Full formatted address on one line.",
+                              "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                            },
+                            "streetNumber": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Street/house number.",
+                              "example": "100"
+                            },
+                            "streetName": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Street name.",
+                              "example": "Queen St W"
+                            },
+                            "city": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "City.",
+                              "example": "Toronto"
+                            },
+                            "state": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "State or province.",
+                              "example": "ON"
+                            },
+                            "country": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "ISO 3166-1 alpha-2 country code.",
+                              "example": "CA"
+                            },
+                            "zipCode": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Postal/ZIP code (any format).",
+                              "example": "M5H 2N2"
+                            },
+                            "unitNumber": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Unit/apartment number, if any.",
+                              "example": "4B"
+                            }
+                          },
+                          "required": [
+                            "addressOneLine",
+                            "streetNumber",
+                            "streetName",
+                            "city",
+                            "state",
+                            "country",
+                            "zipCode"
+                          ]
                         },
                         "capacity": {
                           "type": "integer",
@@ -1385,6 +1802,7 @@
                         "locationId",
                         "latitude",
                         "longitude",
+                        "address",
                         "capacity",
                         "participantCount",
                         "waitlistCount",
@@ -1745,6 +2163,69 @@
                               "type": "number",
                               "nullable": true
                             },
+                            "address": {
+                              "type": "object",
+                              "nullable": true,
+                              "properties": {
+                                "addressOneLine": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "Full formatted address on one line.",
+                                  "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                },
+                                "streetNumber": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "Street/house number.",
+                                  "example": "100"
+                                },
+                                "streetName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "Street name.",
+                                  "example": "Queen St W"
+                                },
+                                "city": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "City.",
+                                  "example": "Toronto"
+                                },
+                                "state": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "State or province.",
+                                  "example": "ON"
+                                },
+                                "country": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "ISO 3166-1 alpha-2 country code.",
+                                  "example": "CA"
+                                },
+                                "zipCode": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "Postal/ZIP code (any format).",
+                                  "example": "M5H 2N2"
+                                },
+                                "unitNumber": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "description": "Unit/apartment number, if any.",
+                                  "example": "4B"
+                                }
+                              },
+                              "required": [
+                                "addressOneLine",
+                                "streetNumber",
+                                "streetName",
+                                "city",
+                                "state",
+                                "country",
+                                "zipCode"
+                              ]
+                            },
                             "capacity": {
                               "type": "integer",
                               "minimum": 0,
@@ -1844,6 +2325,7 @@
                             "locationId",
                             "latitude",
                             "longitude",
+                            "address",
                             "capacity",
                             "participantCount",
                             "waitlistCount",
@@ -2507,6 +2989,69 @@
                           "type": "number",
                           "nullable": true
                         },
+                        "address": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "addressOneLine": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Full formatted address on one line.",
+                              "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                            },
+                            "streetNumber": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Street/house number.",
+                              "example": "100"
+                            },
+                            "streetName": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Street name.",
+                              "example": "Queen St W"
+                            },
+                            "city": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "City.",
+                              "example": "Toronto"
+                            },
+                            "state": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "State or province.",
+                              "example": "ON"
+                            },
+                            "country": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "ISO 3166-1 alpha-2 country code.",
+                              "example": "CA"
+                            },
+                            "zipCode": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Postal/ZIP code (any format).",
+                              "example": "M5H 2N2"
+                            },
+                            "unitNumber": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Unit/apartment number, if any.",
+                              "example": "4B"
+                            }
+                          },
+                          "required": [
+                            "addressOneLine",
+                            "streetNumber",
+                            "streetName",
+                            "city",
+                            "state",
+                            "country",
+                            "zipCode"
+                          ]
+                        },
                         "capacity": {
                           "type": "integer",
                           "minimum": 0,
@@ -2606,6 +3151,7 @@
                         "locationId",
                         "latitude",
                         "longitude",
+                        "address",
                         "capacity",
                         "participantCount",
                         "waitlistCount",
@@ -2902,6 +3448,69 @@
                             "type": "number",
                             "nullable": true
                           },
+                          "address": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "addressOneLine": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Full formatted address on one line.",
+                                "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                              },
+                              "streetNumber": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Street/house number.",
+                                "example": "100"
+                              },
+                              "streetName": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Street name.",
+                                "example": "Queen St W"
+                              },
+                              "city": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "City.",
+                                "example": "Toronto"
+                              },
+                              "state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "State or province.",
+                                "example": "ON"
+                              },
+                              "country": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "ISO 3166-1 alpha-2 country code.",
+                                "example": "CA"
+                              },
+                              "zipCode": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Postal/ZIP code (any format).",
+                                "example": "M5H 2N2"
+                              },
+                              "unitNumber": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Unit/apartment number, if any.",
+                                "example": "4B"
+                              }
+                            },
+                            "required": [
+                              "addressOneLine",
+                              "streetNumber",
+                              "streetName",
+                              "city",
+                              "state",
+                              "country",
+                              "zipCode"
+                            ]
+                          },
                           "capacity": {
                             "type": "integer",
                             "minimum": 0,
@@ -3001,6 +3610,7 @@
                           "locationId",
                           "latitude",
                           "longitude",
+                          "address",
                           "capacity",
                           "participantCount",
                           "waitlistCount",
@@ -3261,6 +3871,69 @@
                             "type": "number",
                             "nullable": true
                           },
+                          "address": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "addressOneLine": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Full formatted address on one line.",
+                                "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                              },
+                              "streetNumber": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Street/house number.",
+                                "example": "100"
+                              },
+                              "streetName": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Street name.",
+                                "example": "Queen St W"
+                              },
+                              "city": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "City.",
+                                "example": "Toronto"
+                              },
+                              "state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "State or province.",
+                                "example": "ON"
+                              },
+                              "country": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "ISO 3166-1 alpha-2 country code.",
+                                "example": "CA"
+                              },
+                              "zipCode": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Postal/ZIP code (any format).",
+                                "example": "M5H 2N2"
+                              },
+                              "unitNumber": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Unit/apartment number, if any.",
+                                "example": "4B"
+                              }
+                            },
+                            "required": [
+                              "addressOneLine",
+                              "streetNumber",
+                              "streetName",
+                              "city",
+                              "state",
+                              "country",
+                              "zipCode"
+                            ]
+                          },
                           "capacity": {
                             "type": "integer",
                             "minimum": 0,
@@ -3360,6 +4033,7 @@
                           "locationId",
                           "latitude",
                           "longitude",
+                          "address",
                           "capacity",
                           "participantCount",
                           "waitlistCount",
@@ -5023,6 +5697,7 @@
           "Orders"
         ],
         "summary": "Create a new order",
+        "description": "Creates an order (a cart/purchase record). For a package, add an item with { skuType: \"PACKAGE\", packageId } — the server derives service, offering, session count (creditCount), price and expiry from the package. For a single session use { skuType: \"SINGLE_SESSION\", serviceId, offeringId, quantity }. The order item is the credit ledger: its quantityRemaining is what bookings draw down. Currency is fixed at creation.",
         "parameters": [
           {
             "schema": {
@@ -5044,12 +5719,16 @@
                 "properties": {
                   "clientId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "The client placing the order.",
+                    "example": "clt_dolphin_web"
                   },
                   "currency": {
                     "type": "string",
                     "minLength": 3,
-                    "maxLength": 3
+                    "maxLength": 3,
+                    "description": "ISO 4217 currency, set at creation and immutable for the order.",
+                    "example": "CAD"
                   },
                   "items": {
                     "type": "array",
@@ -5064,30 +5743,41 @@
                             "SUBSCRIPTION",
                             "MEMBERSHIP",
                             "DEPOSIT"
-                          ]
+                          ],
+                          "description": "What kind of line this is: SINGLE_SESSION, PACKAGE, SUBSCRIPTION, MEMBERSHIP, or DEPOSIT.",
+                          "example": "PACKAGE"
                         },
                         "packageId": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "Required for PACKAGE items. serviceId, offeringId, session count, price and expiry are all derived from the package.",
+                          "example": "pkg_01kv7n10k0fnptwk81wkm59vj7"
                         },
                         "serviceId": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "Required for SINGLE_SESSION items.",
+                          "example": "srv_01kv60qg12e82acr78edfnjhvv"
                         },
                         "offeringId": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "Required for SINGLE_SESSION items.",
+                          "example": "off_01kv60qge5eh59ap0gw0pqrrys"
                         },
                         "quantity": {
                           "type": "integer",
-                          "minimum": 1
+                          "minimum": 1,
+                          "description": "Units to purchase (SINGLE_SESSION).",
+                          "example": 1
                         }
                       },
                       "required": [
                         "skuType"
                       ]
                     },
-                    "default": []
+                    "default": [],
+                    "description": "Line items to purchase."
                   }
                 },
                 "required": [
@@ -10272,6 +10962,7 @@
           "Orders"
         ],
         "summary": "Create N package sessions atomically (or best-effort) from one PACKAGE order item",
+        "description": "Books all sessions of a package against one PACKAGE order item. Provide exactly one source: slateId (book a whole slate — recommended; the server resolves times/supplier/location and fills the travel-zone location itself), slotIds (cherry-pick), or sessions (explicit). Booking does NOT require the order to be paid — credits exist from order creation. Note: this response is NOT wrapped in a { data } envelope, and created[].sessionIndex is 0-based. Returns 409 with freshSuggestions if a chosen slot went stale.",
         "parameters": [
           {
             "schema": {
@@ -10302,11 +10993,15 @@
                 "properties": {
                   "orderItemId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "The PACKAGE order item to draw down. All N sessions decrement its quantityRemaining.",
+                    "example": "oi_01kx16ek2kf2fsc9x7b2n1dfc9"
                   },
                   "idempotencyKey": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "Idempotency key that makes retry attempts safe; reusing it returns the original result.",
+                    "example": "a3f1c2e4-5b6d-4e7f-8a9b-0c1d2e3f4a5b"
                   },
                   "atomicity": {
                     "type": "string",
@@ -10314,7 +11009,9 @@
                       "all_or_nothing",
                       "best_effort"
                     ],
-                    "default": "all_or_nothing"
+                    "default": "all_or_nothing",
+                    "description": "all_or_nothing (default, one transaction, max 20 sessions) or best_effort (per-session; requires project opt-in).",
+                    "example": "all_or_nothing"
                   },
                   "sessions": {
                     "type": "array",
@@ -10358,6 +11055,69 @@
                           "type": "number",
                           "nullable": true
                         },
+                        "address": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "addressOneLine": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Full formatted address on one line.",
+                              "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                            },
+                            "streetNumber": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Street/house number.",
+                              "example": "100"
+                            },
+                            "streetName": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Street name.",
+                              "example": "Queen St W"
+                            },
+                            "city": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "City.",
+                              "example": "Toronto"
+                            },
+                            "state": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "State or province.",
+                              "example": "ON"
+                            },
+                            "country": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "ISO 3166-1 alpha-2 country code.",
+                              "example": "CA"
+                            },
+                            "zipCode": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "Postal/ZIP code (any format).",
+                              "example": "M5H 2N2"
+                            },
+                            "unitNumber": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Unit/apartment number, if any.",
+                              "example": "4B"
+                            }
+                          },
+                          "required": [
+                            "addressOneLine",
+                            "streetNumber",
+                            "streetName",
+                            "city",
+                            "state",
+                            "country",
+                            "zipCode"
+                          ]
+                        },
                         "services": {
                           "type": "array",
                           "items": {
@@ -10389,11 +11149,14 @@
                         "services"
                       ]
                     },
-                    "minItems": 1
+                    "minItems": 1,
+                    "description": "Explicit, client-supplied sessions (advanced). Prefer slateId. Provide exactly one of sessions, slateId, or slotIds."
                   },
                   "slateId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "Book an entire persisted slate by id (recommended). The server resolves every session; send no session details.",
+                    "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                   },
                   "slotIds": {
                     "type": "array",
@@ -10401,7 +11164,11 @@
                       "type": "string",
                       "minLength": 1
                     },
-                    "minItems": 1
+                    "minItems": 1,
+                    "description": "Cherry-pick specific persisted slots by id. Provide exactly one of sessions, slateId, or slotIds.",
+                    "example": [
+                      "slot_01kx16ejsrfs7tf3edy19wdsf8"
+                    ]
                   }
                 },
                 "required": [
@@ -10457,7 +11224,8 @@
                           "bookingId",
                           "allocationId"
                         ]
-                      }
+                      },
+                      "description": "Bookings created, each with a 0-based sessionIndex, bookingId and allocationId."
                     },
                     "failed": {
                       "type": "array",
@@ -10476,11 +11244,13 @@
                           "sessionIndex",
                           "reason"
                         ]
-                      }
+                      },
+                      "description": "Per-session failures (best_effort only)."
                     },
                     "quantityRemaining": {
                       "type": "integer",
-                      "minimum": 0
+                      "minimum": 0,
+                      "description": "Credits left on the order item after this call."
                     }
                   },
                   "required": [
@@ -10763,6 +11533,69 @@
                             "type": "number",
                             "nullable": true
                           },
+                          "address": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "addressOneLine": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Full formatted address on one line.",
+                                "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                              },
+                              "streetNumber": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Street/house number.",
+                                "example": "100"
+                              },
+                              "streetName": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Street name.",
+                                "example": "Queen St W"
+                              },
+                              "city": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "City.",
+                                "example": "Toronto"
+                              },
+                              "state": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "State or province.",
+                                "example": "ON"
+                              },
+                              "country": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "ISO 3166-1 alpha-2 country code.",
+                                "example": "CA"
+                              },
+                              "zipCode": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Postal/ZIP code (any format).",
+                                "example": "M5H 2N2"
+                              },
+                              "unitNumber": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Unit/apartment number, if any.",
+                                "example": "4B"
+                              }
+                            },
+                            "required": [
+                              "addressOneLine",
+                              "streetNumber",
+                              "streetName",
+                              "city",
+                              "state",
+                              "country",
+                              "zipCode"
+                            ]
+                          },
                           "capacity": {
                             "type": "integer",
                             "minimum": 0,
@@ -10862,6 +11695,7 @@
                           "locationId",
                           "latitude",
                           "longitude",
+                          "address",
                           "capacity",
                           "participantCount",
                           "waitlistCount",
@@ -11081,7 +11915,8 @@
                           "bookingId",
                           "allocationId"
                         ]
-                      }
+                      },
+                      "description": "Bookings created, each with a 0-based sessionIndex, bookingId and allocationId."
                     },
                     "failed": {
                       "type": "array",
@@ -11100,11 +11935,13 @@
                           "sessionIndex",
                           "reason"
                         ]
-                      }
+                      },
+                      "description": "Per-session failures (best_effort only)."
                     },
                     "quantityRemaining": {
                       "type": "integer",
-                      "minimum": 0
+                      "minimum": 0,
+                      "description": "Credits left on the order item after this call."
                     }
                   },
                   "required": [
@@ -11227,7 +12064,8 @@
                             "OK",
                             "NO_COMPLETE_SLATE",
                             "NO_AVAILABILITY"
-                          ]
+                          ],
+                          "description": "OK, NO_COMPLETE_SLATE, or NO_AVAILABILITY."
                         },
                         "reason": {
                           "type": "string",
@@ -11235,7 +12073,8 @@
                         },
                         "suggestionRequestId": {
                           "type": "string",
-                          "nullable": true
+                          "nullable": true,
+                          "description": "Audit id for this suggestion request (present when persisted)."
                         },
                         "resolvableUntil": {
                           "type": "string",
@@ -11247,9 +12086,11 @@
                           "nullable": true,
                           "properties": {
                             "slateId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                              "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                             },
-                            "providerId": {
+                            "supplierId": {
                               "type": "string"
                             },
                             "completeness": {
@@ -11262,11 +12103,13 @@
                             "sessionsRequested": {
                               "type": "integer",
                               "minimum": 0,
-                              "exclusiveMinimum": true
+                              "exclusiveMinimum": true,
+                              "description": "How many sessions were requested (the package's creditCount)."
                             },
                             "sessionsFilled": {
                               "type": "integer",
-                              "minimum": 0
+                              "minimum": 0,
+                              "description": "How many of the requested sessions the plan could fill."
                             },
                             "startTimeConsistencyPercent": {
                               "type": "number",
@@ -11283,14 +12126,16 @@
                                 "type": "object",
                                 "properties": {
                                   "slotId": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                                   },
                                   "sessionIndex": {
                                     "type": "integer",
                                     "minimum": 0,
-                                    "exclusiveMinimum": true
+                                    "exclusiveMinimum": true,
+                                    "description": "1-based index of this session within the slate."
                                   },
-                                  "providerId": {
+                                  "supplierId": {
                                     "type": "string"
                                   },
                                   "serviceId": {
@@ -11330,6 +12175,69 @@
                                     "type": "number",
                                     "nullable": true
                                   },
+                                  "address": {
+                                    "type": "object",
+                                    "nullable": true,
+                                    "properties": {
+                                      "addressOneLine": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Full formatted address on one line.",
+                                        "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                      },
+                                      "streetNumber": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street/house number.",
+                                        "example": "100"
+                                      },
+                                      "streetName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street name.",
+                                        "example": "Queen St W"
+                                      },
+                                      "city": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "City.",
+                                        "example": "Toronto"
+                                      },
+                                      "state": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "State or province.",
+                                        "example": "ON"
+                                      },
+                                      "country": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "ISO 3166-1 alpha-2 country code.",
+                                        "example": "CA"
+                                      },
+                                      "zipCode": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Postal/ZIP code (any format).",
+                                        "example": "M5H 2N2"
+                                      },
+                                      "unitNumber": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "description": "Unit/apartment number, if any.",
+                                        "example": "4B"
+                                      }
+                                    },
+                                    "required": [
+                                      "addressOneLine",
+                                      "streetNumber",
+                                      "streetName",
+                                      "city",
+                                      "state",
+                                      "country",
+                                      "zipCode"
+                                    ]
+                                  },
                                   "travelTimeMins": {
                                     "type": "number",
                                     "nullable": true,
@@ -11353,7 +12261,7 @@
                                 "required": [
                                   "slotId",
                                   "sessionIndex",
-                                  "providerId",
+                                  "supplierId",
                                   "serviceId",
                                   "offeringId",
                                   "bookingStartUtc",
@@ -11363,6 +12271,7 @@
                                   "locationId",
                                   "latitude",
                                   "longitude",
+                                  "address",
                                   "travelTimeMins",
                                   "capacity",
                                   "reservationStatus"
@@ -11372,14 +12281,15 @@
                           },
                           "required": [
                             "slateId",
-                            "providerId",
+                            "supplierId",
                             "completeness",
                             "sessionsRequested",
                             "sessionsFilled",
                             "startTimeConsistencyPercent",
                             "totalTravelTimeMins",
                             "slots"
-                          ]
+                          ],
+                          "description": "The best COMPLETE single-supplier slate; book this by slateId."
                         },
                         "alternates": {
                           "type": "array",
@@ -11387,9 +12297,11 @@
                             "type": "object",
                             "properties": {
                               "slateId": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                               },
-                              "providerId": {
+                              "supplierId": {
                                 "type": "string"
                               },
                               "completeness": {
@@ -11402,11 +12314,13 @@
                               "sessionsRequested": {
                                 "type": "integer",
                                 "minimum": 0,
-                                "exclusiveMinimum": true
+                                "exclusiveMinimum": true,
+                                "description": "How many sessions were requested (the package's creditCount)."
                               },
                               "sessionsFilled": {
                                 "type": "integer",
-                                "minimum": 0
+                                "minimum": 0,
+                                "description": "How many of the requested sessions the plan could fill."
                               },
                               "startTimeConsistencyPercent": {
                                 "type": "number",
@@ -11423,14 +12337,16 @@
                                   "type": "object",
                                   "properties": {
                                     "slotId": {
-                                      "type": "string"
+                                      "type": "string",
+                                      "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                                     },
                                     "sessionIndex": {
                                       "type": "integer",
                                       "minimum": 0,
-                                      "exclusiveMinimum": true
+                                      "exclusiveMinimum": true,
+                                      "description": "1-based index of this session within the slate."
                                     },
-                                    "providerId": {
+                                    "supplierId": {
                                       "type": "string"
                                     },
                                     "serviceId": {
@@ -11470,6 +12386,69 @@
                                       "type": "number",
                                       "nullable": true
                                     },
+                                    "address": {
+                                      "type": "object",
+                                      "nullable": true,
+                                      "properties": {
+                                        "addressOneLine": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Full formatted address on one line.",
+                                          "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                        },
+                                        "streetNumber": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Street/house number.",
+                                          "example": "100"
+                                        },
+                                        "streetName": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Street name.",
+                                          "example": "Queen St W"
+                                        },
+                                        "city": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "City.",
+                                          "example": "Toronto"
+                                        },
+                                        "state": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "State or province.",
+                                          "example": "ON"
+                                        },
+                                        "country": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "ISO 3166-1 alpha-2 country code.",
+                                          "example": "CA"
+                                        },
+                                        "zipCode": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Postal/ZIP code (any format).",
+                                          "example": "M5H 2N2"
+                                        },
+                                        "unitNumber": {
+                                          "type": "string",
+                                          "nullable": true,
+                                          "description": "Unit/apartment number, if any.",
+                                          "example": "4B"
+                                        }
+                                      },
+                                      "required": [
+                                        "addressOneLine",
+                                        "streetNumber",
+                                        "streetName",
+                                        "city",
+                                        "state",
+                                        "country",
+                                        "zipCode"
+                                      ]
+                                    },
                                     "travelTimeMins": {
                                       "type": "number",
                                       "nullable": true,
@@ -11493,7 +12472,7 @@
                                   "required": [
                                     "slotId",
                                     "sessionIndex",
-                                    "providerId",
+                                    "supplierId",
                                     "serviceId",
                                     "offeringId",
                                     "bookingStartUtc",
@@ -11503,6 +12482,7 @@
                                     "locationId",
                                     "latitude",
                                     "longitude",
+                                    "address",
                                     "travelTimeMins",
                                     "capacity",
                                     "reservationStatus"
@@ -11512,7 +12492,7 @@
                             },
                             "required": [
                               "slateId",
-                              "providerId",
+                              "supplierId",
                               "completeness",
                               "sessionsRequested",
                               "sessionsFilled",
@@ -11527,9 +12507,11 @@
                           "nullable": true,
                           "properties": {
                             "slateId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                              "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                             },
-                            "providerId": {
+                            "supplierId": {
                               "type": "string"
                             },
                             "completeness": {
@@ -11542,11 +12524,13 @@
                             "sessionsRequested": {
                               "type": "integer",
                               "minimum": 0,
-                              "exclusiveMinimum": true
+                              "exclusiveMinimum": true,
+                              "description": "How many sessions were requested (the package's creditCount)."
                             },
                             "sessionsFilled": {
                               "type": "integer",
-                              "minimum": 0
+                              "minimum": 0,
+                              "description": "How many of the requested sessions the plan could fill."
                             },
                             "startTimeConsistencyPercent": {
                               "type": "number",
@@ -11563,14 +12547,16 @@
                                 "type": "object",
                                 "properties": {
                                   "slotId": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                                   },
                                   "sessionIndex": {
                                     "type": "integer",
                                     "minimum": 0,
-                                    "exclusiveMinimum": true
+                                    "exclusiveMinimum": true,
+                                    "description": "1-based index of this session within the slate."
                                   },
-                                  "providerId": {
+                                  "supplierId": {
                                     "type": "string"
                                   },
                                   "serviceId": {
@@ -11610,6 +12596,69 @@
                                     "type": "number",
                                     "nullable": true
                                   },
+                                  "address": {
+                                    "type": "object",
+                                    "nullable": true,
+                                    "properties": {
+                                      "addressOneLine": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Full formatted address on one line.",
+                                        "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                      },
+                                      "streetNumber": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street/house number.",
+                                        "example": "100"
+                                      },
+                                      "streetName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street name.",
+                                        "example": "Queen St W"
+                                      },
+                                      "city": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "City.",
+                                        "example": "Toronto"
+                                      },
+                                      "state": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "State or province.",
+                                        "example": "ON"
+                                      },
+                                      "country": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "ISO 3166-1 alpha-2 country code.",
+                                        "example": "CA"
+                                      },
+                                      "zipCode": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Postal/ZIP code (any format).",
+                                        "example": "M5H 2N2"
+                                      },
+                                      "unitNumber": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "description": "Unit/apartment number, if any.",
+                                        "example": "4B"
+                                      }
+                                    },
+                                    "required": [
+                                      "addressOneLine",
+                                      "streetNumber",
+                                      "streetName",
+                                      "city",
+                                      "state",
+                                      "country",
+                                      "zipCode"
+                                    ]
+                                  },
                                   "travelTimeMins": {
                                     "type": "number",
                                     "nullable": true,
@@ -11633,7 +12682,7 @@
                                 "required": [
                                   "slotId",
                                   "sessionIndex",
-                                  "providerId",
+                                  "supplierId",
                                   "serviceId",
                                   "offeringId",
                                   "bookingStartUtc",
@@ -11643,6 +12692,7 @@
                                   "locationId",
                                   "latitude",
                                   "longitude",
+                                  "address",
                                   "travelTimeMins",
                                   "capacity",
                                   "reservationStatus"
@@ -11652,7 +12702,7 @@
                           },
                           "required": [
                             "slateId",
-                            "providerId",
+                            "supplierId",
                             "completeness",
                             "sessionsRequested",
                             "sessionsFilled",
@@ -15132,7 +16182,7 @@
         "tags": [
           "Availability"
         ],
-        "summary": "Generate clustered time slots from providers + engine config",
+        "summary": "Generate clustered time slots from suppliers + engine config",
         "parameters": [
           {
             "schema": {
@@ -15145,7 +16195,7 @@
           }
         ],
         "requestBody": {
-          "description": "Providers + engine config",
+          "description": "Suppliers + engine config",
           "required": true,
           "content": {
             "application/json": {
@@ -15159,12 +16209,12 @@
                       "nullable": true
                     }
                   },
-                  "providers": {
+                  "suppliers": {
                     "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
-                        "providerId": {
+                        "supplierId": {
                           "type": "string"
                         },
                         "maxTravelTimeMins": {
@@ -15275,7 +16325,7 @@
                         }
                       },
                       "required": [
-                        "providerId",
+                        "supplierId",
                         "maxTravelTimeMins",
                         "availability"
                       ]
@@ -15284,7 +16334,7 @@
                 },
                 "required": [
                   "config",
-                  "providers"
+                  "suppliers"
                 ]
               }
             }
@@ -15401,7 +16451,8 @@
         "tags": [
           "Availability"
         ],
-        "summary": "Build a single-provider N-session package slate (policy-driven), persisting suggestions",
+        "summary": "Build a single-supplier N-session package slate (policy-driven), persisting suggestions",
+        "description": "Builds one or more \"slates\" — complete N-session plans for a package — from a single supplier's availability. Pass packageId (session count is derived from its creditCount), a location (locationId, or lat+lng+address for travel zones), a timezone, a lookAheadStartDate with a numeric offset, and an rrule with a bounded COUNT. When persist is true (default) the returned primarySlate.slateId can be booked directly via POST /orders/{orderId}/package-bookings with { slateId }. Returns 422 when nothing is bookable.",
         "parameters": [
           {
             "schema": {
@@ -15423,11 +16474,15 @@
                 "properties": {
                   "packageId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "The package to plan sessions for. serviceId, offeringId and the session count (creditCount) are resolved from it server-side.",
+                    "example": "pkg_01kv7n10k0fnptwk81wkm59vj7"
                   },
                   "locationId": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "Discovery by a stored location id. Provide this OR lat+lng.",
+                    "example": "loc_01kv60qgs4e4nbjhzradnqtj0h"
                   },
                   "lat": {
                     "anyOf": [
@@ -15437,7 +16492,9 @@
                       {
                         "type": "number"
                       }
-                    ]
+                    ],
+                    "description": "Client latitude (travel-zone branch). Provide with lng instead of locationId.",
+                    "example": 43.6532
                   },
                   "lng": {
                     "anyOf": [
@@ -15447,17 +16504,94 @@
                       {
                         "type": "number"
                       }
-                    ]
+                    ],
+                    "description": "Client longitude (travel-zone branch).",
+                    "example": -79.3832
+                  },
+                  "address": {
+                    "type": "object",
+                    "properties": {
+                      "addressOneLine": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Full formatted address on one line.",
+                        "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                      },
+                      "streetNumber": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Street/house number.",
+                        "example": "100"
+                      },
+                      "streetName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Street name.",
+                        "example": "Queen St W"
+                      },
+                      "city": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "City.",
+                        "example": "Toronto"
+                      },
+                      "state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "State or province.",
+                        "example": "ON"
+                      },
+                      "country": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "ISO 3166-1 alpha-2 country code.",
+                        "example": "CA"
+                      },
+                      "zipCode": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Postal/ZIP code (any format).",
+                        "example": "M5H 2N2"
+                      },
+                      "unitNumber": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Unit/apartment number, if any.",
+                        "example": "4B"
+                      }
+                    },
+                    "required": [
+                      "addressOneLine",
+                      "streetNumber",
+                      "streetName",
+                      "city",
+                      "state",
+                      "country",
+                      "zipCode"
+                    ],
+                    "description": "Structured client address. Required on the lat/lng (travel-zone) branch — it is stamped onto every returned slot so a later book-by-id satisfies the TRAVEL_ZONE address rule."
+                  },
+                  "supplierId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Pin the plan to one supplier; only that supplier is considered.",
+                    "example": "sup_01kv60qgnef2kt3pvqgwmkbzfr"
                   },
                   "timezone": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "IANA timezone for the plan.",
+                    "example": "America/Toronto"
                   },
                   "lookAheadStartDate": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "When the recurring window starts. MUST carry a numeric UTC offset (e.g. -04:00), NOT a Z suffix.",
+                    "example": "2026-07-09T00:00:00-04:00"
                   },
                   "rrule": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Cadence for the sessions. MUST include a bounded, positive COUNT.",
+                    "example": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=8"
                   },
                   "lookAheadDays": {
                     "type": "integer",
@@ -15488,11 +16622,15 @@
                   "maxAlternates": {
                     "type": "integer",
                     "minimum": 0,
-                    "default": 3
+                    "default": 3,
+                    "description": "Max runner-up (alternate supplier) slates to return.",
+                    "example": 3
                   },
                   "persist": {
                     "type": "boolean",
-                    "default": true
+                    "default": true,
+                    "description": "Persist the slate so it can be booked later by slateId. Defaults true.",
+                    "example": true
                   }
                 },
                 "required": [
@@ -15504,7 +16642,7 @@
         },
         "responses": {
           "200": {
-            "description": "Primary slate (OK), or NO_COMPLETE_SLATE / NO_AVAILABILITY with a reason",
+            "description": "Primary slate (OK), or a usable partial slate",
             "content": {
               "application/json": {
                 "schema": {
@@ -15516,7 +16654,8 @@
                         "OK",
                         "NO_COMPLETE_SLATE",
                         "NO_AVAILABILITY"
-                      ]
+                      ],
+                      "description": "OK, NO_COMPLETE_SLATE, or NO_AVAILABILITY."
                     },
                     "reason": {
                       "type": "string",
@@ -15524,7 +16663,8 @@
                     },
                     "suggestionRequestId": {
                       "type": "string",
-                      "nullable": true
+                      "nullable": true,
+                      "description": "Audit id for this suggestion request (present when persisted)."
                     },
                     "resolvableUntil": {
                       "type": "string",
@@ -15536,9 +16676,11 @@
                       "nullable": true,
                       "properties": {
                         "slateId": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                          "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                         },
-                        "providerId": {
+                        "supplierId": {
                           "type": "string"
                         },
                         "completeness": {
@@ -15551,11 +16693,13 @@
                         "sessionsRequested": {
                           "type": "integer",
                           "minimum": 0,
-                          "exclusiveMinimum": true
+                          "exclusiveMinimum": true,
+                          "description": "How many sessions were requested (the package's creditCount)."
                         },
                         "sessionsFilled": {
                           "type": "integer",
-                          "minimum": 0
+                          "minimum": 0,
+                          "description": "How many of the requested sessions the plan could fill."
                         },
                         "startTimeConsistencyPercent": {
                           "type": "number",
@@ -15572,14 +16716,16 @@
                             "type": "object",
                             "properties": {
                               "slotId": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                               },
                               "sessionIndex": {
                                 "type": "integer",
                                 "minimum": 0,
-                                "exclusiveMinimum": true
+                                "exclusiveMinimum": true,
+                                "description": "1-based index of this session within the slate."
                               },
-                              "providerId": {
+                              "supplierId": {
                                 "type": "string"
                               },
                               "serviceId": {
@@ -15619,6 +16765,69 @@
                                 "type": "number",
                                 "nullable": true
                               },
+                              "address": {
+                                "type": "object",
+                                "nullable": true,
+                                "properties": {
+                                  "addressOneLine": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Full formatted address on one line.",
+                                    "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                  },
+                                  "streetNumber": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Street/house number.",
+                                    "example": "100"
+                                  },
+                                  "streetName": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Street name.",
+                                    "example": "Queen St W"
+                                  },
+                                  "city": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "City.",
+                                    "example": "Toronto"
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "State or province.",
+                                    "example": "ON"
+                                  },
+                                  "country": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "ISO 3166-1 alpha-2 country code.",
+                                    "example": "CA"
+                                  },
+                                  "zipCode": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Postal/ZIP code (any format).",
+                                    "example": "M5H 2N2"
+                                  },
+                                  "unitNumber": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "description": "Unit/apartment number, if any.",
+                                    "example": "4B"
+                                  }
+                                },
+                                "required": [
+                                  "addressOneLine",
+                                  "streetNumber",
+                                  "streetName",
+                                  "city",
+                                  "state",
+                                  "country",
+                                  "zipCode"
+                                ]
+                              },
                               "travelTimeMins": {
                                 "type": "number",
                                 "nullable": true,
@@ -15642,7 +16851,7 @@
                             "required": [
                               "slotId",
                               "sessionIndex",
-                              "providerId",
+                              "supplierId",
                               "serviceId",
                               "offeringId",
                               "bookingStartUtc",
@@ -15652,6 +16861,7 @@
                               "locationId",
                               "latitude",
                               "longitude",
+                              "address",
                               "travelTimeMins",
                               "capacity",
                               "reservationStatus"
@@ -15661,14 +16871,15 @@
                       },
                       "required": [
                         "slateId",
-                        "providerId",
+                        "supplierId",
                         "completeness",
                         "sessionsRequested",
                         "sessionsFilled",
                         "startTimeConsistencyPercent",
                         "totalTravelTimeMins",
                         "slots"
-                      ]
+                      ],
+                      "description": "The best COMPLETE single-supplier slate; book this by slateId."
                     },
                     "alternates": {
                       "type": "array",
@@ -15676,9 +16887,11 @@
                         "type": "object",
                         "properties": {
                           "slateId": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                            "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                           },
-                          "providerId": {
+                          "supplierId": {
                             "type": "string"
                           },
                           "completeness": {
@@ -15691,11 +16904,13 @@
                           "sessionsRequested": {
                             "type": "integer",
                             "minimum": 0,
-                            "exclusiveMinimum": true
+                            "exclusiveMinimum": true,
+                            "description": "How many sessions were requested (the package's creditCount)."
                           },
                           "sessionsFilled": {
                             "type": "integer",
-                            "minimum": 0
+                            "minimum": 0,
+                            "description": "How many of the requested sessions the plan could fill."
                           },
                           "startTimeConsistencyPercent": {
                             "type": "number",
@@ -15712,14 +16927,16 @@
                               "type": "object",
                               "properties": {
                                 "slotId": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                                 },
                                 "sessionIndex": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "exclusiveMinimum": true
+                                  "exclusiveMinimum": true,
+                                  "description": "1-based index of this session within the slate."
                                 },
-                                "providerId": {
+                                "supplierId": {
                                   "type": "string"
                                 },
                                 "serviceId": {
@@ -15759,6 +16976,69 @@
                                   "type": "number",
                                   "nullable": true
                                 },
+                                "address": {
+                                  "type": "object",
+                                  "nullable": true,
+                                  "properties": {
+                                    "addressOneLine": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "description": "Full formatted address on one line.",
+                                      "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                    },
+                                    "streetNumber": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "description": "Street/house number.",
+                                      "example": "100"
+                                    },
+                                    "streetName": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "description": "Street name.",
+                                      "example": "Queen St W"
+                                    },
+                                    "city": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "description": "City.",
+                                      "example": "Toronto"
+                                    },
+                                    "state": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "description": "State or province.",
+                                      "example": "ON"
+                                    },
+                                    "country": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "description": "ISO 3166-1 alpha-2 country code.",
+                                      "example": "CA"
+                                    },
+                                    "zipCode": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "description": "Postal/ZIP code (any format).",
+                                      "example": "M5H 2N2"
+                                    },
+                                    "unitNumber": {
+                                      "type": "string",
+                                      "nullable": true,
+                                      "description": "Unit/apartment number, if any.",
+                                      "example": "4B"
+                                    }
+                                  },
+                                  "required": [
+                                    "addressOneLine",
+                                    "streetNumber",
+                                    "streetName",
+                                    "city",
+                                    "state",
+                                    "country",
+                                    "zipCode"
+                                  ]
+                                },
                                 "travelTimeMins": {
                                   "type": "number",
                                   "nullable": true,
@@ -15782,7 +17062,7 @@
                               "required": [
                                 "slotId",
                                 "sessionIndex",
-                                "providerId",
+                                "supplierId",
                                 "serviceId",
                                 "offeringId",
                                 "bookingStartUtc",
@@ -15792,6 +17072,7 @@
                                 "locationId",
                                 "latitude",
                                 "longitude",
+                                "address",
                                 "travelTimeMins",
                                 "capacity",
                                 "reservationStatus"
@@ -15801,7 +17082,7 @@
                         },
                         "required": [
                           "slateId",
-                          "providerId",
+                          "supplierId",
                           "completeness",
                           "sessionsRequested",
                           "sessionsFilled",
@@ -15816,9 +17097,11 @@
                       "nullable": true,
                       "properties": {
                         "slateId": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                          "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                         },
-                        "providerId": {
+                        "supplierId": {
                           "type": "string"
                         },
                         "completeness": {
@@ -15831,11 +17114,13 @@
                         "sessionsRequested": {
                           "type": "integer",
                           "minimum": 0,
-                          "exclusiveMinimum": true
+                          "exclusiveMinimum": true,
+                          "description": "How many sessions were requested (the package's creditCount)."
                         },
                         "sessionsFilled": {
                           "type": "integer",
-                          "minimum": 0
+                          "minimum": 0,
+                          "description": "How many of the requested sessions the plan could fill."
                         },
                         "startTimeConsistencyPercent": {
                           "type": "number",
@@ -15852,14 +17137,16 @@
                             "type": "object",
                             "properties": {
                               "slotId": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                               },
                               "sessionIndex": {
                                 "type": "integer",
                                 "minimum": 0,
-                                "exclusiveMinimum": true
+                                "exclusiveMinimum": true,
+                                "description": "1-based index of this session within the slate."
                               },
-                              "providerId": {
+                              "supplierId": {
                                 "type": "string"
                               },
                               "serviceId": {
@@ -15899,6 +17186,69 @@
                                 "type": "number",
                                 "nullable": true
                               },
+                              "address": {
+                                "type": "object",
+                                "nullable": true,
+                                "properties": {
+                                  "addressOneLine": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Full formatted address on one line.",
+                                    "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                  },
+                                  "streetNumber": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Street/house number.",
+                                    "example": "100"
+                                  },
+                                  "streetName": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Street name.",
+                                    "example": "Queen St W"
+                                  },
+                                  "city": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "City.",
+                                    "example": "Toronto"
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "State or province.",
+                                    "example": "ON"
+                                  },
+                                  "country": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "ISO 3166-1 alpha-2 country code.",
+                                    "example": "CA"
+                                  },
+                                  "zipCode": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Postal/ZIP code (any format).",
+                                    "example": "M5H 2N2"
+                                  },
+                                  "unitNumber": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "description": "Unit/apartment number, if any.",
+                                    "example": "4B"
+                                  }
+                                },
+                                "required": [
+                                  "addressOneLine",
+                                  "streetNumber",
+                                  "streetName",
+                                  "city",
+                                  "state",
+                                  "country",
+                                  "zipCode"
+                                ]
+                              },
                               "travelTimeMins": {
                                 "type": "number",
                                 "nullable": true,
@@ -15922,7 +17272,7 @@
                             "required": [
                               "slotId",
                               "sessionIndex",
-                              "providerId",
+                              "supplierId",
                               "serviceId",
                               "offeringId",
                               "bookingStartUtc",
@@ -15932,6 +17282,7 @@
                               "locationId",
                               "latitude",
                               "longitude",
+                              "address",
                               "travelTimeMins",
                               "capacity",
                               "reservationStatus"
@@ -15941,7 +17292,7 @@
                       },
                       "required": [
                         "slateId",
-                        "providerId",
+                        "supplierId",
                         "completeness",
                         "sessionsRequested",
                         "sessionsFilled",
@@ -16008,6 +17359,27 @@
           },
           "403": {
             "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No complete or bookable slate (code: NO_COMPLETE_SLATE | NO_AVAILABILITY)",
             "content": {
               "application/json": {
                 "schema": {
@@ -16210,7 +17582,8 @@
                             "OK",
                             "NO_COMPLETE_SLATE",
                             "NO_AVAILABILITY"
-                          ]
+                          ],
+                          "description": "OK, NO_COMPLETE_SLATE, or NO_AVAILABILITY."
                         },
                         "reason": {
                           "type": "string",
@@ -16218,7 +17591,8 @@
                         },
                         "suggestionRequestId": {
                           "type": "string",
-                          "nullable": true
+                          "nullable": true,
+                          "description": "Audit id for this suggestion request (present when persisted)."
                         },
                         "resolvableUntil": {
                           "type": "string",
@@ -16230,9 +17604,11 @@
                           "nullable": true,
                           "properties": {
                             "slateId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                              "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                             },
-                            "providerId": {
+                            "supplierId": {
                               "type": "string"
                             },
                             "completeness": {
@@ -16245,11 +17621,13 @@
                             "sessionsRequested": {
                               "type": "integer",
                               "minimum": 0,
-                              "exclusiveMinimum": true
+                              "exclusiveMinimum": true,
+                              "description": "How many sessions were requested (the package's creditCount)."
                             },
                             "sessionsFilled": {
                               "type": "integer",
-                              "minimum": 0
+                              "minimum": 0,
+                              "description": "How many of the requested sessions the plan could fill."
                             },
                             "startTimeConsistencyPercent": {
                               "type": "number",
@@ -16266,14 +17644,16 @@
                                 "type": "object",
                                 "properties": {
                                   "slotId": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                                   },
                                   "sessionIndex": {
                                     "type": "integer",
                                     "minimum": 0,
-                                    "exclusiveMinimum": true
+                                    "exclusiveMinimum": true,
+                                    "description": "1-based index of this session within the slate."
                                   },
-                                  "providerId": {
+                                  "supplierId": {
                                     "type": "string"
                                   },
                                   "serviceId": {
@@ -16313,6 +17693,69 @@
                                     "type": "number",
                                     "nullable": true
                                   },
+                                  "address": {
+                                    "type": "object",
+                                    "nullable": true,
+                                    "properties": {
+                                      "addressOneLine": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Full formatted address on one line.",
+                                        "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                      },
+                                      "streetNumber": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street/house number.",
+                                        "example": "100"
+                                      },
+                                      "streetName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street name.",
+                                        "example": "Queen St W"
+                                      },
+                                      "city": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "City.",
+                                        "example": "Toronto"
+                                      },
+                                      "state": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "State or province.",
+                                        "example": "ON"
+                                      },
+                                      "country": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "ISO 3166-1 alpha-2 country code.",
+                                        "example": "CA"
+                                      },
+                                      "zipCode": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Postal/ZIP code (any format).",
+                                        "example": "M5H 2N2"
+                                      },
+                                      "unitNumber": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "description": "Unit/apartment number, if any.",
+                                        "example": "4B"
+                                      }
+                                    },
+                                    "required": [
+                                      "addressOneLine",
+                                      "streetNumber",
+                                      "streetName",
+                                      "city",
+                                      "state",
+                                      "country",
+                                      "zipCode"
+                                    ]
+                                  },
                                   "travelTimeMins": {
                                     "type": "number",
                                     "nullable": true,
@@ -16336,7 +17779,7 @@
                                 "required": [
                                   "slotId",
                                   "sessionIndex",
-                                  "providerId",
+                                  "supplierId",
                                   "serviceId",
                                   "offeringId",
                                   "bookingStartUtc",
@@ -16346,6 +17789,7 @@
                                   "locationId",
                                   "latitude",
                                   "longitude",
+                                  "address",
                                   "travelTimeMins",
                                   "capacity",
                                   "reservationStatus"
@@ -16355,14 +17799,15 @@
                           },
                           "required": [
                             "slateId",
-                            "providerId",
+                            "supplierId",
                             "completeness",
                             "sessionsRequested",
                             "sessionsFilled",
                             "startTimeConsistencyPercent",
                             "totalTravelTimeMins",
                             "slots"
-                          ]
+                          ],
+                          "description": "The best COMPLETE single-supplier slate; book this by slateId."
                         },
                         "alternates": {
                           "type": "array",
@@ -16370,9 +17815,11 @@
                             "type": "object",
                             "properties": {
                               "slateId": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                               },
-                              "providerId": {
+                              "supplierId": {
                                 "type": "string"
                               },
                               "completeness": {
@@ -16385,11 +17832,13 @@
                               "sessionsRequested": {
                                 "type": "integer",
                                 "minimum": 0,
-                                "exclusiveMinimum": true
+                                "exclusiveMinimum": true,
+                                "description": "How many sessions were requested (the package's creditCount)."
                               },
                               "sessionsFilled": {
                                 "type": "integer",
-                                "minimum": 0
+                                "minimum": 0,
+                                "description": "How many of the requested sessions the plan could fill."
                               },
                               "startTimeConsistencyPercent": {
                                 "type": "number",
@@ -16406,14 +17855,16 @@
                                   "type": "object",
                                   "properties": {
                                     "slotId": {
-                                      "type": "string"
+                                      "type": "string",
+                                      "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                                     },
                                     "sessionIndex": {
                                       "type": "integer",
                                       "minimum": 0,
-                                      "exclusiveMinimum": true
+                                      "exclusiveMinimum": true,
+                                      "description": "1-based index of this session within the slate."
                                     },
-                                    "providerId": {
+                                    "supplierId": {
                                       "type": "string"
                                     },
                                     "serviceId": {
@@ -16453,6 +17904,69 @@
                                       "type": "number",
                                       "nullable": true
                                     },
+                                    "address": {
+                                      "type": "object",
+                                      "nullable": true,
+                                      "properties": {
+                                        "addressOneLine": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Full formatted address on one line.",
+                                          "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                        },
+                                        "streetNumber": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Street/house number.",
+                                          "example": "100"
+                                        },
+                                        "streetName": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Street name.",
+                                          "example": "Queen St W"
+                                        },
+                                        "city": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "City.",
+                                          "example": "Toronto"
+                                        },
+                                        "state": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "State or province.",
+                                          "example": "ON"
+                                        },
+                                        "country": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "ISO 3166-1 alpha-2 country code.",
+                                          "example": "CA"
+                                        },
+                                        "zipCode": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Postal/ZIP code (any format).",
+                                          "example": "M5H 2N2"
+                                        },
+                                        "unitNumber": {
+                                          "type": "string",
+                                          "nullable": true,
+                                          "description": "Unit/apartment number, if any.",
+                                          "example": "4B"
+                                        }
+                                      },
+                                      "required": [
+                                        "addressOneLine",
+                                        "streetNumber",
+                                        "streetName",
+                                        "city",
+                                        "state",
+                                        "country",
+                                        "zipCode"
+                                      ]
+                                    },
                                     "travelTimeMins": {
                                       "type": "number",
                                       "nullable": true,
@@ -16476,7 +17990,7 @@
                                   "required": [
                                     "slotId",
                                     "sessionIndex",
-                                    "providerId",
+                                    "supplierId",
                                     "serviceId",
                                     "offeringId",
                                     "bookingStartUtc",
@@ -16486,6 +18000,7 @@
                                     "locationId",
                                     "latitude",
                                     "longitude",
+                                    "address",
                                     "travelTimeMins",
                                     "capacity",
                                     "reservationStatus"
@@ -16495,7 +18010,7 @@
                             },
                             "required": [
                               "slateId",
-                              "providerId",
+                              "supplierId",
                               "completeness",
                               "sessionsRequested",
                               "sessionsFilled",
@@ -16510,9 +18025,11 @@
                           "nullable": true,
                           "properties": {
                             "slateId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                              "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                             },
-                            "providerId": {
+                            "supplierId": {
                               "type": "string"
                             },
                             "completeness": {
@@ -16525,11 +18042,13 @@
                             "sessionsRequested": {
                               "type": "integer",
                               "minimum": 0,
-                              "exclusiveMinimum": true
+                              "exclusiveMinimum": true,
+                              "description": "How many sessions were requested (the package's creditCount)."
                             },
                             "sessionsFilled": {
                               "type": "integer",
-                              "minimum": 0
+                              "minimum": 0,
+                              "description": "How many of the requested sessions the plan could fill."
                             },
                             "startTimeConsistencyPercent": {
                               "type": "number",
@@ -16546,14 +18065,16 @@
                                 "type": "object",
                                 "properties": {
                                   "slotId": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                                   },
                                   "sessionIndex": {
                                     "type": "integer",
                                     "minimum": 0,
-                                    "exclusiveMinimum": true
+                                    "exclusiveMinimum": true,
+                                    "description": "1-based index of this session within the slate."
                                   },
-                                  "providerId": {
+                                  "supplierId": {
                                     "type": "string"
                                   },
                                   "serviceId": {
@@ -16593,6 +18114,69 @@
                                     "type": "number",
                                     "nullable": true
                                   },
+                                  "address": {
+                                    "type": "object",
+                                    "nullable": true,
+                                    "properties": {
+                                      "addressOneLine": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Full formatted address on one line.",
+                                        "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                      },
+                                      "streetNumber": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street/house number.",
+                                        "example": "100"
+                                      },
+                                      "streetName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street name.",
+                                        "example": "Queen St W"
+                                      },
+                                      "city": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "City.",
+                                        "example": "Toronto"
+                                      },
+                                      "state": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "State or province.",
+                                        "example": "ON"
+                                      },
+                                      "country": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "ISO 3166-1 alpha-2 country code.",
+                                        "example": "CA"
+                                      },
+                                      "zipCode": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Postal/ZIP code (any format).",
+                                        "example": "M5H 2N2"
+                                      },
+                                      "unitNumber": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "description": "Unit/apartment number, if any.",
+                                        "example": "4B"
+                                      }
+                                    },
+                                    "required": [
+                                      "addressOneLine",
+                                      "streetNumber",
+                                      "streetName",
+                                      "city",
+                                      "state",
+                                      "country",
+                                      "zipCode"
+                                    ]
+                                  },
                                   "travelTimeMins": {
                                     "type": "number",
                                     "nullable": true,
@@ -16616,7 +18200,7 @@
                                 "required": [
                                   "slotId",
                                   "sessionIndex",
-                                  "providerId",
+                                  "supplierId",
                                   "serviceId",
                                   "offeringId",
                                   "bookingStartUtc",
@@ -16626,6 +18210,7 @@
                                   "locationId",
                                   "latitude",
                                   "longitude",
+                                  "address",
                                   "travelTimeMins",
                                   "capacity",
                                   "reservationStatus"
@@ -16635,7 +18220,7 @@
                           },
                           "required": [
                             "slateId",
-                            "providerId",
+                            "supplierId",
                             "completeness",
                             "sessionsRequested",
                             "sessionsFilled",
@@ -16828,9 +18413,11 @@
                       "type": "object",
                       "properties": {
                         "slateId": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                          "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                         },
-                        "providerId": {
+                        "supplierId": {
                           "type": "string"
                         },
                         "completeness": {
@@ -16843,11 +18430,13 @@
                         "sessionsRequested": {
                           "type": "integer",
                           "minimum": 0,
-                          "exclusiveMinimum": true
+                          "exclusiveMinimum": true,
+                          "description": "How many sessions were requested (the package's creditCount)."
                         },
                         "sessionsFilled": {
                           "type": "integer",
-                          "minimum": 0
+                          "minimum": 0,
+                          "description": "How many of the requested sessions the plan could fill."
                         },
                         "startTimeConsistencyPercent": {
                           "type": "number",
@@ -16864,14 +18453,16 @@
                             "type": "object",
                             "properties": {
                               "slotId": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                               },
                               "sessionIndex": {
                                 "type": "integer",
                                 "minimum": 0,
-                                "exclusiveMinimum": true
+                                "exclusiveMinimum": true,
+                                "description": "1-based index of this session within the slate."
                               },
-                              "providerId": {
+                              "supplierId": {
                                 "type": "string"
                               },
                               "serviceId": {
@@ -16911,6 +18502,69 @@
                                 "type": "number",
                                 "nullable": true
                               },
+                              "address": {
+                                "type": "object",
+                                "nullable": true,
+                                "properties": {
+                                  "addressOneLine": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Full formatted address on one line.",
+                                    "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                  },
+                                  "streetNumber": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Street/house number.",
+                                    "example": "100"
+                                  },
+                                  "streetName": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Street name.",
+                                    "example": "Queen St W"
+                                  },
+                                  "city": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "City.",
+                                    "example": "Toronto"
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "State or province.",
+                                    "example": "ON"
+                                  },
+                                  "country": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "ISO 3166-1 alpha-2 country code.",
+                                    "example": "CA"
+                                  },
+                                  "zipCode": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Postal/ZIP code (any format).",
+                                    "example": "M5H 2N2"
+                                  },
+                                  "unitNumber": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "description": "Unit/apartment number, if any.",
+                                    "example": "4B"
+                                  }
+                                },
+                                "required": [
+                                  "addressOneLine",
+                                  "streetNumber",
+                                  "streetName",
+                                  "city",
+                                  "state",
+                                  "country",
+                                  "zipCode"
+                                ]
+                              },
                               "travelTimeMins": {
                                 "type": "number",
                                 "nullable": true,
@@ -16934,7 +18588,7 @@
                             "required": [
                               "slotId",
                               "sessionIndex",
-                              "providerId",
+                              "supplierId",
                               "serviceId",
                               "offeringId",
                               "bookingStartUtc",
@@ -16944,6 +18598,7 @@
                               "locationId",
                               "latitude",
                               "longitude",
+                              "address",
                               "travelTimeMins",
                               "capacity",
                               "reservationStatus"
@@ -16953,7 +18608,7 @@
                       },
                       "required": [
                         "slateId",
-                        "providerId",
+                        "supplierId",
                         "completeness",
                         "sessionsRequested",
                         "sessionsFilled",
@@ -17057,7 +18712,8 @@
                             "OK",
                             "NO_COMPLETE_SLATE",
                             "NO_AVAILABILITY"
-                          ]
+                          ],
+                          "description": "OK, NO_COMPLETE_SLATE, or NO_AVAILABILITY."
                         },
                         "reason": {
                           "type": "string",
@@ -17065,7 +18721,8 @@
                         },
                         "suggestionRequestId": {
                           "type": "string",
-                          "nullable": true
+                          "nullable": true,
+                          "description": "Audit id for this suggestion request (present when persisted)."
                         },
                         "resolvableUntil": {
                           "type": "string",
@@ -17077,9 +18734,11 @@
                           "nullable": true,
                           "properties": {
                             "slateId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                              "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                             },
-                            "providerId": {
+                            "supplierId": {
                               "type": "string"
                             },
                             "completeness": {
@@ -17092,11 +18751,13 @@
                             "sessionsRequested": {
                               "type": "integer",
                               "minimum": 0,
-                              "exclusiveMinimum": true
+                              "exclusiveMinimum": true,
+                              "description": "How many sessions were requested (the package's creditCount)."
                             },
                             "sessionsFilled": {
                               "type": "integer",
-                              "minimum": 0
+                              "minimum": 0,
+                              "description": "How many of the requested sessions the plan could fill."
                             },
                             "startTimeConsistencyPercent": {
                               "type": "number",
@@ -17113,14 +18774,16 @@
                                 "type": "object",
                                 "properties": {
                                   "slotId": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                                   },
                                   "sessionIndex": {
                                     "type": "integer",
                                     "minimum": 0,
-                                    "exclusiveMinimum": true
+                                    "exclusiveMinimum": true,
+                                    "description": "1-based index of this session within the slate."
                                   },
-                                  "providerId": {
+                                  "supplierId": {
                                     "type": "string"
                                   },
                                   "serviceId": {
@@ -17160,6 +18823,69 @@
                                     "type": "number",
                                     "nullable": true
                                   },
+                                  "address": {
+                                    "type": "object",
+                                    "nullable": true,
+                                    "properties": {
+                                      "addressOneLine": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Full formatted address on one line.",
+                                        "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                      },
+                                      "streetNumber": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street/house number.",
+                                        "example": "100"
+                                      },
+                                      "streetName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street name.",
+                                        "example": "Queen St W"
+                                      },
+                                      "city": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "City.",
+                                        "example": "Toronto"
+                                      },
+                                      "state": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "State or province.",
+                                        "example": "ON"
+                                      },
+                                      "country": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "ISO 3166-1 alpha-2 country code.",
+                                        "example": "CA"
+                                      },
+                                      "zipCode": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Postal/ZIP code (any format).",
+                                        "example": "M5H 2N2"
+                                      },
+                                      "unitNumber": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "description": "Unit/apartment number, if any.",
+                                        "example": "4B"
+                                      }
+                                    },
+                                    "required": [
+                                      "addressOneLine",
+                                      "streetNumber",
+                                      "streetName",
+                                      "city",
+                                      "state",
+                                      "country",
+                                      "zipCode"
+                                    ]
+                                  },
                                   "travelTimeMins": {
                                     "type": "number",
                                     "nullable": true,
@@ -17183,7 +18909,7 @@
                                 "required": [
                                   "slotId",
                                   "sessionIndex",
-                                  "providerId",
+                                  "supplierId",
                                   "serviceId",
                                   "offeringId",
                                   "bookingStartUtc",
@@ -17193,6 +18919,7 @@
                                   "locationId",
                                   "latitude",
                                   "longitude",
+                                  "address",
                                   "travelTimeMins",
                                   "capacity",
                                   "reservationStatus"
@@ -17202,14 +18929,15 @@
                           },
                           "required": [
                             "slateId",
-                            "providerId",
+                            "supplierId",
                             "completeness",
                             "sessionsRequested",
                             "sessionsFilled",
                             "startTimeConsistencyPercent",
                             "totalTravelTimeMins",
                             "slots"
-                          ]
+                          ],
+                          "description": "The best COMPLETE single-supplier slate; book this by slateId."
                         },
                         "alternates": {
                           "type": "array",
@@ -17217,9 +18945,11 @@
                             "type": "object",
                             "properties": {
                               "slateId": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                               },
-                              "providerId": {
+                              "supplierId": {
                                 "type": "string"
                               },
                               "completeness": {
@@ -17232,11 +18962,13 @@
                               "sessionsRequested": {
                                 "type": "integer",
                                 "minimum": 0,
-                                "exclusiveMinimum": true
+                                "exclusiveMinimum": true,
+                                "description": "How many sessions were requested (the package's creditCount)."
                               },
                               "sessionsFilled": {
                                 "type": "integer",
-                                "minimum": 0
+                                "minimum": 0,
+                                "description": "How many of the requested sessions the plan could fill."
                               },
                               "startTimeConsistencyPercent": {
                                 "type": "number",
@@ -17253,14 +18985,16 @@
                                   "type": "object",
                                   "properties": {
                                     "slotId": {
-                                      "type": "string"
+                                      "type": "string",
+                                      "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                                     },
                                     "sessionIndex": {
                                       "type": "integer",
                                       "minimum": 0,
-                                      "exclusiveMinimum": true
+                                      "exclusiveMinimum": true,
+                                      "description": "1-based index of this session within the slate."
                                     },
-                                    "providerId": {
+                                    "supplierId": {
                                       "type": "string"
                                     },
                                     "serviceId": {
@@ -17300,6 +19034,69 @@
                                       "type": "number",
                                       "nullable": true
                                     },
+                                    "address": {
+                                      "type": "object",
+                                      "nullable": true,
+                                      "properties": {
+                                        "addressOneLine": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Full formatted address on one line.",
+                                          "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                        },
+                                        "streetNumber": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Street/house number.",
+                                          "example": "100"
+                                        },
+                                        "streetName": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Street name.",
+                                          "example": "Queen St W"
+                                        },
+                                        "city": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "City.",
+                                          "example": "Toronto"
+                                        },
+                                        "state": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "State or province.",
+                                          "example": "ON"
+                                        },
+                                        "country": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "ISO 3166-1 alpha-2 country code.",
+                                          "example": "CA"
+                                        },
+                                        "zipCode": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "description": "Postal/ZIP code (any format).",
+                                          "example": "M5H 2N2"
+                                        },
+                                        "unitNumber": {
+                                          "type": "string",
+                                          "nullable": true,
+                                          "description": "Unit/apartment number, if any.",
+                                          "example": "4B"
+                                        }
+                                      },
+                                      "required": [
+                                        "addressOneLine",
+                                        "streetNumber",
+                                        "streetName",
+                                        "city",
+                                        "state",
+                                        "country",
+                                        "zipCode"
+                                      ]
+                                    },
                                     "travelTimeMins": {
                                       "type": "number",
                                       "nullable": true,
@@ -17323,7 +19120,7 @@
                                   "required": [
                                     "slotId",
                                     "sessionIndex",
-                                    "providerId",
+                                    "supplierId",
                                     "serviceId",
                                     "offeringId",
                                     "bookingStartUtc",
@@ -17333,6 +19130,7 @@
                                     "locationId",
                                     "latitude",
                                     "longitude",
+                                    "address",
                                     "travelTimeMins",
                                     "capacity",
                                     "reservationStatus"
@@ -17342,7 +19140,7 @@
                             },
                             "required": [
                               "slateId",
-                              "providerId",
+                              "supplierId",
                               "completeness",
                               "sessionsRequested",
                               "sessionsFilled",
@@ -17357,9 +19155,11 @@
                           "nullable": true,
                           "properties": {
                             "slateId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                              "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
                             },
-                            "providerId": {
+                            "supplierId": {
                               "type": "string"
                             },
                             "completeness": {
@@ -17372,11 +19172,13 @@
                             "sessionsRequested": {
                               "type": "integer",
                               "minimum": 0,
-                              "exclusiveMinimum": true
+                              "exclusiveMinimum": true,
+                              "description": "How many sessions were requested (the package's creditCount)."
                             },
                             "sessionsFilled": {
                               "type": "integer",
-                              "minimum": 0
+                              "minimum": 0,
+                              "description": "How many of the requested sessions the plan could fill."
                             },
                             "startTimeConsistencyPercent": {
                               "type": "number",
@@ -17393,14 +19195,16 @@
                                 "type": "object",
                                 "properties": {
                                   "slotId": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
                                   },
                                   "sessionIndex": {
                                     "type": "integer",
                                     "minimum": 0,
-                                    "exclusiveMinimum": true
+                                    "exclusiveMinimum": true,
+                                    "description": "1-based index of this session within the slate."
                                   },
-                                  "providerId": {
+                                  "supplierId": {
                                     "type": "string"
                                   },
                                   "serviceId": {
@@ -17440,6 +19244,69 @@
                                     "type": "number",
                                     "nullable": true
                                   },
+                                  "address": {
+                                    "type": "object",
+                                    "nullable": true,
+                                    "properties": {
+                                      "addressOneLine": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Full formatted address on one line.",
+                                        "example": "100 Queen St W, Toronto, ON M5H 2N2, Canada"
+                                      },
+                                      "streetNumber": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street/house number.",
+                                        "example": "100"
+                                      },
+                                      "streetName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Street name.",
+                                        "example": "Queen St W"
+                                      },
+                                      "city": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "City.",
+                                        "example": "Toronto"
+                                      },
+                                      "state": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "State or province.",
+                                        "example": "ON"
+                                      },
+                                      "country": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "ISO 3166-1 alpha-2 country code.",
+                                        "example": "CA"
+                                      },
+                                      "zipCode": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Postal/ZIP code (any format).",
+                                        "example": "M5H 2N2"
+                                      },
+                                      "unitNumber": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "description": "Unit/apartment number, if any.",
+                                        "example": "4B"
+                                      }
+                                    },
+                                    "required": [
+                                      "addressOneLine",
+                                      "streetNumber",
+                                      "streetName",
+                                      "city",
+                                      "state",
+                                      "country",
+                                      "zipCode"
+                                    ]
+                                  },
                                   "travelTimeMins": {
                                     "type": "number",
                                     "nullable": true,
@@ -17463,7 +19330,7 @@
                                 "required": [
                                   "slotId",
                                   "sessionIndex",
-                                  "providerId",
+                                  "supplierId",
                                   "serviceId",
                                   "offeringId",
                                   "bookingStartUtc",
@@ -17473,6 +19340,7 @@
                                   "locationId",
                                   "latitude",
                                   "longitude",
+                                  "address",
                                   "travelTimeMins",
                                   "capacity",
                                   "reservationStatus"
@@ -17482,7 +19350,7 @@
                           },
                           "required": [
                             "slateId",
-                            "providerId",
+                            "supplierId",
                             "completeness",
                             "sessionsRequested",
                             "sessionsFilled",
