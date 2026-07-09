@@ -1,0 +1,382 @@
+---
+title: Search suppliers by availability
+description: Render a wall of supplier cards with bookable times. One call returns matching suppliers — each with its full profile and open slots grouped by day — so you never group flat slots or make a follow-up call per supplier.
+---
+
+This guide covers `POST /v1/projects/{projectId}/availability/suppliers`: a
+**supplier-centric** availability search. You give it a service, a location,
+and a window; it returns a paginated list of suppliers, each with its full
+profile and its open slots bucketed by local day. It's built for one job —
+rendering a **wall of supplier cards** ("here are the people who can do this,
+and when") — for a human UI or an AI agent assembling one.
+
+It builds on [The booking engine model](/concepts/booking-engine-model) — read
+that first if you haven't. It also assumes the
+[BFF pattern](/guides/booking-flow-auth#the-bff-pattern) and an API key already
+set up.
+
+## Which availability endpoint
+
+There are three availability endpoints plus the supplier list. They answer
+different questions — pick by what you're rendering:
+
+| Endpoint | Answers | Shape |
+| --- | --- | --- |
+| `POST .../availability/suppliers` | "Which **suppliers** can do this, and when?" | **Supplier-centric** — suppliers, each with open slots grouped by day. This guide. |
+| `POST .../availability/search` | "What **slots** exist for this service here?" | Slot-centric — two flat arrays (`timeSlots`, `openSlots`), supplier as a field inside each slot. See [Availability and slates](/guides/availability-and-slates). |
+| `POST .../availability/package-slate` | "Give me one supplier's **N-session plan** for a package." | A slate. See [Create a package booking](/guides/create-a-package-booking). |
+| `GET .../suppliers` | "Who exists (regardless of availability)?" | The supplier catalogue, filterable by service/skill/location. See [Providers](/resources/providers). |
+
+<Note>
+`/availability/suppliers` and `/availability/search` run the **same open-slot
+computation** over the same project data. The only difference is the shape of
+the answer: `/suppliers` groups by supplier and inlines each supplier's full
+profile, so a card wall needs exactly one call. `/search` hands you flat slot
+arrays keyed by an opaque `supplierId` — fine when you want a single merged
+list of times, but you'd have to group and then fetch each supplier to label a
+card.
+</Note>
+
+## How it works
+
+One request in, one page of suppliers out:
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant BFF as Your BFF
+    participant MB as MarketBox API
+    B->>BFF: Show suppliers for {service, location, week}
+    BFF->>MB: POST .../availability/suppliers { serviceId, offeringId, lat, lng, ... }
+    MB-->>BFF: { data: [{ supplier, days: [{ date, slots }] }], nextCursor }
+    BFF-->>B: Render supplier cards with day columns
+    B->>BFF: Client picks a slot
+    BFF->>MB: POST .../bookings { supplierId, bookingStartUtc, ... }
+    MB-->>BFF: { data: { bookingId, status: "SCHEDULED" } }
+```
+
+The endpoint returns **open slots only** — every regular-interval opening in
+the window (`interval` controls the granularity). It does **not** return the
+clustered, travel-optimized *suggestions* that `/search` and `/package-slate`
+produce, and it has no recurring mode. That's deliberate: a wall wants "every
+time you could book this person," not a ranked shortlist.
+
+## The response, supplier-centric
+
+```json
+{
+  "data": [
+    {
+      "supplier": {
+        "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+        "firstName": "Priya",
+        "lastName": "Nadeau",
+        "avatarUrl": "https://cdn.marketbox.io/suppliers/sup_01kv60qgnef2kt3pvqgwmkbzfr/256.webp",
+        "bio": "Certified swim instructor, 8 years.",
+        "city": "Toronto",
+        "state": "ON",
+        "maxTravelTime": 30,
+        "services": [{ "serviceId": "srv_01kv60qg12e82acr78edfnjhvv", "name": { "en": "Private swim lesson" } }],
+        "skills": [{ "skillId": "skl_01kv60qh0m2p", "name": { "en": "Infant aquatics" } }],
+        "locations": [{ "locationId": "stz_01kv60qgs4e4nbjhzradnqtj0h", "locationType": "TRAVEL_ZONE", "name": "Downtown Toronto" }]
+      },
+      "days": [
+        {
+          "date": "2026-07-09",
+          "slots": [
+            {
+              "slotId": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+              "startUtc": "2026-07-09T13:30:00.000Z",
+              "startLocal": "2026-07-09T09:30:00-04:00",
+              "endUtc": "2026-07-09T14:00:00.000Z",
+              "endLocal": "2026-07-09T10:00:00-04:00"
+            }
+          ]
+        },
+        { "date": "2026-07-10", "slots": [] }
+      ]
+    },
+    {
+      "supplier": { "supplierId": "sup_01kv60qh9zt1q7", "firstName": "Sam", "lastName": "Okafor", "avatarUrl": null },
+      "days": []
+    }
+  ],
+  "timezone": "America/Toronto",
+  "nextCursor": "eyJvZmZzZXQiOjIwfQ==",
+  "errors": []
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `data[]` | Suppliers on this page, in a stable order across pages. |
+| `data[].supplier` | The **full enriched supplier** — the exact shape `GET /suppliers` returns (profile, `avatarUrl`, `services`, `skills`, `locations`). Enough to render a card with no follow-up call. |
+| `data[].days[]` | Days that have open slots, ascending by `date`. Empty (`[]`) for a supplier who matches but has nothing open in the window — see the note below. |
+| `data[].days[].date` | Local calendar date (`YYYY-MM-DD`) in the request `timezone`. Bucket key for a day column. |
+| `data[].days[].slots[]` | Open slots on that day, ascending by `startUtc`. |
+| `timezone` | The timezone used for day bucketing and every `*Local` field (the request `timezone`, or the project default). |
+| `nextCursor` | Pass back as `cursor` for the next page. `null` on the last page. |
+| `errors` | Non-fatal engine messages. Usually empty. |
+
+Each slot carries both a UTC anchor and pre-formatted local strings:
+
+| Field | Meaning |
+| --- | --- |
+| `slotId` | Opaque id for the slot. Handy as a React key; not a hold (see the warning below). |
+| `startUtc` / `endUtc` | The slot as UTC instants. **Use these as the booking anchors.** `endUtc` is `startUtc` + the resolved service duration. |
+| `startLocal` / `endLocal` | The same times rendered in the request `timezone` (ISO-8601 with offset). **For display** — don't re-parse them for the booking call, use the UTC pair. |
+
+<Note>
+**Busy suppliers are still returned, with `days: []`.** A supplier who serves
+the service and location but has no opening in your window comes back in
+`data` with an empty `days` array, not dropped. That's intentional: it keeps
+each page deterministic (a page is exactly `limit` matching suppliers), and it
+lets you render a "no times this week" card instead of silently hiding
+someone. Filter them client-side if you only want bookable cards
+(`data.filter(s => s.days.length > 0)`).
+</Note>
+
+## Build the wall
+
+<Steps>
+<Step title="Search suppliers by availability">
+From your BFF, POST the service + offering, a location (either a stored
+`locationId` **or** a `lat`/`lng` pair), and the window. Keep the API key
+server-side.
+
+```ts
+// app/api/bff/supplier-availability/route.ts
+import { NextResponse } from 'next/server';
+
+export async function POST(request: Request) {
+  const { cursor } = await request.json();
+
+  const res = await fetch(
+    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/availability/suppliers`,
+    {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.MARKETBOX_API_KEY!, // server-only
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        serviceId: 'srv_01kv60qg12e82acr78edfnjhvv',
+        offeringId: 'off_01kv60qge5eh59ap0gw0pqrrys',
+        lat: 43.6532,
+        lng: -79.3832,
+        lookAheadStartDate: '2026-07-09T00:00:00-04:00',
+        lookAheadDays: 7,
+        timezone: 'America/Toronto',
+        interval: 30, // open-slot granularity in minutes
+        limit: 20,
+        cursor, // omit / undefined for the first page
+      }),
+    },
+  );
+
+  const body = await res.json().catch(() => ({}));
+  return NextResponse.json(body, { status: res.status });
+}
+```
+
+<Warning>
+**Provide a location exactly one way.** Send either `locationId` (a stored
+Location) **or** both `lat` and `lng` (in-home / travel-zone discovery) —
+sending neither is a `400`. `lat`/`lng` is the branch to use when the client
+enters an address; `locationId` when they pick a fixed venue.
+</Warning>
+</Step>
+
+<Step title="Render the cards">
+The response is already card-shaped — map `data` straight to components, and
+`supplier.days` straight to day columns. No grouping, no per-supplier fetch.
+
+```tsx
+function SupplierWall({ page }: { page: SupplierAvailabilityResponse }) {
+  return (
+    <div className="wall">
+      {page.data.map(({ supplier, days }) => (
+        <article key={supplier.supplierId} className="supplier-card">
+          <img src={supplier.avatarUrl ?? '/avatar-fallback.svg'} alt="" />
+          <h3>{supplier.firstName} {supplier.lastName}</h3>
+          <p>{supplier.bio}</p>
+
+          {days.length === 0 ? (
+            <p className="muted">No times this week</p>
+          ) : (
+            days.map((day) => (
+              <div key={day.date} className="day-column">
+                <h4>{day.date}</h4>
+                {day.slots.map((slot) => (
+                  <button
+                    key={slot.slotId}
+                    onClick={() => pickSlot(supplier.supplierId, slot)}
+                  >
+                    {slot.startLocal.slice(11, 16)} {/* "09:30" */}
+                  </button>
+                ))}
+              </div>
+            ))
+          )}
+        </article>
+      ))}
+    </div>
+  );
+}
+```
+
+Show `startLocal`/`endLocal` to the user; keep `startUtc`/`endUtc` for the
+booking call in the next step.
+</Step>
+
+<Step title="Page through more suppliers">
+Each supplier's availability is computed on demand, so pages are small by
+design (`limit` max **50**, default 20). When `nextCursor` isn't `null`, pass
+it back as `cursor` to fetch the next page; stop when it's `null`.
+
+```ts
+let cursor: string | undefined = undefined;
+const suppliers = [];
+do {
+  const page = await fetchSupplierAvailability({ cursor }); // the BFF route above
+  suppliers.push(...page.data);
+  cursor = page.nextCursor ?? undefined;
+} while (cursor);
+```
+
+<Tip>
+`cursor` is opaque — a base64 token, not a supplier offset you should build
+yourself. Only ever pass back a `nextCursor` you were given, and only against
+the **same** filter set (same service, location, and window) that produced it.
+Changing the filters mid-pagination gives undefined results.
+</Tip>
+</Step>
+
+<Step title="Book the chosen slot">
+A slot is availability, not a reservation. When the client picks one, book it
+immediately with [Create a single booking](/guides/create-a-single-booking) —
+the slot gives you everything the booking's timing needs:
+
+```ts
+// supplierId from the card; slot from the day column; timezone from the page.
+await fetch(`${API_BASE_URL}/v1/projects/${PROJECT_ID}/bookings`, {
+  method: 'POST',
+  headers: { 'x-api-key': MARKETBOX_API_KEY, 'content-type': 'application/json' },
+  body: JSON.stringify({
+    clientId,
+    supplierId,                       // data[].supplier.supplierId
+    bookingStartUtc: slot.startUtc,   // the UTC anchors, not the *Local strings
+    bookingEndUtc: slot.endUtc,
+    bookingTz: page.timezone,
+    // Location: reuse the SAME location you searched with —
+    // locationId for a stored venue, or lat/lng + a structured address for TRAVEL_ZONE.
+    locationType: 'TRAVEL_ZONE',
+    latitude: 43.6532,
+    longitude: -79.3832,
+    locationId: 'stz_01kv60qgs4e4nbjhzradnqtj0h', // the supplier's travel-zone id
+    address: { /* … see Create a single booking */ },
+    capacity: 1,
+    services: [{
+      serviceId: 'srv_01kv60qg12e82acr78edfnjhvv',
+      offeringId: 'off_01kv60qge5eh59ap0gw0pqrrys',
+      businessModelType: 'SINGLE_BOOKING',
+      quantity: 1,
+      orderId,        // from a prior POST /orders — see the booking guide
+      orderItemId,
+    }],
+  }),
+});
+```
+
+<Warning>
+**Nothing is held between search and booking.** These are open slots, not
+reservations — another client can take the same time until you actually
+create the booking. Book promptly after the pick, and be ready for a `400`
+if the slot filled in between. Single sessions have no hold mechanism; if you
+need to reserve a time while the customer pays, that's a package-slate flow —
+see [Availability and slates](/guides/availability-and-slates#path-b-holds-convert).
+</Warning>
+</Step>
+</Steps>
+
+## Notes on the window and timezone
+
+<Note>
+**`timezone` decides the day buckets.** Days are bucketed by local calendar
+date in the request `timezone` (or the project default if you omit it) — so
+the same UTC instant can land on different `date`s for clients in different
+zones. The `*Local` fields are rendered in that same zone. If your UI shows
+day columns, always send the viewer's `timezone`.
+</Note>
+
+<Note>
+**No matching suppliers is a `200`, not an error.** If no supplier serves the
+service at that location, you get `{ "data": [], "nextCursor": null }`. Widen
+the location or the window, or check the service is offered there via
+[`GET /suppliers`](/resources/providers).
+</Note>
+
+## Reference
+
+### Endpoints used in this guide
+
+| Endpoint | Method | Auth | Description |
+| --- | --- | --- | --- |
+| `/v1/projects/{projectId}/availability/suppliers` | `POST` | `x-api-key` | Supplier-centric availability. Returns a page of suppliers, each with open slots grouped by day. `limit` max 50, opaque `cursor`. |
+| `/v1/projects/{projectId}/bookings` | `POST` | `x-api-key` | Book a chosen slot. Uses the slot's `startUtc`/`endUtc` and the supplier's id. See [Create a single booking](/guides/create-a-single-booking). |
+| `/v1/projects/{projectId}/availability/search` | `POST` | `x-api-key` | Slot-centric alternative — same computation, flat arrays. Full reference: [Availability](/resources/availability). |
+| `/v1/projects/{projectId}/suppliers` | `GET` | `x-api-key` | The supplier catalogue (availability-independent), filterable by service/skill/location. |
+
+### Request fields
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `serviceId`, `offeringId` | Yes | The service and its offering (variant) to find availability for. |
+| `locationId` **or** `lat` + `lng` | Yes (one way) | Stored Location id, **or** a coordinate pair for travel-zone discovery. Neither → `400`. |
+| `lookAheadStartDate` | No | ISO-8601 start of the window. Defaults to now. |
+| `lookAheadDays` | No | Days forward to search. Defaults to the engine's window. |
+| `timezone` | No | IANA zone for day bucketing + `*Local` fields. Defaults to the project timezone. |
+| `interval` | No | Open-slot granularity in minutes (e.g. `30`). Defaults to 15. |
+| `durationMinutes` | No | Override the booked duration — **FLEXIBLE offerings only**; otherwise the offering's own duration is used. |
+| `distanceUnit` | No | `km` or `mi` for travel calculations. |
+| `limit` | No | Suppliers per page, 1–50 (default 20). |
+| `cursor` | No | Opaque token from a prior `nextCursor`. Omit for the first page. |
+
+### Configuration
+
+| Value | Env var | Browser? |
+| --- | --- | --- |
+| API key | `MARKETBOX_API_KEY` | **No** (server-only) |
+| API base URL | `API_BASE_URL` | **No** (BFF-only) |
+| Project id | `PROJECT_ID` | **No** (BFF-only) |
+
+### Errors and edge cases
+
+| Scenario | `code` | Status | Resolution |
+| --- | --- | --- | --- |
+| Neither `locationId` nor both `lat`+`lng` provided | `VALIDATION_ERROR` | `400` | Send one location form: a `locationId`, or both `lat` and `lng`. |
+| `limit` out of range (`< 1` or `> 50`) | `VALIDATION_ERROR` | `400` | Use 1–50. Pages are small because each supplier is computed on demand. |
+| Malformed `cursor` | `BAD_REQUEST` | `400` | Only pass back a `nextCursor` you were given; don't hand-build the token. |
+| `serviceId`/`offeringId` doesn't resolve to an offering | `INTERNAL_ERROR` | `500` | Make sure both ids are correct and from this project — an unknown offering can't be searched. |
+| No supplier serves the service at that location | — | `200` | Not an error: `data` is `[]`. Widen the location/window, or verify coverage via `GET /suppliers`. |
+| Supplier matches but is fully booked in the window | — | `200` | Not an error: that supplier is returned with `days: []`. Filter client-side if you only want bookable cards. |
+| API key can't access this project | — | `403` | Use a key scoped to `{projectId}`. See [Projects and scope](/concepts/projects-and-scope). |
+
+See [Errors](/concepts/errors) for the full envelope and code list, and
+[Pagination](/concepts/pagination) for how the opaque `cursor` works across
+every list endpoint.
+
+<CardGroup cols={2}>
+<Card title="Create a single booking" icon="calendar-check" href="/guides/create-a-single-booking">
+Turn a chosen slot into a confirmed booking — order, order item, then booking.
+</Card>
+<Card title="Availability and slates" icon="layer-group" href="/guides/availability-and-slates">
+The slot-centric `/search` endpoint, plus packages, holds, and the clustering engine in depth.
+</Card>
+<Card title="Providers" icon="users" href="/resources/providers">
+The full supplier profile shape returned in each card — services, skills, and locations.
+</Card>
+<Card title="The booking engine model" icon="diagram-project" href="/concepts/booking-engine-model">
+Orders, order items, bookings, and how availability feeds them.
+</Card>
+</CardGroup>

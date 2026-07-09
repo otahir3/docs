@@ -27721,6 +27721,499 @@
           }
         }
       }
+    },
+    "/v1/projects/{projectId}/availability/suppliers": {
+      "post": {
+        "tags": [
+          "Availability"
+        ],
+        "summary": "Supplier-centric availability: paginated suppliers, each with open slots grouped by day",
+        "description": "Returns availability grouped by supplier — a paginated list of suppliers, each with its full profile (same shape as GET /suppliers) and its open slots bucketed by local day. Use this to render a wall of supplier cards with bookable times, instead of the flat, slot-centric arrays /availability/search returns. Provide serviceId + offeringId and either locationId or both lat and lng. Returns regular-interval open slots only — no clustered/travel-optimized suggestions and no recurring patterns (use /availability/search for those). Suppliers that match the service and location but have no availability in the window are still returned, with days: []. Paginate with limit (max 50) + the opaque cursor; nextCursor is null on the last page. Each slot carries a UTC anchor (startUtc/endUtc) plus *Local strings rendered in the request timezone.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Service + location + window (+ pagination)",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "serviceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The service to find supplier availability for.",
+                    "example": "srv_01kv60qg12e82acr78edfnjhvv"
+                  },
+                  "offeringId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The specific offering (variant) of the service being booked.",
+                    "example": "off_01kv60qge5eh59ap0gw0pqrrys"
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "description": "Where the service is delivered. Provide this OR both `lat` and `lng`. A stored location id (PHYSICAL / VIRTUAL / TRAVEL_ZONE).",
+                    "example": "loc_01kv60qh3m7wznp8s0d2rk9abc"
+                  },
+                  "lat": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "description": "Client/service latitude. Provide `lat` + `lng` together as an alternative to `locationId` (in-home / travel-zone discovery).",
+                    "example": 41.881832
+                  },
+                  "lng": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "description": "Client/service longitude — see `lat`.",
+                    "example": -87.623177
+                  },
+                  "durationMinutes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "description": "Override the booked duration (minutes). Only honoured for FLEXIBLE offerings; otherwise the offering’s own duration is used.",
+                    "example": 60
+                  },
+                  "lookAheadStartDate": {
+                    "type": "string",
+                    "description": "Start of the search window (ISO-8601). Defaults to now. Slots before this instant are excluded.",
+                    "example": "2025-07-07T00:00:00-05:00"
+                  },
+                  "lookAheadDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "description": "How many days forward to search from the start. Defaults to the engine’s configured window.",
+                    "example": 7
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "IANA timezone governing day bucketing and every `*Local` field in the response. Defaults to the project timezone.",
+                    "example": "America/Chicago"
+                  },
+                  "distanceUnit": {
+                    "type": "string",
+                    "enum": [
+                      "km",
+                      "mi"
+                    ],
+                    "description": "Unit for travel/distance calculations.",
+                    "example": "km"
+                  },
+                  "interval": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "description": "Open-slot granularity in minutes (e.g. 15 → :00 / :15 / :30 / :45). Defaults to 15.",
+                    "example": 15
+                  },
+                  "language": {
+                    "type": "string",
+                    "description": "Preferred language for supplier/service matching in multilingual projects.",
+                    "example": "en"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 20,
+                    "description": "Suppliers per page (1–50, default 20). Kept small because each supplier’s availability is computed on demand.",
+                    "example": 20
+                  },
+                  "cursor": {
+                    "type": "string",
+                    "description": "Opaque pagination token from a previous response’s `nextCursor`. Omit for the first page."
+                  }
+                },
+                "required": [
+                  "serviceId",
+                  "offeringId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Suppliers, each with open slots grouped by day",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "supplier": {
+                            "type": "object",
+                            "properties": {
+                              "supplierId": {
+                                "type": "string"
+                              },
+                              "firstName": {
+                                "type": "string"
+                              },
+                              "lastName": {
+                                "type": "string"
+                              },
+                              "email": {
+                                "type": "string"
+                              },
+                              "phone": {
+                                "type": "string"
+                              },
+                              "addressoneline": {
+                                "type": "string"
+                              },
+                              "longitude": {
+                                "type": "number"
+                              },
+                              "latitude": {
+                                "type": "number"
+                              },
+                              "city": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string"
+                              },
+                              "country": {
+                                "type": "string"
+                              },
+                              "postalcode": {
+                                "type": "string"
+                              },
+                              "bio": {
+                                "type": "string"
+                              },
+                              "maxTravelTime": {
+                                "type": "number"
+                              },
+                              "externalId": {
+                                "type": "string"
+                              },
+                              "externalData": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "nullable": true
+                                }
+                              },
+                              "active": {
+                                "type": "boolean"
+                              },
+                              "updatedAt": {
+                                "type": "string"
+                              },
+                              "avatarUrl": {
+                                "type": "string",
+                                "nullable": true,
+                                "format": "uri"
+                              },
+                              "services": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "serviceId": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "object",
+                                      "additionalProperties": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "serviceId",
+                                    "name"
+                                  ]
+                                }
+                              },
+                              "skills": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "skillId": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "object",
+                                      "additionalProperties": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "skillId",
+                                    "name"
+                                  ]
+                                }
+                              },
+                              "locations": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "locationId": {
+                                      "type": "string"
+                                    },
+                                    "locationType": {
+                                      "type": "string",
+                                      "enum": [
+                                        "PHYSICAL",
+                                        "VIRTUAL",
+                                        "TRAVEL_ZONE"
+                                      ]
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "country": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "state": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "city": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "addressOneLine": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "street": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "latitude": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "longitude": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "travelZoneType": {
+                                      "type": "string",
+                                      "nullable": true,
+                                      "enum": [
+                                        "CIRCULAR",
+                                        "DRAWN",
+                                        null
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "locationId",
+                                    "locationType",
+                                    "name"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "supplierId",
+                              "firstName",
+                              "lastName",
+                              "email",
+                              "active",
+                              "updatedAt",
+                              "avatarUrl",
+                              "services",
+                              "skills",
+                              "locations"
+                            ],
+                            "description": "The supplier, in the same enriched shape as `GET /suppliers` (profile, `avatarUrl`, `services`, `skills`, `locations`) — enough to render a card without a follow-up call."
+                          },
+                          "days": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "date": {
+                                  "type": "string",
+                                  "description": "Local calendar date (YYYY-MM-DD) in the request `timezone` — the day these slots fall on.",
+                                  "example": "2025-07-07"
+                                },
+                                "slots": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "slotId": {
+                                        "type": "string",
+                                        "description": "Opaque id for this open slot. A slot is availability, not a hold — book it with the times below; it can be taken by another client until you do.",
+                                        "example": "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
+                                      },
+                                      "startUtc": {
+                                        "type": "string",
+                                        "description": "Slot start as a UTC instant (ISO-8601, Z). Use this as the booking start anchor.",
+                                        "example": "2025-07-07T14:00:00.000Z"
+                                      },
+                                      "startLocal": {
+                                        "type": "string",
+                                        "description": "Slot start rendered in the request `timezone` (ISO-8601 with numeric offset). For display.",
+                                        "example": "2025-07-07T09:00:00-05:00"
+                                      },
+                                      "endUtc": {
+                                        "type": "string",
+                                        "description": "Slot end (start + the resolved service duration) as a UTC instant.",
+                                        "example": "2025-07-07T14:30:00.000Z"
+                                      },
+                                      "endLocal": {
+                                        "type": "string",
+                                        "description": "Slot end rendered in the request `timezone`. For display.",
+                                        "example": "2025-07-07T09:30:00-05:00"
+                                      }
+                                    },
+                                    "required": [
+                                      "slotId",
+                                      "startUtc",
+                                      "startLocal",
+                                      "endUtc",
+                                      "endLocal"
+                                    ]
+                                  },
+                                  "description": "Open slots on this day, ascending by `startUtc`."
+                                }
+                              },
+                              "required": [
+                                "date",
+                                "slots"
+                              ]
+                            },
+                            "description": "Days with open slots, ascending. Empty (`[]`) when this supplier matches the service and location but has no availability in the window."
+                          }
+                        },
+                        "required": [
+                          "supplier",
+                          "days"
+                        ]
+                      },
+                      "description": "Suppliers on this page, in a stable order across pages."
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "description": "The IANA timezone used for day bucketing and every `*Local` field (the request `timezone`, or the project default).",
+                      "example": "America/Chicago"
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Pass back as `cursor` to fetch the next page of suppliers. `null` on the last page."
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Non-fatal engine messages. Usually empty."
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "timezone",
+                    "nextCursor",
+                    "errors"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error (e.g. neither locationId nor lat+lng, or a malformed cursor)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

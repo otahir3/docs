@@ -42,6 +42,7 @@
               "guides/create-a-single-booking",
               "guides/create-a-package-booking",
               "guides/availability-and-slates",
+              "guides/search-suppliers-by-availability",
               "guides/booking-addresses",
               "guides/accept-payments-with-stripe"
             ]
