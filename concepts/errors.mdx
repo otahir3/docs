@@ -36,7 +36,7 @@ Every error response from the MarketBox API uses the same envelope.
 | `401`  | The `x-api-key` header is missing, malformed, or the key has been revoked.                         |
 | `403`  | The key is valid but its `projectScope` does not allow the `{projectId}` in the URL.               |
 | `404`  | The resource you targeted doesn't exist (or has been soft-deleted).                                |
-| `409`  | Version conflict on an optimistic update, capacity exceeded, or duplicate registration.            |
+| `409`  | Version conflict on an optimistic update, the supplier's time is already booked or held, capacity exceeded, or duplicate registration. |
 | `5xx`  | Something went wrong on our side. Safe to retry idempotent requests with backoff.                  |
 
 ## Common error codes
@@ -54,6 +54,9 @@ Every error response from the MarketBox API uses the same envelope.
 | `VERSION_CONFLICT`                      | 409    | Concurrent modification — re-read the resource and try again.                           |
 | `CAPACITY_EXCEEDED`                     | 409    | A booking is full; another participant can't be registered.                             |
 | `PARTICIPANT_ALREADY_REGISTERED`        | 409    | The client is already a participant on this booking.                                    |
+| `SLOT_BOOKED`                           | 409    | The supplier's time is already taken by a confirmed booking. `conflicts[]` names the `bookingId`. Not retryable — search availability again. |
+| `SLOT_HELD`                             | 409    | The supplier's time is claimed by a live hold — often **your own**. `conflicts[]` names the `reservationId`; convert it instead of booking directly. See [Hold slots during checkout](/guides/hold-slots-for-checkout#handling-a-held-slot). |
+| `OCCUPANCY_CONTENTION`                  | 409    | Too many concurrent writes on one supplier's day; the internal retry gave up. **Retryable** — resend after a short backoff. |
 
 The exact list of codes is also captured in
 [`/v1/openapi.json`](/api-reference/introduction). New codes may be added
@@ -82,6 +85,12 @@ next.
 - **`4xx`** — never retry blindly. Fix the request and try again.
 - **`409 VERSION_CONFLICT`** — re-read the resource (its `version` field
   has advanced), reapply your patch, and retry.
+- **`409 OCCUPANCY_CONTENTION`** — transient contention on a supplier's
+  day. Resend the same request with a short, jittered backoff.
+- **`409 SLOT_HELD` / `SLOT_BOOKED`** — never retry the same call. The
+  response body names the blocking `reservationId` or `bookingId`; convert
+  the hold, or pick a different time. See
+  [Concurrency](/concepts/concurrency).
 - **`5xx`** — retry idempotent requests (`GET`, `DELETE`, `PATCH` with
   the same body, status changes to the same target) with exponential
   backoff. Avoid blind retries on `POST`, since the original may have

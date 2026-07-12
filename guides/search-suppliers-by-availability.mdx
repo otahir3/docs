@@ -289,12 +289,15 @@ await fetch(`${API_BASE_URL}/v1/projects/${PROJECT_ID}/bookings`, {
 ```
 
 <Warning>
-**Nothing is held between search and booking.** These are open slots, not
-reservations — another client can take the same time until you actually
-create the booking. Book promptly after the pick, and be ready for a `400`
-if the slot filled in between. Single sessions have no hold mechanism; if you
-need to reserve a time while the customer pays, that's a package-slate flow —
-see [Availability and slates](/guides/availability-and-slates#path-b-holds-convert).
+**A search result is not a reservation.** These are open slots — another
+client can take the same time until you actually claim it, and you'll get a
+`409 SLOT_BOOKED` if they beat you to it.
+
+If you need to reserve the time while the customer pays, hold it:
+`POST /holds { intervals: [{ supplierId, startUtc, endUtc, locationId }] }`
+works for a **single session**, with no package or slate involved, and you
+then convert the hold into the booking. See
+[Hold slots during checkout](/guides/hold-slots-for-checkout).
 </Warning>
 </Step>
 </Steps>

@@ -343,13 +343,22 @@ control:
   This is the fallback path — use it only if you must alter or filter
   individual sessions, and copy each slot **verbatim** (don't re-derive
   locations).
-- **Holds → convert.** Reserve the slate's slots while the customer pays,
-  then convert the hold to confirmed bookings on payment success — the
-  pattern you want for a timed checkout.
+- **Hold, then convert.** Reserve the slate's supplier time while the
+  customer pays, then convert the hold into confirmed bookings on payment
+  success — the pattern you want for a timed checkout. `POST /holds
+  { slateId }` → `POST /holds/{reservationId}/convert`. Full walkthrough in
+  [Hold slots during checkout](/guides/hold-slots-for-checkout).
 
-Both are covered in depth in the
+Transcribing sessions is covered in depth in the
 [availability and slates guide](/guides/availability-and-slates), along with
 building single one-off slots and full stale-slot recovery.
+
+<Warning>
+If you hold a slate, you must **convert** it — `POST .../package-bookings`
+will not consume your own hold and returns `409 SLOT_HELD` naming the
+`reservationId` you created. See
+[Concurrency](/concepts/concurrency).
+</Warning>
 
 ## Reference
 
@@ -379,8 +388,11 @@ building single one-off slots and full stale-slot recovery.
 | `rrule` has no bounded `COUNT` | `VALIDATION_ERROR` | `400` | Add a positive `COUNT`, e.g. `FREQ=WEEKLY;BYDAY=MO;COUNT=8`. |
 | Provided more than one (or none) of `sessions` / `slateId` / `slotIds` | `VALIDATION_ERROR` | `400` | Provide exactly one booking source — `slateId` for the primary flow. |
 | Chosen slot went stale between building and booking | `SLOT_NO_LONGER_BOOKABLE` | `409` | The response includes `freshSuggestions` — rebuild from it and retry. |
-| More than 20 sessions with `atomicity: "all_or_nothing"` | `PACKAGE_SLATE_TOO_LARGE_FOR_ATOMIC` | `422` | Use `atomicity: "best_effort"` (requires the project to enable `allowPartialPackages`), or book a smaller slate. |
-| `best_effort` requested but the project hasn't enabled it | `BEST_EFFORT_NOT_ENABLED` | `422` | Stay with `all_or_nothing` (≤20 sessions), or ask the project to enable `suggestionConfig.allowPartialPackages`. |
+| More than 15 sessions with `atomicity: "all_or_nothing"` | `PACKAGE_SLATE_TOO_LARGE_FOR_ATOMIC` | `422` | Use `atomicity: "best_effort"` (requires the project to enable `allowPartialPackages`), or book a smaller slate. |
+| `best_effort` requested but the project hasn't enabled it | `BEST_EFFORT_NOT_ENABLED` | `422` | Stay with `all_or_nothing` (≤15 sessions), or ask the project to enable `suggestionConfig.allowPartialPackages`. |
+| The supplier's time is already claimed by a live hold (often your own — you held, then booked directly instead of converting) | `SLOT_HELD` | `409` | `conflicts[0].reservationId` names the hold. Convert it: [Hold slots during checkout](/guides/hold-slots-for-checkout#handling-a-held-slot). |
+| The supplier's time is already claimed by a confirmed booking | `SLOT_BOOKED` | `409` | Rebuild the slate and book a different time. |
+| Heavy concurrent writes on one supplier-day exhausted the internal retry | `OCCUPANCY_CONTENTION` | `409` | Transient — retry the same request after a short backoff. |
 | Same `idempotencyKey` reused with a different request body | `IDEMPOTENCY_KEY_CONFLICT` | `409` | Generate a fresh `idempotencyKey` per distinct booking attempt; reusing the same key with the same body safely replays the original result. |
 | The package's validity window has expired | `PACKAGE_EXPIRED` | `409` | The order item's `expiresAt` has passed — no more sessions can be booked against it. |
 | Requested more sessions than the order item has remaining | `ORDER_ITEM_QUANTITY_UNAVAILABLE` | `400` | The up-front precheck rejects this. Check `quantityRemaining` before booking. |

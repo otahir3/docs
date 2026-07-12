@@ -49,6 +49,19 @@ don't gate booking on Stripe. Layer payment on afterward with
 [Accept payments with Stripe](/guides/accept-payments-with-stripe).
 </Note>
 
+<Note>
+**`POST /bookings` books immediately — there's no reservation window.** To
+reserve this supplier's time while the customer pays, hold it first:
+`POST /holds { intervals: [...] }`, then convert the hold into this same
+booking on payment success. A single session can be held on its own — no
+package, no slate. See
+[Hold slots during checkout](/guides/hold-slots-for-checkout).
+
+If you *do* hold the time, you must convert it: this route will not consume
+your hold and returns `409 SLOT_HELD` naming the `reservationId` you
+created.
+</Note>
+
 <Steps>
 <Step title="Create the order">
 Create an order with a single `SINGLE_SESSION` item naming the service and
@@ -290,5 +303,8 @@ for you on the single-booking path.
 | Offering isn't `ACTIVE` | `BAD_REQUEST` | `400` | Only active offerings can be booked or ordered. |
 | Wrong location fields for `locationType` | `VALIDATION_ERROR` | `400` | Match the table above — e.g. sending `latitude` on a `PHYSICAL` booking, or omitting `address` on `TRAVEL_ZONE`. |
 | `bookingEndUtc` not after `bookingStartUtc` | `BAD_REQUEST` | `400` | Fix the time window and retry. |
+| The supplier's time is claimed by a live hold — very often **your own**, if you held it and then called this route instead of converting | `SLOT_HELD` | `409` | Read `conflicts[0].reservationId` and call `POST /holds/{reservationId}/convert` instead. If the hold isn't yours, `heldUntil` says when it lapses. See [Hold slots during checkout](/guides/hold-slots-for-checkout#handling-a-held-slot). |
+| The supplier is already booked for that time | `SLOT_BOOKED` | `409` | `conflicts[0].bookingId` names the booking. Supplier time is exclusive — offer a different slot. |
+| Heavy concurrent writes on one supplier-day exhausted the internal retry | `OCCUPANCY_CONTENTION` | `409` | Transient — retry the same request after a short backoff. See [Concurrency](/concepts/concurrency). |
 
 See [Errors](/concepts/errors) for the full envelope and code list.

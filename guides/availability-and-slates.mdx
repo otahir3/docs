@@ -1,6 +1,6 @@
 ---
 title: Availability and slates
-description: A deep dive into the clusters/availability engine — slate anatomy, cadence rules, and the two advanced package-booking paths (transcribe sessions, and holds → convert).
+description: A deep dive into the clusters/availability engine — slate anatomy, cadence rules, and the advanced booking paths that sit alongside book-by-slateId.
 ---
 
 This is the deep-dive companion to
@@ -116,7 +116,7 @@ Each entry in `slots[]`:
 | `locationType`, `locationId`, `latitude`, `longitude`, `address` | The resolved location — for `TRAVEL_ZONE` slates the engine fills `locationId` (the supplier's travel-zone id) and stamps the request's `address` onto every slot. |
 | `travelTimeMins` | Travel time to this session. |
 | `capacity` | Session capacity. |
-| `reservationStatus` | `FREE`, `HELD`, `CONVERTED`, or `RELEASED` — see "Path B+: holds → convert" below. |
+| `reservationStatus` | **Deprecated and inert** — always `FREE`. Holds are claims on *supplier time*, not on slot rows, so this field no longer tracks anything. Don't branch on it; see [Hold slots during checkout](/guides/hold-slots-for-checkout). |
 
 <Tip>
 **Off-by-one trap.** `sessionIndex` is **1-based** here in the slate's
@@ -271,7 +271,7 @@ fields as-is; only omit or reorder whole sessions, never recompute their
 contents.
 </Warning>
 
-`slotId`, `sessionIndex`, `travelTimeMins`, `capacity`, and
+`slotId`, `sessionIndex`, `travelTimeMins`, `capacity`, and the deprecated
 `reservationStatus` are **not** part of a session entry — they're slate
 metadata, not booking input. Only the fields listed above go into
 `sessions[]`.
@@ -280,151 +280,29 @@ Provide **exactly one** of `sessions`, `slateId`, or `slotIds` on
 `POST .../package-bookings` — sending more than one (or none) is a `400
 VALIDATION_ERROR`.
 
-## Path B+: holds → convert
+## Path B: hold, then convert
 
-Both `slateId` and Path A book immediately. If you need to **hold sessions
-while the customer pays** — a timed checkout — use the hold lifecycle
-instead. This is the pattern for pay-then-book flows where you don't want
-to release the slate's sessions to another customer while checkout is in
-progress.
+Both `slateId` and Path A book immediately. If you need to **hold the
+sessions while the customer pays** — a timed checkout — don't book at all:
+hold the slate, take payment, then convert the hold into bookings.
 
-<Note>
-**Holds, reschedule, and convert are package-only.** All three operate
-exclusively on slots persisted by `POST /availability/package-slate` — that's
-the only endpoint that produces anything holdable. `/availability/search` and
-`/availability/time-slots` return suggestions, not persisted slots, so
-nothing they return can be held, rescheduled, or converted.
+Holds are no longer a package-only concept, and they no longer live under
+`/suggestions`. A hold is a standalone claim on supplier time
+(`POST /v1/projects/{projectId}/holds`), and it takes **exactly one** of
+`intervals` (explicit supplier time — this is how you hold a *single*
+session, with no package or slate anywhere), `slateId` (every slot of the
+slate you just built), or `slotIds` (a cherry-picked subset). Convert is a
+single endpoint for both shapes. The whole lifecycle — hold, heartbeat,
+convert, release, and the `SLOT_HELD` error you get if you try to book held
+time directly — is covered in
+[Hold slots during checkout](/guides/hold-slots-for-checkout).
 
-Single sessions have no reservation window at all: `POST /bookings` books
-immediately (see [Create a single booking](/guides/create-a-single-booking)).
-If you need to reserve a slot before the customer pays, you must go through a
-package slate — even for what is conceptually a single session.
-</Note>
-
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant BFF as Your BFF
-    participant MB as MarketBox API
-    B->>BFF: Start checkout
-    BFF->>MB: POST .../suggestions/holds { slateId }
-    MB-->>BFF: { reservationId, status: "HELD", heldUntil }
-    Note over BFF: Charge the customer<br/>(see Accept payments with Stripe)
-    BFF->>MB: POST .../orders/{orderId}/package-bookings/convert<br/>{ reservationId, orderItemId }
-    MB-->>BFF: { created: [...], quantityRemaining }
-    BFF-->>B: Package booked
-```
-
-<Steps>
-<Step title="Hold the slate">
-`POST /suggestions/holds` with `{ slateId }` (or `{ slotIds }` to hold a
-subset) flips every targeted slot `FREE → HELD` atomically — either all of
-them hold, or none do.
-
-```ts
-const res = await fetch(`${API_BASE_URL}/v1/projects/${PROJECT_ID}/suggestions/holds`, {
-  method: 'POST',
-  headers: { 'x-api-key': MARKETBOX_API_KEY, 'content-type': 'application/json' },
-  body: JSON.stringify({ slateId: primarySlate.slateId }),
-  // holdDurationMins defaults to the project's suggestionConfig.holdDurationMins (5 if unset)
-});
-```
-
-```json
-{
-  "reservationId": "resv_01kx17a...",
-  "status": "HELD",
-  "heldUntil": "2026-07-08T14:35:00.000Z",
-  "slateId": "slate_01kx16ejsqffc9rbgdcc591w2p",
-  "slotIds": ["slot_01kx16ejsrfs7tf3edy19wdsf8", "..."]
-}
-```
-
-Provide **exactly one** of `slateId` or `slotIds` — same rule as booking.
-
-<Note>
-Holds expire **lazily**: nothing actively sweeps them, but a slot past its
-`heldUntil` is treated as free again the next time it's read or targeted.
-</Note>
-</Step>
-
-<Step title="Take payment">
-Charge the customer with whatever flow you're already using — see
-[Accept payments with Stripe](/guides/accept-payments-with-stripe). The hold
-keeps the sessions reserved while this happens; nobody else can hold or book
-them until `heldUntil` passes or you release explicitly.
-</Step>
-
-<Step title="Convert the hold to bookings">
-On payment success, `POST /orders/{orderId}/package-bookings/convert` with
-`{ reservationId, orderItemId }`. It re-validates the hold, books every
-session through the same path as direct package-bookings, and flips the
-slots to `CONVERTED`.
-
-```ts
-const res = await fetch(
-  `${API_BASE_URL}/v1/projects/${PROJECT_ID}/orders/${orderId}/package-bookings/convert`,
-  {
-    method: 'POST',
-    headers: { 'x-api-key': MARKETBOX_API_KEY, 'content-type': 'application/json' },
-    body: JSON.stringify({ reservationId, orderItemId }),
-  },
-);
-```
-
-Response shape is identical to direct `package-bookings` — `created[]`,
-`failed[]`, `quantityRemaining` — and is **not** wrapped in `{ data }`.
-
-<Tip>
-**`convert` is idempotent — safe for a payment webhook to call.** It's keyed
-on a deterministic `convert:<reservationId>` idempotency key internally, so
-if a webhook fires twice (or you retry after a timeout), the second call
-returns the same stored result instead of double-booking. Call it directly
-from your payment-succeeded webhook handler, not just the browser's
-response.
-</Tip>
-</Step>
-
-<Step title="Or release, to abandon">
-If the customer bails before paying, release the hold explicitly rather
-than waiting for it to lapse:
-
-```ts
-await fetch(
-  `${API_BASE_URL}/v1/projects/${PROJECT_ID}/suggestions/holds/${reservationId}/release`,
-  { method: 'POST', headers: { 'x-api-key': MARKETBOX_API_KEY } },
-);
-```
-
-```json
-{ "reservationId": "resv_01kx17a...", "status": "RELEASED" }
-```
-
-<Note>
-Release always returns **`200`**, never `404` or `409` — it's deliberately a
-no-op on an already-released, already-converted, or unknown reservation
-(`status` comes back `RELEASED`, `CONVERTED`, or `NOT_FOUND` respectively).
-Safe to call blindly on cleanup/abandon paths without checking hold state
-first.
-</Note>
-</Step>
-</Steps>
-
-### Handling hold and convert conflicts
-
-Both `hold` and `convert` can return `409` with the shared stale-suggestion
-envelope — `{ code, message, freshSuggestions }` — where `freshSuggestions`
-is a freshly regenerated `package-slate` response you can rebuild from:
-
-- **Holding** a slot someone else already holds returns `code:
-  "SLOT_ALREADY_HELD"`.
-- **Converting** a hold that's missing, not `HELD`, held by a different
-  session, or expired all collapse to the same `code:
-  "SLOT_NO_LONGER_BOOKABLE"` — `message` carries the specific reason
-  (reservation not found, not held, forbidden, or expired), but the `code`
-  is uniform so client branching stays simple. Rebuild from
-  `freshSuggestions` and start over (new hold, new payment) rather than
-  retrying `convert` on the same `reservationId`.
+<Warning>
+A live hold blocks the time it claims: the slot stops being returned by
+availability search, and a direct `POST .../package-bookings` over it fails
+with `409 SLOT_HELD` — **even when the hold is your own**. If you hold, you
+convert. See [Concurrency](/concepts/concurrency).
+</Warning>
 
 ## Reference
 
@@ -436,9 +314,9 @@ is a freshly regenerated `package-slate` response you can rebuild from:
 | `/v1/projects/{projectId}/availability/time-slots` | `POST` | `x-api-key` | Direct engine invocation. Full reference: [Availability](/resources/availability). |
 | `/v1/projects/{projectId}/availability/package-slate` | `POST` | `x-api-key` | Build an N-session slate for a package from one supplier. `422` when nothing is bookable. |
 | `/v1/projects/{projectId}/orders/{orderId}/package-bookings` | `POST` | `x-api-key` | Book via `sessions` (Path A), `slateId`, or `slotIds` — exactly one. |
-| `/v1/projects/{projectId}/suggestions/holds` | `POST` | `x-api-key` | Hold a slate or cherry-picked slots. Returns `reservationId` + `heldUntil`. |
-| `/v1/projects/{projectId}/suggestions/holds/{reservationId}/release` | `POST` | `x-api-key` | Release a hold. Idempotent — always `200`. |
-| `/v1/projects/{projectId}/orders/{orderId}/package-bookings/convert` | `POST` | `x-api-key` | Convert a held reservation to confirmed bookings. Idempotent — safe for webhooks. |
+| `/v1/projects/{projectId}/holds` | `POST` | `x-api-key` | Hold supplier time — `intervals`, `slateId`, or `slotIds` (exactly one). Returns `reservationId` + `heldUntil`. See [Hold slots during checkout](/guides/hold-slots-for-checkout). |
+| `/v1/projects/{projectId}/holds/{reservationId}/convert` | `POST` | `x-api-key` | Convert a hold into confirmed bookings. Idempotent — safe for webhooks. |
+| `/v1/projects/{projectId}/holds/{reservationId}/release` | `POST` | `x-api-key` | Release a hold. Idempotent — always `200`. |
 
 ### Configuration
 
@@ -458,28 +336,26 @@ is a freshly regenerated `package-slate` response you can rebuild from:
 | No availability at all for the requested window/location | `NO_AVAILABILITY` | `422` | Try a different location, timezone, or `lookAheadStartDate`. |
 | No complete single-supplier slate under the project's supplier policy | `NO_COMPLETE_SLATE` | `422` | Check `alternates`/`partial` in the response first — they may still be usable. Otherwise widen the window or location. |
 | Provided more than one (or none) of `sessions` / `slateId` / `slotIds` on booking or holding | `VALIDATION_ERROR` | `400` | Provide exactly one. |
-| A targeted slot is already held by another checkout (holds only) | `SLOT_ALREADY_HELD` | `409` | Rebuild from `freshSuggestions` and hold a different slot/slate. |
-| The referenced slate/slot doesn't exist or has no slots (**holds only**) | `SLATE_NOT_FOUND` / `SLOT_NOT_FOUND` | `409` | The slate id was mistyped, or is from a different project. Rebuild the slate. |
-| The slot is past its 24-hour resolvable window (**holds only**) | `SUGGESTION_EXPIRED` | `409` | Rebuild the slate — slates aren't resolvable indefinitely. |
-| Converting a reservation that's missing, not held, held by someone else, or expired | `SLOT_NO_LONGER_BOOKABLE` | `409` | `message` names the specific cause. Don't retry the same `reservationId` — start a new hold. |
-| Chosen slot went stale between building a slate and booking it directly (`slateId`/`slotIds`, no hold) | `SLOT_NO_LONGER_BOOKABLE` | `409` | Same as above — covered in depth in [Create a package booking](/guides/create-a-package-booking#reference). |
-| More than 20 sessions with `atomicity: "all_or_nothing"` (applies to direct booking and `convert` alike) | `PACKAGE_SLATE_TOO_LARGE_FOR_ATOMIC` | `422` | Use `atomicity: "best_effort"` (requires `suggestionConfig.allowPartialPackages`), or book/hold a smaller slate. |
-| `best_effort` requested but the project hasn't enabled it | `BEST_EFFORT_NOT_ENABLED` | `422` | Stay with `all_or_nothing` (≤20 sessions), or ask the project to enable `suggestionConfig.allowPartialPackages`. |
+| The referenced slate/slot doesn't exist, has no slots, or is past its 24-hour resolvable window (**holding only**) | `SLATE_NOT_FOUND` / `SLOT_NOT_FOUND` / `SUGGESTION_EXPIRED` | `409` | Rebuild the slate with `POST /availability/package-slate` and hold the fresh one. |
+| Chosen slot went stale between building a slate and booking it directly (`slateId`/`slotIds`, no hold) | `SLOT_NO_LONGER_BOOKABLE` | `409` | The response includes `freshSuggestions` — rebuild from it. Covered in depth in [Create a package booking](/guides/create-a-package-booking#reference). |
+| The time is claimed by a live hold — including your own, if you tried to book it directly instead of converting | `SLOT_HELD` | `409` | `conflicts[0].reservationId` names the hold. Convert it, or offer another slot. See [Hold slots during checkout](/guides/hold-slots-for-checkout#handling-a-held-slot). |
+| The time is claimed by a confirmed booking | `SLOT_BOOKED` | `409` | Rebuild the slate — the supplier is taken. |
+| More than 15 sessions with `atomicity: "all_or_nothing"` (applies to direct booking and convert alike) | `PACKAGE_SLATE_TOO_LARGE_FOR_ATOMIC` | `422` | Use `atomicity: "best_effort"` (requires `suggestionConfig.allowPartialPackages`), or book/hold a smaller slate. |
+| `best_effort` requested but the project hasn't enabled it | `BEST_EFFORT_NOT_ENABLED` | `422` | Stay with `all_or_nothing` (≤15 sessions), or ask the project to enable `suggestionConfig.allowPartialPackages`. |
 
 <Warning>
-**The granular `409` codes above (`SLATE_NOT_FOUND`, `SLOT_NOT_FOUND`,
-`SUGGESTION_EXPIRED`, `SLOT_ALREADY_HELD`) are returned verbatim only by
-`POST /suggestions/holds`.** At booking time — `POST .../package-bookings`
-by `slateId`/`slotIds`, and `POST .../package-bookings/convert` — every one
-of these same stale conditions is collapsed to a single
+**The granular stale codes above (`SLATE_NOT_FOUND`, `SLOT_NOT_FOUND`,
+`SUGGESTION_EXPIRED`) are returned verbatim only by `POST /holds`.** At
+booking time — `POST .../package-bookings` by `slateId`/`slotIds` — every
+one of these same stale conditions is collapsed to a single
 `code: "SLOT_NO_LONGER_BOOKABLE"` (the `message` still names the specific
 cause). Branch on the distinct codes only when you're calling the holds
-endpoint; for direct booking and convert, branch on
-`SLOT_NO_LONGER_BOOKABLE` alone.
+endpoint; for direct booking, branch on `SLOT_NO_LONGER_BOOKABLE` alone.
 </Warning>
 
-See [Errors](/concepts/errors) for the full envelope and code list, and
+See [Errors](/concepts/errors) for the full envelope and code list,
+[Concurrency](/concepts/concurrency) for supplier-time conflicts, and
 [Create a package booking](/guides/create-a-package-booking#reference) for
 the errors specific to the order/order-item side of booking (expired
-packages, insufficient quantity, and so on) — `convert` shares that same
+packages, insufficient quantity, and so on) — convert shares that same
 booking path and can return the same set.

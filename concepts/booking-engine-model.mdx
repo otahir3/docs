@@ -134,12 +134,19 @@ A plain booking — `POST /bookings`, or a package booked directly by
 `slateId`/`sessions`/`slotIds` — is created immediately. There's no
 in-between "reserved" state and no reservation window to manage.
 
-A **timed hold** is a different, narrower thing: it only exists inside the
-package-slate flow. You build a slate, hold its slots (`POST
-/suggestions/holds`) to reserve them while the customer pays, then convert
-the hold to real bookings on payment success. Nothing outside that flow can
-be held — see [Availability and slates](/guides/availability-and-slates#path-b-holds-convert)
-for the full lifecycle.
+A **timed hold** is the in-between state. `POST /holds` claims a supplier's
+time — one session, a cherry-picked subset of a slate, or a whole slate —
+so nobody else can book it (or even see it as available) while your customer
+pays. On payment success you convert the hold into real bookings with
+`POST /holds/{reservationId}/convert`; on abandonment you release it, or you
+simply let it lapse at `heldUntil`.
+
+Holding a **single session** needs no package and no slate — just the
+supplier and a UTC window. And the rule that catches everyone: **if you
+hold, you convert.** The direct booking routes never consume a hold, not
+even your own — they return `409 SLOT_HELD` with the `reservationId` in the
+body. See [Hold slots during checkout](/guides/hold-slots-for-checkout) for
+the full lifecycle.
 
 ## Credits and payment
 

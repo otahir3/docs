@@ -1,53 +1,150 @@
 ---
 title: Concurrency and versioning
-description: How MarketBox handles concurrent updates and what to do when you hit a 409.
+description: Supplier time is exclusive — how MarketBox guards against double-booking, and what to do when you hit a 409.
 ---
 
-MarketBox uses **optimistic concurrency** on every mutable resource.
-There's no row-level locking, no advisory leases — instead, each record
-carries a `version` field that's incremented on every write. If two
-writers race, one wins and the other gets a `409 VERSION_CONFLICT`.
+Two things in this API can race, and they are guarded differently.
 
-## The version field
+**A supplier's time is exclusive.** Two bookings can never overlap on the
+same supplier, and every write that claims supplier time — a booking, a
+package booking, a hold, a reschedule, a hold conversion — passes through
+an **occupancy guard** that enforces it transactionally. If two callers
+race for the same time, exactly one wins; the other gets a `409` naming
+what blocked it.
+
+**Everything else is optimistic.** Mutable resources (bookings, orders,
+order items) carry a numeric `version` that advances on every write. If
+two writers race on the same record, one wins and the other gets
+`409 VERSION_CONFLICT`.
+
+## Supplier-time exclusivity
+
+Time on a supplier's calendar can be claimed by exactly one of two things:
+
+- a **booking** — blocks that time permanently (until cancelled);
+- a **hold** — blocks that time until its `heldUntil` passes. See
+  [Hold slots during checkout](/guides/hold-slots-for-checkout).
+
+The guard runs inside the same transaction as the booking write, so
+there is no window between "we checked" and "we wrote". Two concurrent
+`POST /bookings` for the same supplier at the same instant produce exactly
+one booking and one `409` — never two bookings, and never a half-written
+package.
+
+<Note>
+The guard enforces **hard interval exclusivity** only. Travel buffers,
+travel-time clashes, and working hours are enforced by the availability
+engine on the read side, when you search. The write guard is the safety net
+underneath: it is what makes a physically impossible schedule
+unrepresentable, even if you book by hand without searching first.
+</Note>
+
+### Intervals are half-open
+
+An interval is `[startUtc, endUtc)` — the start is inclusive, the end is
+exclusive. **Back-to-back bookings do not collide.** A session ending at
+`15:00:00Z` and one starting at `15:00:00Z` are both bookable on the same
+supplier:
+
+```
+10:00 ──────── 11:00        booked
+               11:00 ──────── 12:00   ✅ also bookable — no overlap
+        10:30 ──────── 11:30          ❌ 409 — overlaps the first
+```
+
+Times are arbitrary minute precision — there is no 15-minute grid. A
+booking from `10:07` to `10:52` blocks exactly `10:07`–`10:52`.
+
+## The three supplier-time conflicts
+
+All three are `409`, and all three tell you exactly what is in the way.
+
+### `SLOT_BOOKED`
+
+A confirmed booking already occupies the time. `conflicts[]` names the
+blocking `bookingId`.
+
+```json
+{
+  "code": "SLOT_BOOKED",
+  "message": "Supplier time is not available: BOOKING bk_01k16f2a0e5x9jv6r0c1qs7pm (2026-07-15T14:00:00.000Z–2026-07-15T15:00:00.000Z)",
+  "conflicts": [
+    {
+      "claimType": "BOOKING",
+      "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+      "startUtc": "2026-07-15T14:00:00.000Z",
+      "endUtc": "2026-07-15T15:00:00.000Z",
+      "reservationId": null,
+      "bookingId": "bk_01k16f2a0e5x9jv6r0c1qs7pm",
+      "heldUntil": null
+    }
+  ],
+  "hint": "This supplier is already booked for the requested time. Search availability again."
+}
+```
+
+Not retryable — the time is gone. Search availability again and offer
+something else.
+
+### `SLOT_HELD`
+
+A **live hold** occupies the time, and `conflicts[]` names the blocking
+`reservationId` plus the `heldUntil` at which it lapses.
+
+Most often, the hold is **your own**: you held the time for a checkout and
+then called `POST /bookings` (or `POST .../package-bookings`) directly.
+The direct booking routes never consume a hold — **if you hold, you
+convert**. Take the `reservationId` out of the response and call
+`POST /holds/{reservationId}/convert` instead. If the hold belongs to
+someone else's checkout, `heldUntil` tells you when the time frees up.
+
+The full body and both branches are in
+[Hold slots during checkout](/guides/hold-slots-for-checkout#handling-a-held-slot).
+
+### `OCCUPANCY_CONTENTION`
+
+Not a conflict over *your* time — a conflict over the *row*. Claims are
+guarded per supplier per UTC day with an optimistic version, and several
+writers hammering the same supplier-day serialize. The API retries
+internally; `OCCUPANCY_CONTENTION` means even the bounded retry gave up.
+
+This one **is** retryable. Re-send the same request after a short backoff
+(50–200 ms, jittered). Two people booking *different* times with the same
+supplier on the same day normally both succeed — you should see this code
+only under genuinely heavy contention.
+
+<Warning>
+Holds also block **search**. A held slot is not returned as available by
+`/availability/search` or `/availability/package-slate` while its hold is
+live. A slot that disappears between two searches may simply be mid-checkout
+for someone else — it will come back if their hold lapses.
+</Warning>
+
+## Optimistic versioning on updates
 
 Every booking, order, and order item DTO includes a numeric `version`:
 
 ```json
 {
-  "bookingId": "bkg_...",
+  "bookingId": "bk_...",
   "version": 4,
-  "status": "CONFIRMED",
-  ...
+  "status": "CONFIRMED"
 }
 ```
 
-You don't have to track it manually for most flows — the server reads
-the current version on each PATCH/DELETE and applies your update
-atomically. But you'll see the field in responses, and you'll see it
-move when something changes.
+You don't have to track it manually — the server reads the current version
+on each PATCH/DELETE and applies your update atomically. But you'll see it
+move when something changes, and you'll get `409 VERSION_CONFLICT` when two
+writers race, or when you read, sat on the result, and then patched a
+record that had since advanced.
 
-## When you'll see 409
-
-Two scenarios produce `VERSION_CONFLICT`:
-
-1. **Two concurrent updates.** Your PATCH and someone else's PATCH
-   land at roughly the same time. The faster one wins; the slower one
-   gets `409`.
-2. **Stale view + update.** You read a booking, hold it for a while,
-   then PATCH. In between, something else (a status change from the
-   dashboard, another integration, etc.) advanced the version.
-
-Both look the same from the caller's perspective.
-
-## Recovering
-
-The recovery pattern is always:
+### Recovering
 
 1. **GET** the resource again — you'll see the new `version` and the
    current state.
 2. **Reapply** your change on top of the fresh state. If the new state
-   makes your update irrelevant (someone else already cancelled the
-   booking you were about to cancel), you can skip the retry.
+   makes your update irrelevant (someone else already cancelled the booking
+   you were about to cancel), skip the retry.
 3. **PATCH** again.
 
 ```ts
@@ -67,26 +164,48 @@ async function rescheduleWithRetry(projectId: string, bookingId: string, patch: 
 }
 ```
 
-## Where you'll see it
+Note that a **reschedule** passes through the occupancy guard as well as
+the version check: moving a booking onto time that someone else holds or
+has booked returns `SLOT_HELD` / `SLOT_BOOKED`, not `VERSION_CONFLICT`.
 
-| Endpoint                                                       | Can 409?                                              |
-| -------------------------------------------------------------- | ----------------------------------------------------- |
-| `PATCH /v1/projects/{projectId}/bookings/{bookingId}`          | Yes — booking version moved.                          |
-| `POST /v1/projects/{projectId}/bookings/{bookingId}/status`    | Yes — booking version moved.                          |
-| `DELETE /v1/projects/{projectId}/bookings/{bookingId}`         | Yes — booking version moved.                          |
-| `PATCH /v1/projects/{projectId}/orders/{orderId}`              | Yes — order version moved.                            |
-| `POST /v1/projects/{projectId}/orders/{orderId}/status`        | Yes — order version moved.                            |
-| `DELETE /v1/projects/{projectId}/orders/{orderId}`             | Yes — order version moved.                            |
-| `POST /v1/projects/{projectId}/bookings/{bookingId}/participants` | `409 CAPACITY_EXCEEDED` or `PARTICIPANT_ALREADY_REGISTERED` — different conflict, same status. |
+## Where you'll see 409
+
+| Endpoint | Can 409? |
+| --- | --- |
+| `POST /v1/projects/{projectId}/bookings` | Yes — `SLOT_BOOKED`, `SLOT_HELD`, or `OCCUPANCY_CONTENTION`. |
+| `POST /v1/projects/{projectId}/orders/{orderId}/package-bookings` | Yes — same three, plus stale-slot and credit conflicts. |
+| `POST /v1/projects/{projectId}/holds` | Yes — `SLOT_BOOKED` / `SLOT_HELD` when the time is already claimed by someone else. |
+| `POST /v1/projects/{projectId}/holds/{reservationId}/convert` | Yes — `HOLD_EXPIRED`, or `SLOT_BOOKED` / `SLOT_HELD` if the time went while you were paying. |
+| `PATCH /v1/projects/{projectId}/bookings/{bookingId}` | Yes — `VERSION_CONFLICT`, or a supplier-time conflict on a reschedule. |
+| `POST /v1/projects/{projectId}/bookings/{bookingId}/status` | Yes — booking version moved. |
+| `DELETE /v1/projects/{projectId}/bookings/{bookingId}` | Yes — booking version moved. |
+| `PATCH /v1/projects/{projectId}/orders/{orderId}` | Yes — order version moved. |
+| `POST /v1/projects/{projectId}/orders/{orderId}/status` | Yes — order version moved. |
+| `DELETE /v1/projects/{projectId}/orders/{orderId}` | Yes — order version moved. |
+| `POST /v1/projects/{projectId}/bookings/{bookingId}/participants` | Yes — `CAPACITY_EXCEEDED` or `PARTICIPANT_ALREADY_REGISTERED`. |
 
 ## Capacity and duplicate conflicts
 
-`409` also covers business-level conflicts that aren't version-based:
+`409` also covers business-level conflicts that are neither version-based
+nor supplier-time-based:
 
-- **`CAPACITY_EXCEEDED`** — registering a participant would put the
-  booking past its `capacity`. The booking's version is unchanged.
-- **`PARTICIPANT_ALREADY_REGISTERED`** — the client is already on
-  the participant list (and not in a cancelled state).
+- **`CAPACITY_EXCEEDED`** — registering a participant would put the booking
+  past its `capacity`. The booking's version is unchanged.
+- **`PARTICIPANT_ALREADY_REGISTERED`** — the client is already on the
+  participant list (and not in a cancelled state).
 
-These aren't fixable by re-reading and retrying — the action just
-can't proceed. Surface them to the user rather than looping.
+These aren't fixable by re-reading and retrying — the action just can't
+proceed. Surface them to the user rather than looping.
+
+## Which 409s are retryable
+
+| `code` | Retry the same request? |
+| --- | --- |
+| `OCCUPANCY_CONTENTION` | **Yes** — short backoff. Transient row contention. |
+| `VERSION_CONFLICT` | Re-read first, reapply, then retry. |
+| `SLOT_HELD` | **No** — convert the named `reservationId`, or offer another slot. |
+| `SLOT_BOOKED` | **No** — the time is taken. Search again. |
+| `HOLD_EXPIRED` | **No** — hold again, then convert the new reservation. |
+| `CAPACITY_EXCEEDED`, `PARTICIPANT_ALREADY_REGISTERED` | **No** — surface to the user. |
+
+See [Errors](/concepts/errors) for the full envelope and code list.
