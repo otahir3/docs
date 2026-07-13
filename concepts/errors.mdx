@@ -28,6 +28,50 @@ Every error response from the MarketBox API uses the same envelope.
   MarketBox support uses to look up a single call in our logs.
 </Tip>
 
+### Conflict bodies carry extra fields
+
+Supplier-time conflicts and hold-lifecycle failures use the same four envelope
+fields as every other error — plus extras that tell you how to recover.
+
+A **slot conflict** (`409 SLOT_HELD` / `SLOT_BOOKED`, from any booking or hold
+route) adds `conflicts[]` and `hint`:
+
+```json
+{
+  "code": "SLOT_HELD",
+  "message": "Supplier time is not available: HOLD resv_01kv8p2… (2026-07-15T14:00:00Z–15:00:00Z)",
+  "statusCode": 409,
+  "requestId": "req_2hY3...",
+  "conflicts": [
+    {
+      "claimType": "HOLD",
+      "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+      "startUtc": "2026-07-15T14:00:00.000Z",
+      "endUtc": "2026-07-15T15:00:00.000Z",
+      "reservationId": "resv_01kv8p20m1gnqvxl92xln6awk8",
+      "bookingId": null,
+      "heldUntil": "2026-07-15T13:35:00.000Z"
+    }
+  ],
+  "hint": "This time is held (reservation resv_01kv8p2…). Convert the hold via POST /v1/projects/{projectId}/holds/{reservationId}/convert, or release it…"
+}
+```
+
+`conflicts[]` names **what** is blocking you (a `reservationId` for a `HOLD`, a
+`bookingId` for a `BOOKING`) and `hint` names **what to do next** — both are
+meant to be read programmatically.
+
+A **hold-lifecycle** failure (`409`, see the table below) is the plain envelope:
+
+```json
+{
+  "code": "HOLD_EXPIRED",
+  "message": "Reservation resv_01kv8p2… expired at 2026-07-15T13:35:00.000Z",
+  "statusCode": 409,
+  "requestId": "req_2hY3..."
+}
+```
+
 ## Status codes
 
 | Status | When you'll see it                                                                                 |
@@ -63,6 +107,38 @@ The exact list of codes is also captured in
 over time; treat unknown codes as the generic class implied by the HTTP
 status.
 
+## Hold and slate codes
+
+These come from the hold endpoints (`POST /holds`, `/holds/{reservationId}/convert`)
+and the slate-based booking routes. Full walkthrough in
+[Hold slots during checkout](/guides/hold-slots-for-checkout#troubleshooting).
+
+| `code`                       | Status | What it means                                                                                              | What to do                                                                                             |
+| ---------------------------- | ------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `MISSING_BOOKING_TZ`         | 400    | The held interval carries no `bookingTz` and no location to derive one from.                               | Send `bookingTz` (IANA, e.g. `America/Toronto`) on every entry in `intervals[]`. It is required.        |
+| `UNSUPPORTED_SKU_TYPE`       | 400    | The order item you're converting against is a `SUBSCRIPTION`, `MEMBERSHIP`, or `DEPOSIT`.                   | Convert against a `PACKAGE` or `SINGLE_SESSION` item. Nothing is wrong with the hold.                   |
+| `INVALID_ORDER_REFERENCE`    | 400    | The `orderId` doesn't exist in this project.                                                                | Check the id and the project.                                                                           |
+| `HOLD_EXPIRED`               | 409    | You converted after `heldUntil`. Expiry is lazy — the hold simply stopped blocking anyone.                  | Re-hold the time and convert sooner. Someone else may have taken it.                                    |
+| `RESERVATION_NOT_FOUND`      | 409    | No such `reservationId` in this project. (`GET /holds/{id}` returns `404 NOT_FOUND` instead.)               | Don't retry. Place a new hold.                                                                           |
+| `RESERVATION_NOT_HELD`       | 409    | The hold is already `CONVERTED` or `RELEASED`.                                                              | If `CONVERTED`, re-read the hold — your bookings already exist. Converting is idempotent, not repeatable. |
+| `RESERVATION_FORBIDDEN`      | 409    | The `heldBy` you sent doesn't match the hold's owner.                                                       | Send the same `heldBy` used to create the hold (typically your checkout session id).                    |
+| `RESERVATION_MULTI_INTERVAL` | 409    | You converted a multi-interval hold against a `SINGLE_SESSION` order item.                                  | Use a `PACKAGE` order item, or hold exactly one interval.                                               |
+| `SLATE_NOT_FOUND`            | 409    | The `slateId` no longer exists.                                                                             | Re-run `POST /availability/package-slate` and hold the fresh slate.                                     |
+| `SLOT_NOT_FOUND`             | 409    | One or more `slotIds` no longer exist.                                                                      | Same — regenerate the slate.                                                                            |
+| `EMPTY_SLATE`                | 409    | The slate resolved to zero slots, or you sent none of `intervals` / `slateId` / `slotIds`.                  | Send exactly one of the three.                                                                          |
+| `SUGGESTION_EXPIRED`         | 409    | The underlying suggestion aged out before you booked it.                                                    | Re-run availability.                                                                                    |
+| `SLOT_NOT_BOOKABLE`          | 409    | The slot resolved but can no longer be booked.                                                              | Re-run availability.                                                                                    |
+| `LOCATION_UNRESOLVABLE`      | 409    | No supplier travel zone covers the requested coordinates.                                                   | The supplier doesn't serve that address. Pick another supplier or location.                             |
+
+<Warning>
+  A `404 NOT_FOUND` with the message **`Location stz_… not found`** on convert
+  is not a missing record — it means the hold carried a travel-zone id
+  (`stz_…`) under `locationType: "PHYSICAL"` (or with no `locationType` at
+  all), so it was looked up in the wrong table. Re-hold with
+  `locationType: "TRAVEL_ZONE"` plus `latitude`, `longitude`, and `address`.
+  See [Hold slots during checkout](/guides/hold-slots-for-checkout#a-travel-zone-checkout-end-to-end).
+</Warning>
+
 ## Validation errors
 
 For schema validation failures, `message` names the offending field:
@@ -91,6 +167,10 @@ next.
   response body names the blocking `reservationId` or `bookingId`; convert
   the hold, or pick a different time. See
   [Concurrency](/concepts/concurrency).
+- **`409 HOLD_EXPIRED` / `RESERVATION_*`** — never retry. The hold is in a
+  terminal state, and retrying cannot move it out of one. Re-hold, or (for
+  `RESERVATION_NOT_HELD` on an already-`CONVERTED` hold) re-read it — your
+  bookings already exist.
 - **`5xx`** — retry idempotent requests (`GET`, `DELETE`, `PATCH` with
   the same body, status changes to the same target) with exponential
   backoff. Avoid blind retries on `POST`, since the original may have

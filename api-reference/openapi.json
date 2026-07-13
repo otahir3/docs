@@ -637,6 +637,19 @@
                       "description": "Human-readable summary of the conflict.",
                       "example": "Supplier time is not available: HOLD res_abc123 (2026-08-01T10:00:00Z–2026-08-01T11:00:00Z)"
                     },
+                    "statusCode": {
+                      "type": "number",
+                      "enum": [
+                        409
+                      ],
+                      "description": "The HTTP status, repeated in the body — every MarketBox error carries it, so you can branch on the body alone.",
+                      "example": 409
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "The id of this request (also returned as the X-Request-Id header). Quote it in a support ticket.",
+                      "example": "a3f1c2de-9b64-4a2f-8f0e-5c9d1b7a2e10"
+                    },
                     "conflicts": {
                       "type": "array",
                       "items": {
@@ -704,6 +717,8 @@
                   "required": [
                     "code",
                     "message",
+                    "statusCode",
+                    "requestId",
                     "conflicts",
                     "hint"
                   ]
@@ -11270,7 +11285,7 @@
             }
           },
           "409": {
-            "description": "Expired, insufficient quantity, or supplier time held/booked",
+            "description": "Expired, insufficient quantity, supplier time held/booked, or the slate/slot went stale (freshSuggestions returned)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11305,6 +11320,19 @@
                           "type": "string",
                           "description": "Human-readable summary of the conflict.",
                           "example": "Supplier time is not available: HOLD res_abc123 (2026-08-01T10:00:00Z–2026-08-01T11:00:00Z)"
+                        },
+                        "statusCode": {
+                          "type": "number",
+                          "enum": [
+                            409
+                          ],
+                          "description": "The HTTP status, repeated in the body — every MarketBox error carries it, so you can branch on the body alone.",
+                          "example": 409
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "The id of this request (also returned as the X-Request-Id header). Quote it in a support ticket.",
+                          "example": "a3f1c2de-9b64-4a2f-8f0e-5c9d1b7a2e10"
                         },
                         "conflicts": {
                           "type": "array",
@@ -11373,8 +11401,661 @@
                       "required": [
                         "code",
                         "message",
+                        "statusCode",
+                        "requestId",
                         "conflicts",
                         "hint"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "statusCode": {
+                          "type": "number",
+                          "enum": [
+                            409
+                          ],
+                          "description": "The HTTP status, repeated in the body — every MarketBox error carries it, so you can branch on the body alone.",
+                          "example": 409
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "The id of this request (also returned as the X-Request-Id header). Quote it in a support ticket.",
+                          "example": "a3f1c2de-9b64-4a2f-8f0e-5c9d1b7a2e10"
+                        },
+                        "freshSuggestions": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "OK",
+                                "NO_COMPLETE_SLATE",
+                                "NO_AVAILABILITY"
+                              ],
+                              "description": "OK, NO_COMPLETE_SLATE, or NO_AVAILABILITY."
+                            },
+                            "reason": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "suggestionRequestId": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Audit id for this suggestion request (present when persisted)."
+                            },
+                            "resolvableUntil": {
+                              "type": "string",
+                              "nullable": true,
+                              "format": "date-time"
+                            },
+                            "primarySlate": {
+                              "type": "object",
+                              "nullable": true,
+                              "properties": {
+                                "slateId": {
+                                  "type": "string",
+                                  "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                  "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
+                                },
+                                "supplierId": {
+                                  "type": "string"
+                                },
+                                "completeness": {
+                                  "type": "string",
+                                  "enum": [
+                                    "COMPLETE",
+                                    "PARTIAL"
+                                  ]
+                                },
+                                "sessionsRequested": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "How many sessions were requested (the package's creditCount)."
+                                },
+                                "sessionsFilled": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "How many of the requested sessions the plan could fill."
+                                },
+                                "startTimeConsistencyPercent": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 100
+                                },
+                                "totalTravelTimeMins": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "slots": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "slotId": {
+                                        "type": "string",
+                                        "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
+                                      },
+                                      "sessionIndex": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true,
+                                        "description": "1-based index of this session within the slate."
+                                      },
+                                      "supplierId": {
+                                        "type": "string"
+                                      },
+                                      "serviceId": {
+                                        "type": "string"
+                                      },
+                                      "offeringId": {
+                                        "type": "string"
+                                      },
+                                      "bookingStartUtc": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      },
+                                      "bookingEndUtc": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      },
+                                      "bookingTz": {
+                                        "type": "string"
+                                      },
+                                      "locationType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "PHYSICAL",
+                                          "VIRTUAL",
+                                          "TRAVEL_ZONE"
+                                        ]
+                                      },
+                                      "locationId": {
+                                        "type": "string",
+                                        "nullable": true
+                                      },
+                                      "latitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                      },
+                                      "longitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                      },
+                                      "address": {
+                                        "type": "object",
+                                        "nullable": true,
+                                        "properties": {
+                                          "addressOneLine": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "streetNumber": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "streetName": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "city": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "state": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "country": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "zipCode": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "unitNumber": {
+                                            "type": "string",
+                                            "nullable": true
+                                          }
+                                        },
+                                        "required": [
+                                          "addressOneLine",
+                                          "streetNumber",
+                                          "streetName",
+                                          "city",
+                                          "state",
+                                          "country",
+                                          "zipCode"
+                                        ]
+                                      },
+                                      "travelTimeMins": {
+                                        "type": "number",
+                                        "nullable": true,
+                                        "minimum": 0
+                                      },
+                                      "capacity": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true
+                                      },
+                                      "reservationStatus": {
+                                        "type": "string",
+                                        "enum": [
+                                          "FREE",
+                                          "HELD",
+                                          "CONVERTED",
+                                          "RELEASED"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "slotId",
+                                      "sessionIndex",
+                                      "supplierId",
+                                      "serviceId",
+                                      "offeringId",
+                                      "bookingStartUtc",
+                                      "bookingEndUtc",
+                                      "bookingTz",
+                                      "locationType",
+                                      "locationId",
+                                      "latitude",
+                                      "longitude",
+                                      "address",
+                                      "travelTimeMins",
+                                      "capacity",
+                                      "reservationStatus"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "slateId",
+                                "supplierId",
+                                "completeness",
+                                "sessionsRequested",
+                                "sessionsFilled",
+                                "startTimeConsistencyPercent",
+                                "totalTravelTimeMins",
+                                "slots"
+                              ],
+                              "description": "The best COMPLETE single-supplier slate; book this by slateId."
+                            },
+                            "alternates": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "slateId": {
+                                    "type": "string",
+                                    "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                    "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
+                                  },
+                                  "supplierId": {
+                                    "type": "string"
+                                  },
+                                  "completeness": {
+                                    "type": "string",
+                                    "enum": [
+                                      "COMPLETE",
+                                      "PARTIAL"
+                                    ]
+                                  },
+                                  "sessionsRequested": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true,
+                                    "description": "How many sessions were requested (the package's creditCount)."
+                                  },
+                                  "sessionsFilled": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "description": "How many of the requested sessions the plan could fill."
+                                  },
+                                  "startTimeConsistencyPercent": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  "totalTravelTimeMins": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "slots": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "slotId": {
+                                          "type": "string",
+                                          "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
+                                        },
+                                        "sessionIndex": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "exclusiveMinimum": true,
+                                          "description": "1-based index of this session within the slate."
+                                        },
+                                        "supplierId": {
+                                          "type": "string"
+                                        },
+                                        "serviceId": {
+                                          "type": "string"
+                                        },
+                                        "offeringId": {
+                                          "type": "string"
+                                        },
+                                        "bookingStartUtc": {
+                                          "type": "string",
+                                          "format": "date-time"
+                                        },
+                                        "bookingEndUtc": {
+                                          "type": "string",
+                                          "format": "date-time"
+                                        },
+                                        "bookingTz": {
+                                          "type": "string"
+                                        },
+                                        "locationType": {
+                                          "type": "string",
+                                          "enum": [
+                                            "PHYSICAL",
+                                            "VIRTUAL",
+                                            "TRAVEL_ZONE"
+                                          ]
+                                        },
+                                        "locationId": {
+                                          "type": "string",
+                                          "nullable": true
+                                        },
+                                        "latitude": {
+                                          "type": "number",
+                                          "nullable": true
+                                        },
+                                        "longitude": {
+                                          "type": "number",
+                                          "nullable": true
+                                        },
+                                        "address": {
+                                          "type": "object",
+                                          "nullable": true,
+                                          "properties": {
+                                            "addressOneLine": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "streetNumber": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "streetName": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "city": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "state": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "country": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "zipCode": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "unitNumber": {
+                                              "type": "string",
+                                              "nullable": true
+                                            }
+                                          },
+                                          "required": [
+                                            "addressOneLine",
+                                            "streetNumber",
+                                            "streetName",
+                                            "city",
+                                            "state",
+                                            "country",
+                                            "zipCode"
+                                          ]
+                                        },
+                                        "travelTimeMins": {
+                                          "type": "number",
+                                          "nullable": true,
+                                          "minimum": 0
+                                        },
+                                        "capacity": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "exclusiveMinimum": true
+                                        },
+                                        "reservationStatus": {
+                                          "type": "string",
+                                          "enum": [
+                                            "FREE",
+                                            "HELD",
+                                            "CONVERTED",
+                                            "RELEASED"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "slotId",
+                                        "sessionIndex",
+                                        "supplierId",
+                                        "serviceId",
+                                        "offeringId",
+                                        "bookingStartUtc",
+                                        "bookingEndUtc",
+                                        "bookingTz",
+                                        "locationType",
+                                        "locationId",
+                                        "latitude",
+                                        "longitude",
+                                        "address",
+                                        "travelTimeMins",
+                                        "capacity",
+                                        "reservationStatus"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "slateId",
+                                  "supplierId",
+                                  "completeness",
+                                  "sessionsRequested",
+                                  "sessionsFilled",
+                                  "startTimeConsistencyPercent",
+                                  "totalTravelTimeMins",
+                                  "slots"
+                                ]
+                              }
+                            },
+                            "partial": {
+                              "type": "object",
+                              "nullable": true,
+                              "properties": {
+                                "slateId": {
+                                  "type": "string",
+                                  "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                  "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
+                                },
+                                "supplierId": {
+                                  "type": "string"
+                                },
+                                "completeness": {
+                                  "type": "string",
+                                  "enum": [
+                                    "COMPLETE",
+                                    "PARTIAL"
+                                  ]
+                                },
+                                "sessionsRequested": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "How many sessions were requested (the package's creditCount)."
+                                },
+                                "sessionsFilled": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "How many of the requested sessions the plan could fill."
+                                },
+                                "startTimeConsistencyPercent": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 100
+                                },
+                                "totalTravelTimeMins": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "slots": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "slotId": {
+                                        "type": "string",
+                                        "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
+                                      },
+                                      "sessionIndex": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true,
+                                        "description": "1-based index of this session within the slate."
+                                      },
+                                      "supplierId": {
+                                        "type": "string"
+                                      },
+                                      "serviceId": {
+                                        "type": "string"
+                                      },
+                                      "offeringId": {
+                                        "type": "string"
+                                      },
+                                      "bookingStartUtc": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      },
+                                      "bookingEndUtc": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      },
+                                      "bookingTz": {
+                                        "type": "string"
+                                      },
+                                      "locationType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "PHYSICAL",
+                                          "VIRTUAL",
+                                          "TRAVEL_ZONE"
+                                        ]
+                                      },
+                                      "locationId": {
+                                        "type": "string",
+                                        "nullable": true
+                                      },
+                                      "latitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                      },
+                                      "longitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                      },
+                                      "address": {
+                                        "type": "object",
+                                        "nullable": true,
+                                        "properties": {
+                                          "addressOneLine": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "streetNumber": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "streetName": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "city": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "state": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "country": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "zipCode": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "unitNumber": {
+                                            "type": "string",
+                                            "nullable": true
+                                          }
+                                        },
+                                        "required": [
+                                          "addressOneLine",
+                                          "streetNumber",
+                                          "streetName",
+                                          "city",
+                                          "state",
+                                          "country",
+                                          "zipCode"
+                                        ]
+                                      },
+                                      "travelTimeMins": {
+                                        "type": "number",
+                                        "nullable": true,
+                                        "minimum": 0
+                                      },
+                                      "capacity": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true
+                                      },
+                                      "reservationStatus": {
+                                        "type": "string",
+                                        "enum": [
+                                          "FREE",
+                                          "HELD",
+                                          "CONVERTED",
+                                          "RELEASED"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "slotId",
+                                      "sessionIndex",
+                                      "supplierId",
+                                      "serviceId",
+                                      "offeringId",
+                                      "bookingStartUtc",
+                                      "bookingEndUtc",
+                                      "bookingTz",
+                                      "locationType",
+                                      "locationId",
+                                      "latitude",
+                                      "longitude",
+                                      "address",
+                                      "travelTimeMins",
+                                      "capacity",
+                                      "reservationStatus"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "slateId",
+                                "supplierId",
+                                "completeness",
+                                "sessionsRequested",
+                                "sessionsFilled",
+                                "startTimeConsistencyPercent",
+                                "totalTravelTimeMins",
+                                "slots"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "reason",
+                            "suggestionRequestId",
+                            "resolvableUntil",
+                            "primarySlate",
+                            "alternates",
+                            "partial"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "statusCode",
+                        "requestId",
+                        "freshSuggestions"
                       ]
                     }
                   ]
@@ -17360,6 +18041,19 @@
                         "message": {
                           "type": "string"
                         },
+                        "statusCode": {
+                          "type": "number",
+                          "enum": [
+                            409
+                          ],
+                          "description": "The HTTP status, repeated in the body — every MarketBox error carries it, so you can branch on the body alone.",
+                          "example": 409
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "The id of this request (also returned as the X-Request-Id header). Quote it in a support ticket.",
+                          "example": "a3f1c2de-9b64-4a2f-8f0e-5c9d1b7a2e10"
+                        },
                         "freshSuggestions": {
                           "type": "object",
                           "nullable": true,
@@ -17983,7 +18677,9 @@
                       },
                       "required": [
                         "code",
-                        "message"
+                        "message",
+                        "statusCode",
+                        "requestId"
                       ]
                     },
                     {
@@ -18002,6 +18698,19 @@
                           "type": "string",
                           "description": "Human-readable summary of the conflict.",
                           "example": "Supplier time is not available: HOLD res_abc123 (2026-08-01T10:00:00Z–2026-08-01T11:00:00Z)"
+                        },
+                        "statusCode": {
+                          "type": "number",
+                          "enum": [
+                            409
+                          ],
+                          "description": "The HTTP status, repeated in the body — every MarketBox error carries it, so you can branch on the body alone.",
+                          "example": 409
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "The id of this request (also returned as the X-Request-Id header). Quote it in a support ticket.",
+                          "example": "a3f1c2de-9b64-4a2f-8f0e-5c9d1b7a2e10"
                         },
                         "conflicts": {
                           "type": "array",
@@ -18070,6 +18779,8 @@
                       "required": [
                         "code",
                         "message",
+                        "statusCode",
+                        "requestId",
                         "conflicts",
                         "hint"
                       ]
@@ -18497,6 +19208,19 @@
                           "description": "Human-readable summary of the conflict.",
                           "example": "Supplier time is not available: HOLD res_abc123 (2026-08-01T10:00:00Z–2026-08-01T11:00:00Z)"
                         },
+                        "statusCode": {
+                          "type": "number",
+                          "enum": [
+                            409
+                          ],
+                          "description": "The HTTP status, repeated in the body — every MarketBox error carries it, so you can branch on the body alone.",
+                          "example": 409
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "The id of this request (also returned as the X-Request-Id header). Quote it in a support ticket.",
+                          "example": "a3f1c2de-9b64-4a2f-8f0e-5c9d1b7a2e10"
+                        },
                         "conflicts": {
                           "type": "array",
                           "items": {
@@ -18564,6 +19288,8 @@
                       "required": [
                         "code",
                         "message",
+                        "statusCode",
+                        "requestId",
                         "conflicts",
                         "hint"
                       ]
@@ -18580,11 +19306,26 @@
                           "type": "string",
                           "description": "Human-readable explanation.",
                           "example": "Reservation resv_01kv8 expired at 2026-07-10T12:05:00.000Z"
+                        },
+                        "statusCode": {
+                          "type": "number",
+                          "enum": [
+                            409
+                          ],
+                          "description": "The HTTP status, repeated in the body — every MarketBox error carries it, so you can branch on the body alone.",
+                          "example": 409
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "The id of this request (also returned as the X-Request-Id header). Quote it in a support ticket.",
+                          "example": "a3f1c2de-9b64-4a2f-8f0e-5c9d1b7a2e10"
                         }
                       },
                       "required": [
                         "code",
-                        "message"
+                        "message",
+                        "statusCode",
+                        "requestId"
                       ]
                     }
                   ]
@@ -19214,6 +19955,19 @@
                           "description": "Human-readable summary of the conflict.",
                           "example": "Supplier time is not available: HOLD res_abc123 (2026-08-01T10:00:00Z–2026-08-01T11:00:00Z)"
                         },
+                        "statusCode": {
+                          "type": "number",
+                          "enum": [
+                            409
+                          ],
+                          "description": "The HTTP status, repeated in the body — every MarketBox error carries it, so you can branch on the body alone.",
+                          "example": 409
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "The id of this request (also returned as the X-Request-Id header). Quote it in a support ticket.",
+                          "example": "a3f1c2de-9b64-4a2f-8f0e-5c9d1b7a2e10"
+                        },
                         "conflicts": {
                           "type": "array",
                           "items": {
@@ -19281,6 +20035,8 @@
                       "required": [
                         "code",
                         "message",
+                        "statusCode",
+                        "requestId",
                         "conflicts",
                         "hint"
                       ]
@@ -19297,11 +20053,26 @@
                           "type": "string",
                           "description": "Human-readable explanation.",
                           "example": "Reservation resv_01kv8 expired at 2026-07-10T12:05:00.000Z"
+                        },
+                        "statusCode": {
+                          "type": "number",
+                          "enum": [
+                            409
+                          ],
+                          "description": "The HTTP status, repeated in the body — every MarketBox error carries it, so you can branch on the body alone.",
+                          "example": 409
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "The id of this request (also returned as the X-Request-Id header). Quote it in a support ticket.",
+                          "example": "a3f1c2de-9b64-4a2f-8f0e-5c9d1b7a2e10"
                         }
                       },
                       "required": [
                         "code",
-                        "message"
+                        "message",
+                        "statusCode",
+                        "requestId"
                       ]
                     }
                   ]

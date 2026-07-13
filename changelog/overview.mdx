@@ -69,6 +69,7 @@ Convert rebuilds the booking from the **reservation alone** — never by re-read
 - **`GET /holds/{reservationId}`** and the `201` from `POST /holds` now **echo the full interval shape** — `bookingTz`, `locationType`, `locationId`, `latitude`, `longitude`, `address` — so you can verify exactly what convert will build.
 - **`POST /holds/{reservationId}/release`** — free the time immediately when a checkout is abandoned. Idempotent, never an error.
 - **Occupancy guard** — `409 SLOT_HELD` / `SLOT_BOOKED` on any write that collides with a live claim. The body names the blocking `reservationId` or `bookingId` and tells you what to do with it.
+- **Conflict responses now carry the full error envelope.** Every `409` conflict and hold-lifecycle body (`SLOT_HELD`, `SLOT_BOOKED`, `HOLD_EXPIRED`, `RESERVATION_*`, and the slate codes) now includes `statusCode` and `requestId` alongside `code` and `message`, matching every other error. Purely additive — nothing was removed or renamed. If you were branching on the HTTP status because `body.statusCode` was missing on these, you no longer have to. See [Errors](/concepts/errors).
 
 **What this means for you**
 
