@@ -42,7 +42,7 @@ checked against a format (ISO-2), everything else is just "non-empty string."
 `address` is only required where a booking's location is a **travel zone** —
 a supplier traveling to the client, resolved from `latitude`/`longitude`
 rather than a stored `Location` record. It's rejected as unnecessary nowhere,
-but it's *validated as mandatory* in exactly three places:
+but it's *validated as mandatory* in exactly four places:
 
 1. **`POST /bookings`** with `locationType: "TRAVEL_ZONE"`.
 2. **A package session** with `locationType: "TRAVEL_ZONE"` — whether that
@@ -51,6 +51,12 @@ but it's *validated as mandatory* in exactly three places:
    slate.
 3. **The lat/lng branch of `POST /availability/package-slate`** — i.e. when
    you pass `lat` + `lng` instead of a stored `locationId`.
+4. **`POST /holds`**, on any `intervals[]` entry with
+   `locationType: "TRAVEL_ZONE"`. A hold mirrors the booking contract exactly,
+   because [convert](/guides/hold-slots-for-checkout) rebuilds the booking from
+   the hold alone — so an in-home session's address must be on the hold, not
+   supplied later. (The `slateId` / `slotIds` forms of `POST /holds` need no
+   address: the slate already stamped one onto every slot.)
 
 `VIRTUAL` and `PHYSICAL` bookings never take an `address` at all — `VIRTUAL`
 has no location fields, and `PHYSICAL` resolves everything from the stored
@@ -173,9 +179,11 @@ flow this body belongs to.
 | `POST /v1/projects/{projectId}/bookings` | `locationType: "TRAVEL_ZONE"` |
 | `POST /v1/projects/{projectId}/orders/{orderId}/package-bookings` | Any explicit session (`sessions[]`) with `locationType: "TRAVEL_ZONE"` |
 | `POST /v1/projects/{projectId}/availability/package-slate` | The lat/lng branch (`lat` + `lng`, no `locationId`) |
+| `POST /v1/projects/{projectId}/holds` | Any `intervals[]` entry with `locationType: "TRAVEL_ZONE"` (not needed on the `slateId` / `slotIds` forms) |
 
 Not required — and not accepted as a substitute for anything — on `VIRTUAL`
-or `PHYSICAL` bookings, or on the `locationId` branch of `package-slate`.
+or `PHYSICAL` bookings or holds, or on the `locationId` branch of
+`package-slate`.
 
 ### Errors and edge cases
 
@@ -183,6 +191,7 @@ or `PHYSICAL` bookings, or on the `locationId` branch of `package-slate`.
 | --- | --- | --- |
 | `address` missing on a `TRAVEL_ZONE` booking or session | `400` `VALIDATION_ERROR` | Supply the full structured object — every field except `unitNumber` is mandatory. |
 | `address` missing on the lat/lng branch of `package-slate` | `400` `VALIDATION_ERROR` (`path: ["address"]`) | Supply `address` alongside `lat`/`lng`, or switch to a stored `locationId` if you have one. |
+| `address` missing on a `TRAVEL_ZONE` interval of `POST /holds` | `400` `VALIDATION_ERROR` (`path: ["address"]`) | The hold is what convert rebuilds the booking from — send `address` (plus `latitude`/`longitude` and the `stz_` `locationId`) on the interval. See [Hold slots during checkout](/guides/hold-slots-for-checkout#troubleshooting). |
 | A required field (e.g. `city`, `zipCode`) is missing or empty | `400` `VALIDATION_ERROR` | All fields but `unitNumber` must be non-empty strings — there's no partial-address fallback. |
 | Booking by `slateId` still fails with a missing-address error | Shouldn't happen | The slate stamps `address` onto every slot at build time; if you're hitting this, confirm you're not building `sessions[]` by hand without copying `slot.address`. |
 

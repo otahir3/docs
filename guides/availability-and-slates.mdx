@@ -297,6 +297,13 @@ convert, release, and the `SLOT_HELD` error you get if you try to book held
 time directly — is covered in
 [Hold slots during checkout](/guides/hold-slots-for-checkout).
 
+Holding by `slateId` / `slotIds` takes **no location fields**: the slate's
+persisted slots already carry `bookingTz`, `locationType`, `locationId`,
+coordinates and `address`, and the hold copies them onto the reservation —
+the same reason book-by-`slateId` needs no `address`. The explicit
+`intervals` form is the one that must supply them itself (`bookingTz` and
+`locationType` are required on every interval).
+
 <Warning>
 A live hold blocks the time it claims: the slot stops being returned by
 availability search, and a direct `POST .../package-bookings` over it fails

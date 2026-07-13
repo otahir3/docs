@@ -39,10 +39,12 @@ curl http://localhost:3002/v1/openapi.json \
   > path/to/mb-docs/docs/api-reference/openapi.json
 ```
 
-After regenerating, re-apply the manual enrichments at the top of the
-file (`info.description`, `servers`, `components.securitySchemes`,
-`security`) — these are not in the live spec and must be re-added until
-the source app emits them.
+No hand-patching is needed afterwards. The source app now emits the
+enrichments at the top of the file itself (`info.description`, `servers`,
+`components.securitySchemes`, and the top-level `security`), so the
+regenerated snapshot already carries them — don't re-add them by hand.
+Do sanity-check they're present (they came from `open-api-mb`'s OpenAPI
+config), then run the validation below.
 
 ## Local preview
 

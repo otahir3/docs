@@ -54,7 +54,10 @@ don't gate booking on Stripe. Layer payment on afterward with
 reserve this supplier's time while the customer pays, hold it first:
 `POST /holds { intervals: [...] }`, then convert the hold into this same
 booking on payment success. A single session can be held on its own — no
-package, no slate. See
+package, no slate. Each held interval takes the **same location fields as
+the booking body below** (`bookingTz` and `locationType` are required, and
+`locationType` decides the rest) — the hold is what convert rebuilds the
+booking from. See
 [Hold slots during checkout](/guides/hold-slots-for-checkout).
 
 If you *do* hold the time, you must convert it: this route will not consume

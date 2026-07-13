@@ -46,9 +46,10 @@ created. Once you have held time, the only way to book it is
 A checkout with a hold is three calls, always in this order:
 
 1. **Hold the time.** `POST /holds` with exactly one of `intervals` (an
-   explicit list of supplier time — the single-session form), `slateId`
-   (every slot of a package slate), or `slotIds` (a cherry-picked subset).
-   Returns a `reservationId` and a `heldUntil`.
+   explicit list of supplier time — the single-session form; each interval
+   carries the same location contract as a booking), `slateId` (every slot
+   of a package slate), or `slotIds` (a cherry-picked subset). Returns a
+   `reservationId` and a `heldUntil`.
 2. **Create the order and take payment.** An order with a
    `SINGLE_SESSION` item (for a one-session hold) or a `PACKAGE` item (for
    a multi-session hold) is what funds the bookings. Charge the customer
@@ -85,20 +86,33 @@ form and the one to reach for when there is no package involved: a single
 session can now be held on its own, with nothing but a `supplierId` and a
 UTC window.
 
-Supply `locationId` whenever you know it. A hold that carries a location
-participates in travel-buffer logic exactly as a booking does; a hold
-without one blocks only its exact interval — safe, but it won't stop the
-engine suggesting an adjacent slot that's impossible to travel to.
+Every interval carries the **same location contract as a booking** —
+`bookingTz` and `locationType` are **required**, and `locationType` decides
+which of `locationId` / `latitude` / `longitude` / `address` must come with
+it. That isn't ceremony: convert rebuilds the booking from the
+**reservation alone** (never by re-reading a slate that may have expired
+while your customer was paying), so whatever the booking will need, the
+hold has to be holding already.
+
+| `locationType` | Required alongside it | Must be omitted / null |
+| --- | --- | --- |
+| `VIRTUAL` | nothing | `locationId`, `latitude`, `longitude` |
+| `PHYSICAL` | `locationId` — a **Location** id (`loc_…`) | `latitude`, `longitude` (derived from the Location record) |
+| `TRAVEL_ZONE` | `locationId` — the **`supplierTravelZoneId`** (`stz_…`) — plus `latitude`, `longitude` and a structured `address` | — |
+
+These are the rules on `POST /bookings`, unchanged — see the location table
+in [Create a single booking](/guides/create-a-single-booking#reference) and
+the `address` shape in [Booking addresses](/guides/booking-addresses).
 
 `heldBy` is who owns the hold — use your checkout session id. It is the
-key to the heartbeat in Step 2, and convert must present the same value.
+key to the heartbeat in Step 3, and convert must present the same value.
 
 ```ts
 // app/api/bff/holds/route.ts
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
-  const { supplierId, startUtc, endUtc, locationId, checkoutSessionId } =
+  const { supplierId, startUtc, endUtc, checkoutSessionId } =
     await request.json();
 
   const res = await fetch(
@@ -110,7 +124,17 @@ export async function POST(request: Request) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        intervals: [{ supplierId, startUtc, endUtc, locationId }],
+        intervals: [
+          {
+            supplierId,
+            startUtc,
+            endUtc,
+            bookingTz: 'America/Toronto', // required
+            locationType: 'PHYSICAL', // required
+            locationId: 'loc_01kx16f2a0h8a2my9u3f4tv0sp', // a Location id
+            // no latitude/longitude — PHYSICAL derives them from the Location
+          },
+        ],
         heldBy: checkoutSessionId,
         holdDurationMins: 10,
       }),
@@ -122,8 +146,9 @@ export async function POST(request: Request) {
 }
 ```
 
-A successful hold returns `201` with the reservation and the exact time it
-claims:
+A successful hold returns `201` with the reservation and the exact time —
+and the exact place — it claims. The response **echoes the full interval
+shape back**, so you can verify what convert will build the booking from:
 
 ```json
 {
@@ -135,11 +160,26 @@ claims:
       "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
       "startUtc": "2026-07-15T14:00:00.000Z",
       "endUtc": "2026-07-15T15:00:00.000Z",
-      "locationId": "stz_01kv60qgs4e4nbjhzradnqtj0h"
+      "bookingTz": "America/Toronto",
+      "locationType": "PHYSICAL",
+      "locationId": "loc_01kx16f2a0h8a2my9u3f4tv0sp",
+      "latitude": null,
+      "longitude": null,
+      "address": null
     }
   ]
 }
 ```
+
+<Warning>
+**`locationId` alone is not enough — and an `stz_` id is not a Location.**
+A mobile / in-home session's `locationId` is a **supplier travel zone**
+(`stz_…`), which lives in a different table from a `Location` (`loc_…`).
+`locationType` is what tells convert which one it is holding. Send an
+`stz_` id with `locationType: "PHYSICAL"` and convert will look it up in
+Locations and fail with `404 Location stz_… not found`. See
+[A travel-zone checkout, end to end](#a-travel-zone-checkout-end-to-end).
+</Warning>
 
 <Note>
 **Exactly one of `intervals`, `slateId`, or `slotIds`.** Sending two (or
@@ -162,6 +202,12 @@ returned by `POST /availability/package-slate` (see
 [Create a package booking](/guides/create-a-package-booking)). Every slot
 of the slate is held at once. Pass `slotIds` instead to cherry-pick a
 subset.
+
+**No location fields at all on this form.** The slate's persisted slots
+already carry `bookingTz`, `locationType`, `locationId`, coordinates and
+`address`, and the hold copies them onto the reservation for you. The
+required fields introduced above apply **only** to the explicit `intervals`
+form — package integrators send exactly what they always sent.
 
 ```ts
 // app/api/bff/holds/route.ts
@@ -190,8 +236,9 @@ export async function POST(request: Request) {
 }
 ```
 
-The hold carries one interval per session (abridged here to the first two
-of eight):
+The hold carries one interval per session — each one echoed with the
+location the slate resolved for it (abridged here to the first of eight;
+this slate was built on the lat/lng branch, so its slots are `TRAVEL_ZONE`):
 
 ```json
 {
@@ -203,13 +250,20 @@ of eight):
       "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
       "startUtc": "2026-07-15T13:30:00.000Z",
       "endUtc": "2026-07-15T14:00:00.000Z",
-      "locationId": "stz_01kv60qgs4e4nbjhzradnqtj0h"
-    },
-    {
-      "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
-      "startUtc": "2026-07-16T13:30:00.000Z",
-      "endUtc": "2026-07-16T14:00:00.000Z",
-      "locationId": "stz_01kv60qgs4e4nbjhzradnqtj0h"
+      "bookingTz": "America/Toronto",
+      "locationType": "TRAVEL_ZONE",
+      "locationId": "stz_01kv60qgs4e4nbjhzradnqtj0h",
+      "latitude": 43.6532,
+      "longitude": -79.3832,
+      "address": {
+        "addressOneLine": "100 Queen St W, Toronto, ON M5H 2N2, Canada",
+        "streetNumber": "100",
+        "streetName": "Queen St W",
+        "city": "Toronto",
+        "state": "ON",
+        "country": "CA",
+        "zipCode": "M5H 2N2"
+      }
     }
   ]
 }
@@ -230,20 +284,33 @@ and the time is up for grabs again. A hold read after its `heldUntil` may
 still report `status: "HELD"`; compare `heldUntil` against the current time
 rather than trusting `status` alone.
 
-So: **convert before `heldUntil`**, or extend. Re-holding the *same* time
-with the *same* `heldBy` is not a conflict — it **extends** the hold. That
-is your checkout heartbeat: re-POST the identical body every couple of
-minutes while the payment page is open and `heldUntil` keeps moving out.
+So: **convert before `heldUntil`**, or extend. To extend, re-POST to
+`/holds` with **the same intervals, the same `heldBy`, and the
+`reservationId` you were given**. That is your checkout heartbeat: the
+existing hold's `heldUntil` moves out, the same `reservationId` comes back,
+and no second hold is minted — so the id you convert later is still the
+right one.
+
+<Warning>
+**Thread the location fields through the heartbeat too.** The heartbeat
+re-sends `intervals`, and `intervals` are validated the same way on every
+call: an interval without `bookingTz` and `locationType` is a
+`400 VALIDATION_ERROR`, heartbeat or not. Keep the array you built in Step 1
+verbatim (or replay the `intervals` the `201` echoed back at you) — don't
+rebuild a trimmed `{ supplierId, startUtc, endUtc }` version for the
+heartbeat.
+</Warning>
 
 ```ts
 // app/api/bff/holds/heartbeat/route.ts
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
-  const { intervals, checkoutSessionId } = await request.json();
+  const { reservationId, intervals, checkoutSessionId } = await request.json();
 
-  // Identical body to the original hold — same intervals, same heldBy.
-  // The server extends the existing reservation instead of conflicting.
+  // Same intervals (FULL shape — bookingTz + locationType + location fields),
+  // same heldBy, plus the reservationId. The server EXTENDS that reservation
+  // instead of minting a second hold.
   const res = await fetch(
     `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/holds`,
     {
@@ -253,7 +320,10 @@ export async function POST(request: Request) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        intervals,
+        reservationId, // omit this and you mint a NEW hold
+        intervals, // e.g. [{ supplierId, startUtc, endUtc, bookingTz,
+        //                    locationType, locationId, latitude,
+        //                    longitude, address }]
         heldBy: checkoutSessionId,
         holdDurationMins: 10,
       }),
@@ -265,8 +335,9 @@ export async function POST(request: Request) {
 }
 ```
 
-You can also read the hold at any point with
-`GET /holds/{reservationId}`:
+You can also read the hold at any point with `GET /holds/{reservationId}` —
+it echoes the same full interval shape, which is the fastest way to check
+what convert is actually going to build:
 
 ```json
 {
@@ -278,7 +349,12 @@ You can also read the hold at any point with
       "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
       "startUtc": "2026-07-15T14:00:00.000Z",
       "endUtc": "2026-07-15T15:00:00.000Z",
-      "locationId": "stz_01kv60qgs4e4nbjhzradnqtj0h"
+      "bookingTz": "America/Toronto",
+      "locationType": "PHYSICAL",
+      "locationId": "loc_01kx16f2a0h8a2my9u3f4tv0sp",
+      "latitude": null,
+      "longitude": null,
+      "address": null
     }
   ]
 }
@@ -287,7 +363,10 @@ You can also read the hold at any point with
 <Warning>
 A hold from a **different** `heldBy` over the same time is a conflict, not
 an extension — you get `409 SLOT_HELD`. Keep `heldBy` stable for the life
-of one checkout; don't regenerate it per request.
+of one checkout; don't regenerate it per request. Passing a `reservationId`
+whose `heldBy` doesn't match yours is `409 RESERVATION_FORBIDDEN`; one that
+is unknown is `409 RESERVATION_NOT_FOUND`; one already converted or released
+is `409 RESERVATION_NOT_HELD`.
 </Warning>
 </Step>
 
@@ -418,6 +497,114 @@ failures — safe to call blindly on an abandon/cleanup path.
 
 </Steps>
 
+## A travel-zone checkout, end to end
+
+A **mobile / in-home** session — the supplier travels to the client — is the
+flow with the most moving parts, because `locationId` is a
+`supplierTravelZoneId` (`stz_…`) rather than a `Location`, and the client's
+coordinates and street address are what the supplier actually navigates to.
+All of it has to be on the hold, because convert builds the booking from the
+hold.
+
+<Steps>
+<Step title="Hold the travel-zone session">
+`locationType: "TRAVEL_ZONE"` + the `stz_` zone id + `latitude` +
+`longitude` + the full structured `address`. Miss any one of them and the
+hold is rejected with a `400` before anything is claimed.
+
+```json
+{
+  "intervals": [
+    {
+      "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+      "startUtc": "2026-07-15T14:00:00.000Z",
+      "endUtc": "2026-07-15T15:00:00.000Z",
+      "bookingTz": "America/Toronto",
+      "locationType": "TRAVEL_ZONE",
+      "locationId": "stz_01kv60qgs4e4nbjhzradnqtj0h",
+      "latitude": 43.6532,
+      "longitude": -79.3832,
+      "address": {
+        "addressOneLine": "100 Queen St W, Toronto, ON M5H 2N2, Canada",
+        "streetNumber": "100",
+        "streetName": "Queen St W",
+        "city": "Toronto",
+        "state": "ON",
+        "country": "CA",
+        "zipCode": "M5H 2N2"
+      }
+    }
+  ],
+  "heldBy": "checkout_9f2c1b",
+  "holdDurationMins": 10
+}
+```
+
+The `201` echoes every one of those fields back on `intervals[0]` — if
+`locationType` or `address` come back `null`, you didn't send them, and the
+convert in Step 3 will fail. Check the echo, don't assume.
+</Step>
+
+<Step title="Create the order and charge the customer">
+Nothing travel-zone-specific here: an order with one `SINGLE_SESSION` item
+for the service and offering being sold, then your usual Stripe flow. The
+address you sent to `/holds` is the *session's* address — it is not the
+order's billing address and is not sent again.
+
+Heartbeat the hold while the payment page is open (Step 3 above), re-sending
+these same intervals **with all their location fields** plus the
+`reservationId`.
+</Step>
+
+<Step title="Convert on payment success">
+```json
+{
+  "orderId": "ord_01k16f0a1c7b2sd91xzq3mn5p",
+  "orderItemId": "oi_01k16f0a1d8c3se02yzq4mn6q",
+  "heldBy": "checkout_9f2c1b",
+  "atomicity": "all_or_nothing"
+}
+```
+
+Convert reads `locationType: "TRAVEL_ZONE"` off the reservation, so it
+**does not** try to resolve `stz_01kv60qgs4e4nbjhzradnqtj0h` as a Location.
+It writes the booking with the held zone, coordinates and address, derives
+`bookingLocalDate` / `bookingLocalStartTime` / … from `bookingTz`, and — for
+travel-zone work — prices the offering from the *client's* region
+(`address.country` / `address.state` / `address.zipCode`), because there is
+no Location record to price against.
+
+```json
+{
+  "orderId": "ord_01k16f0a1c7b2sd91xzq3mn5p",
+  "orderItemId": "oi_01k16f0a1d8c3se02yzq4mn6q",
+  "packageOrderItemId": null,
+  "atomicity": "all_or_nothing",
+  "created": [
+    {
+      "sessionIndex": 0,
+      "bookingId": "bk_01k16f2a0e5x9jv6r0c1qs7pm",
+      "allocationId": "alloc_01k16f2a0f6y0kw7s1d2rt8qn"
+    }
+  ],
+  "failed": [],
+  "quantityRemaining": 0
+}
+```
+</Step>
+</Steps>
+
+<Warning>
+**`404 Location stz_… not found` on convert.** This means the hold was
+placed with an `stz_` travel-zone id but **`locationType: "PHYSICAL"`, or no
+`locationType` at all** — so convert looked the id up in the Locations table,
+where a travel zone does not exist. It is not a data problem and there is
+nothing to retry: fix the *hold*. Release the reservation, re-hold with
+`locationType: "TRAVEL_ZONE"` (plus `latitude`, `longitude`, `address`), and
+convert the new `reservationId`. Confirm with `GET /holds/{reservationId}`
+that `intervals[0].locationType` reads `TRAVEL_ZONE` before you convert.
+</Warning>
+
 ## Handling a held slot
 
 This is the one error worth memorising, because it is the shape of the
@@ -466,14 +653,62 @@ consumes your own hold by design, and any *other* live claim over the same
 time still blocks it with the same `SLOT_HELD` / `SLOT_BOOKED` body.
 </Tip>
 
+## Troubleshooting
+
+Every failure below is deterministic and tells you what to fix. Nothing here
+except `OCCUPANCY_CONTENTION` is worth retrying unchanged.
+
+### Placing or extending a hold — `POST /holds`
+
+| Status | `code` | What it means | What to do |
+| --- | --- | --- | --- |
+| `400` | `VALIDATION_ERROR` | An interval is missing `bookingTz`. | Send the IANA zone the session happens in (`"America/Toronto"`). It is required on every interval — the booking's local times are derived from it at convert. |
+| `400` | `VALIDATION_ERROR` | An interval is missing `locationType`. | Send `VIRTUAL`, `PHYSICAL`, or `TRAVEL_ZONE`. There is no default: it is what tells convert whether `locationId` names a Location or a travel zone. |
+| `400` | `VALIDATION_ERROR` (`path: ["address"]`, `["latitude"]`, `["longitude"]`, `["locationId"]`) | `TRAVEL_ZONE` without the `stz_` `locationId`, `latitude`, `longitude`, **or** the structured `address`. | All four are mandatory for `TRAVEL_ZONE`. Full `address` shape in [Booking addresses](/guides/booking-addresses) (note: `zipCode`, not `postalCode`). |
+| `400` | `VALIDATION_ERROR` (`locationId must be null for VIRTUAL sessions`) | A `VIRTUAL` interval carried `locationId`, `latitude`, or `longitude`. | Drop all three. A virtual session has no place. |
+| `400` | `VALIDATION_ERROR` (`latitude must not be supplied for PHYSICAL sessions`) | A `PHYSICAL` interval carried coordinates. | Drop `latitude`/`longitude` — they're derived from the `Location` record named by `locationId` (a `loc_…` id, which is required). |
+| `400` | `VALIDATION_ERROR` | More than one — or none — of `intervals` / `slateId` / `slotIds`. | Provide exactly one. |
+| `409` | `SLOT_HELD` | The time is claimed by a live hold. **Very often your own**, if you called a direct booking route instead of convert. | `conflicts[0].reservationId` names it. Yours → convert it. Someone else's → `heldUntil` says when it lapses; offer another slot. See [Handling a held slot](#handling-a-held-slot). |
+| `409` | `SLOT_BOOKED` | A confirmed booking occupies the time. | `conflicts[0].bookingId` names it. Gone for good — search availability again. |
+| `409` | `SLOT_NOT_FOUND` / `SLATE_NOT_FOUND` / `SUGGESTION_EXPIRED` / `EMPTY_SLATE` | The `slateId` / `slotIds` you're holding is unknown, from another project, or past its 24-hour resolvable window. | Rebuild the slate with `POST /availability/package-slate` and hold the fresh one. Don't retry the stale id. |
+| `409` | `RESERVATION_NOT_FOUND` | You passed a `reservationId` to extend and no such hold exists in this project. | Drop `reservationId` to mint a new hold. |
+| `409` | `RESERVATION_NOT_HELD` | The `reservationId` you're extending is already `CONVERTED` or `RELEASED`. | Terminal. Start a fresh hold (or, if it converted, you're already booked — check `GET /holds/{reservationId}`). |
+| `409` | `RESERVATION_FORBIDDEN` | The `heldBy` you sent doesn't own that `reservationId`. | Send the same `heldBy` the hold was created with. Keep it stable for the whole checkout. |
+| `409` | `OCCUPANCY_CONTENTION` | Heavy concurrent writes on that supplier's day exhausted the internal retry. | **Retryable.** Resend the same request after a short jittered backoff (50–200 ms). |
+
+### Converting a hold — `POST /holds/{reservationId}/convert`
+
+| Status | `code` | What it means | What to do |
+| --- | --- | --- | --- |
+| `404` | `NOT_FOUND` — **`Location stz_… not found`** | The hold carried an `stz_` travel-zone id but `locationType: "PHYSICAL"` (or no `locationType`), so convert looked for it in Locations. | Re-hold with `locationType: "TRAVEL_ZONE"` + `latitude` + `longitude` + `address`, then convert the new `reservationId`. This is the classic broken in-home checkout — see the [travel-zone walkthrough](#a-travel-zone-checkout-end-to-end). |
+| `404` | `NOT_FOUND` | The `orderItemId` isn't on that order, or the item's offering no longer exists. | Re-read the order with `GET /orders/{orderId}/aggregate`. |
+| `400` | `INVALID_ORDER_REFERENCE` | The `orderId` doesn't exist in this project. | Create the order first — convert draws credits from its item. |
+| `400` | `MISSING_BOOKING_TZ` | The hold carried no `bookingTz` and none could be derived. | Only reachable on holds placed before `bookingTz` was required. Release and re-hold with `bookingTz`. |
+| `400` | `UNSUPPORTED_SKU_TYPE` | The order item is `SUBSCRIPTION` / `MEMBERSHIP` / `DEPOSIT`. | Only `SINGLE_SESSION` and `PACKAGE` items fund bookings. |
+| `400` | `BAD_REQUEST` — `Offering … is not bookable (status: …)` | The item's offering is no longer `ACTIVE`. | Sell an active offering. The hold itself is fine — release it, or convert against a different order item. |
+| `409` | `RESERVATION_MULTI_INTERVAL` | A `SINGLE_SESSION` order item was pointed at a hold covering more than one interval. | A `SINGLE_SESSION` item converts exactly **one** interval. Use a `PACKAGE` item for a multi-session hold — convert branches on the item's `skuType`, not on anything you pass. |
+| `409` | `HOLD_EXPIRED` | You converted after `heldUntil`. Expiry is lazy — the hold simply stopped blocking. | Hold again and convert the new `reservationId`. If someone took the time meanwhile you'll get `SLOT_BOOKED` instead. |
+| `409` | `RESERVATION_NOT_FOUND` / `RESERVATION_NOT_HELD` | Unknown `reservationId`, or one that was released. | Terminal — start a fresh hold. (An already-`CONVERTED` reservation is **not** an error: it replays its stored result. That's what makes the webhook safe.) |
+| `409` | `RESERVATION_FORBIDDEN` | `heldBy` doesn't match the hold's owner. | Send the same `heldBy` you held with. |
+| `409` | `SLOT_HELD` / `SLOT_BOOKED` | Someone else claimed the time while your customer was paying (only possible after your hold lapsed). | The time is gone. Refund or re-book onto a fresh slot. |
+| `409` | `OCCUPANCY_CONTENTION` | Row contention on the supplier's day. | **Retryable** — convert is idempotent, so resending is safe. |
+| `422` | `PACKAGE_SLATE_TOO_LARGE_FOR_ATOMIC` | More than 15 sessions with `atomicity: "all_or_nothing"`. | Use `atomicity: "best_effort"` (needs `suggestionConfig.allowPartialPackages`) or hold a smaller slate. |
+
+<Note>
+`GET /holds/{reservationId}` is your debugger. It returns the reservation
+exactly as convert will read it — including `locationType`, `locationId`,
+`latitude`, `longitude` and `address`. If a convert is failing, read the hold
+first: nine times in ten the interval is missing the field the booking needs.
+</Note>
+
 ## Reference
 
 ### Endpoints used in this guide
 
 | Endpoint | Method | Auth | Description |
 | --- | --- | --- | --- |
-| `/v1/projects/{projectId}/holds` | `POST` | `x-api-key` | Hold supplier time. Exactly one of `intervals` (single session or any explicit time), `slateId`, or `slotIds`. Returns `reservationId` + `heldUntil`. |
-| `/v1/projects/{projectId}/holds/{reservationId}` | `GET` | `x-api-key` | Read a hold — `status`, `heldUntil`, and the intervals it claims. |
+| `/v1/projects/{projectId}/holds` | `POST` | `x-api-key` | Hold supplier time. Exactly one of `intervals` (single session or any explicit time — each interval requires `bookingTz` + `locationType`), `slateId`, or `slotIds`. Pass `reservationId` to **extend** an existing hold. Returns `reservationId` + `heldUntil`. |
+| `/v1/projects/{projectId}/holds/{reservationId}` | `GET` | `x-api-key` | Read a hold — `status`, `heldUntil`, and the full intervals it claims (including `locationType`, `locationId`, coordinates and `address`). |
 | `/v1/projects/{projectId}/holds/{reservationId}/convert` | `POST` | `x-api-key` | Turn the hold into confirmed bookings against `{ orderId, orderItemId }`. Branches on the order item's `skuType`. Idempotent — safe for webhooks. Response is **not** wrapped in `{ data }`. |
 | `/v1/projects/{projectId}/holds/{reservationId}/release` | `POST` | `x-api-key` | Free the time immediately. Idempotent — always `200`. |
 | `/v1/projects/{projectId}/availability/package-slate` | `POST` | `x-api-key` | Build the slate whose `slateId` the package form holds. See [Availability and slates](/guides/availability-and-slates). |
@@ -487,20 +722,23 @@ time still blocks it with the same `SLOT_HELD` / `SLOT_BOOKED` body.
 | API base URL | `API_BASE_URL` | **No** (BFF-only) |
 | Project id | `PROJECT_ID` | **No** (BFF-only) |
 
+### Interval fields (the `intervals` form)
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `supplierId` | Yes | Whose time is being claimed. |
+| `startUtc` / `endUtc` | Yes | UTC ISO-8601, `Z` suffix. `endUtc` is exclusive. |
+| `bookingTz` | Yes | IANA zone. The booking's `bookingLocal*` fields are derived from it at convert. |
+| `locationType` | Yes | `VIRTUAL` \| `PHYSICAL` \| `TRAVEL_ZONE`. Decides everything below. |
+| `locationId` | `PHYSICAL` + `TRAVEL_ZONE` | A **Location** id (`loc_…`) for `PHYSICAL`; the **`supplierTravelZoneId`** (`stz_…`) for `TRAVEL_ZONE`. Null for `VIRTUAL`. |
+| `latitude` / `longitude` | `TRAVEL_ZONE` only | Must be omitted for `PHYSICAL` (derived from the Location) and `VIRTUAL`. |
+| `address` | `TRAVEL_ZONE` only | Structured — see [Booking addresses](/guides/booking-addresses). |
+
+`slateId` and `slotIds` take **none** of these: the slate's slots already
+carry them and the hold copies them onto the reservation.
+
 ### Errors and edge cases
 
-| Scenario | `code` | Status | Resolution |
-| --- | --- | --- | --- |
-| The time is blocked by a **live hold** — very often your own, hit by calling a direct booking route instead of convert | `SLOT_HELD` | `409` | Read `conflicts[0].reservationId`. If it's your hold, call `POST /holds/{reservationId}/convert` — if you hold, you convert. If it's someone else's, `heldUntil` says when it lapses; offer another slot. |
-| The time is blocked by a **confirmed booking** | `SLOT_BOOKED` | `409` | `conflicts[0].bookingId` names it. The time is gone — search availability again. |
-| Heavy concurrent writes on one supplier's day exhausted the bounded retry | `OCCUPANCY_CONTENTION` | `409` | Transient. Retry the same request with a short backoff. |
-| Converted after `heldUntil` passed | `HOLD_EXPIRED` | `409` | Expiry is lazy — the hold stopped blocking. Hold again and convert the new `reservationId` (or expect `SLOT_BOOKED` if it's been taken). |
-| Convert with a `heldBy` that doesn't match the hold's | `RESERVATION_FORBIDDEN` | `409` | Send the same `heldBy` you created the hold with. |
-| Convert a hold that was released, or a `reservationId` that doesn't exist | `RESERVATION_NOT_HELD` / `RESERVATION_NOT_FOUND` | `409` | Terminal — start a fresh hold. (A hold that's already `CONVERTED` is *not* an error: it replays its stored result.) |
-| Convert a multi-interval hold against a `SINGLE_SESSION` order item | `RESERVATION_MULTI_INTERVAL` | `409` | A `SINGLE_SESSION` item converts exactly one interval. Use a `PACKAGE` item for a multi-session hold. |
-| Convert against a `SUBSCRIPTION` / `MEMBERSHIP` / `DEPOSIT` item | `UNSUPPORTED_SKU_TYPE` | `400` | Only `SINGLE_SESSION` and `PACKAGE` items fund bookings. |
-| Holding a `slateId` / `slotIds` that's stale, unknown, or past its 24-hour resolvable window | `SUGGESTION_EXPIRED` / `SLATE_NOT_FOUND` / `SLOT_NOT_FOUND` | `409` | Rebuild the slate with `POST /availability/package-slate` and hold the fresh one. |
-| Provided more than one (or none) of `intervals` / `slateId` / `slotIds` | `VALIDATION_ERROR` | `400` | Provide exactly one. |
-| Converting more than 15 sessions with `atomicity: "all_or_nothing"` | `PACKAGE_SLATE_TOO_LARGE_FOR_ATOMIC` | `422` | Use `atomicity: "best_effort"` (requires `suggestionConfig.allowPartialPackages`), or hold a smaller slate. |
-
-See [Errors](/concepts/errors) for the full envelope and code list.
+See [Troubleshooting](#troubleshooting) above for the full status/code table
+for both `POST /holds` and `POST /holds/{reservationId}/convert`, and
+[Errors](/concepts/errors) for the envelope and the global code list.

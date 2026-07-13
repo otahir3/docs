@@ -174,7 +174,7 @@ has booked returns `SLOT_HELD` / `SLOT_BOOKED`, not `VERSION_CONFLICT`.
 | --- | --- |
 | `POST /v1/projects/{projectId}/bookings` | Yes — `SLOT_BOOKED`, `SLOT_HELD`, or `OCCUPANCY_CONTENTION`. |
 | `POST /v1/projects/{projectId}/orders/{orderId}/package-bookings` | Yes — same three, plus stale-slot and credit conflicts. |
-| `POST /v1/projects/{projectId}/holds` | Yes — `SLOT_BOOKED` / `SLOT_HELD` when the time is already claimed by someone else. |
+| `POST /v1/projects/{projectId}/holds` | Yes — `SLOT_BOOKED` / `SLOT_HELD` when the time is already claimed by someone else, or `RESERVATION_NOT_FOUND` / `RESERVATION_NOT_HELD` / `RESERVATION_FORBIDDEN` when extending a hold with a `reservationId` that is unknown, no longer held, or not yours. |
 | `POST /v1/projects/{projectId}/holds/{reservationId}/convert` | Yes — `HOLD_EXPIRED`, or `SLOT_BOOKED` / `SLOT_HELD` if the time went while you were paying. |
 | `PATCH /v1/projects/{projectId}/bookings/{bookingId}` | Yes — `VERSION_CONFLICT`, or a supplier-time conflict on a reschedule. |
 | `POST /v1/projects/{projectId}/bookings/{bookingId}/status` | Yes — booking version moved. |

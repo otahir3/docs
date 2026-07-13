@@ -3,6 +3,83 @@ title: "Changelog"
 description: "New features, updates, and fixes to the MarketBox API."
 ---
 
+<Update label="July 13, 2026" tags={["API"]}>
+
+## Holds, the double-booking guard — and a breaking change to `POST /holds`
+
+Supplier time is now exclusive at the write layer, and you can **hold** it while a customer pays. A hold works on any supplier time — a single session (no package, no slate), a cherry-picked subset of a package slate, or a whole slate — and `POST /holds/{reservationId}/convert` turns it into confirmed bookings. Alongside it, every write that claims supplier time now passes through an occupancy guard, so two bookings can never overlap on the same supplier.
+
+**Breaking**
+
+Each entry in `intervals[]` on `POST /v1/projects/{projectId}/holds` now mirrors the `POST /bookings` location contract exactly. **`bookingTz` and `locationType` are required**, and `locationType` decides which of `locationId` / `latitude` / `longitude` / `address` must come with them.
+
+Before:
+
+```json
+{
+  "intervals": [
+    {
+      "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+      "startUtc": "2026-07-15T14:00:00.000Z",
+      "endUtc": "2026-07-15T15:00:00.000Z",
+      "locationId": "stz_01kv60qgs4e4nbjhzradnqtj0h"
+    }
+  ]
+}
+```
+
+After:
+
+```json
+{
+  "intervals": [
+    {
+      "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+      "startUtc": "2026-07-15T14:00:00.000Z",
+      "endUtc": "2026-07-15T15:00:00.000Z",
+      "bookingTz": "America/Toronto",
+      "locationType": "TRAVEL_ZONE",
+      "locationId": "stz_01kv60qgs4e4nbjhzradnqtj0h",
+      "latitude": 43.6532,
+      "longitude": -79.3832,
+      "address": {
+        "addressOneLine": "100 Queen St W, Toronto, ON M5H 2N2, Canada",
+        "streetNumber": "100",
+        "streetName": "Queen St W",
+        "city": "Toronto",
+        "state": "ON",
+        "country": "CA",
+        "zipCode": "M5H 2N2"
+      }
+    }
+  ]
+}
+```
+
+An interval without `bookingTz` or `locationType` is now a `400 VALIDATION_ERROR`. This applies to the heartbeat too — extending a hold re-sends the same `intervals`, so they must carry the same fields.
+
+**Why**
+
+Convert rebuilds the booking from the **reservation alone** — never by re-reading a slate that may have expired while the customer was paying. A hold that carried only a `locationId` could not say whether that id was a `Location` (`loc_…`) or a supplier travel zone (`stz_…`), so converting a mobile / in-home hold failed with `404 Location stz_… not found`, and a `TRAVEL_ZONE` booking's mandatory coordinates and address were never held at all. Travel-zone checkouts now work end to end.
+
+**New**
+
+- **`POST /holds`** — hold supplier time with `intervals` (single session or any explicit time), `slateId` (a whole package slate), or `slotIds` (a subset). All-or-nothing, in one transaction. Pass `reservationId` to **extend** an existing hold: the checkout heartbeat pushes `heldUntil` out and returns the same `reservationId` instead of minting a second hold.
+- **`POST /holds/{reservationId}/convert`** — one idempotent endpoint for both shapes; it branches on the order item's `skuType` (`SINGLE_SESSION` books the one held interval; `PACKAGE` books every held interval and draws down credits). Safe to call straight from a Stripe webhook.
+- **`GET /holds/{reservationId}`** and the `201` from `POST /holds` now **echo the full interval shape** — `bookingTz`, `locationType`, `locationId`, `latitude`, `longitude`, `address` — so you can verify exactly what convert will build.
+- **`POST /holds/{reservationId}/release`** — free the time immediately when a checkout is abandoned. Idempotent, never an error.
+- **Occupancy guard** — `409 SLOT_HELD` / `SLOT_BOOKED` on any write that collides with a live claim. The body names the blocking `reservationId` or `bookingId` and tells you what to do with it.
+
+**What this means for you**
+
+- If you build `intervals` by hand, **add `bookingTz` and `locationType` before your next deploy** — including in your heartbeat call.
+- If you hold by `slateId` or `slotIds`, **nothing changes**: the slate's slots already carry every location field, and the hold now copies them onto the reservation for you.
+- If you hold time, you must **convert** it — `POST /bookings` and `POST /orders/{orderId}/package-bookings` will not consume a hold, not even your own, and return `409 SLOT_HELD` naming your own `reservationId`.
+
+Full walkthrough, a travel-zone worked example, and a status/code troubleshooting table: [Hold slots during checkout](/guides/hold-slots-for-checkout). The guard itself: [Concurrency](/concepts/concurrency).
+
+</Update>
+
 <Update label="May 29, 2026" tags={["API"]}>
 
 ## Catalog management endpoints

@@ -18088,7 +18088,7 @@
           "Holds"
         ],
         "summary": "Hold supplier time during checkout — a single session, or a whole package slate",
-        "description": "Claims supplier time so nobody else can book it while your customer pays. Provide exactly one of: intervals (explicit supplier time — this is the form that works for a SINGLE session, with no package and no slate), slateId (hold every slot of a persisted package slate), or slotIds (cherry-pick slots of a slate). Every interval is claimed in ONE transaction, so a hold is all-or-nothing — you never end up holding 3 sessions of a 5-session package. Expiry is LAZY: nothing runs at heldUntil, the hold simply stops blocking, so convert before then. Re-holding the same time with the same heldBy extends the hold instead of conflicting (heartbeat a checkout page this way). Returns 409 with code SLOT_HELD/SLOT_BOOKED — naming the blocking reservationId or bookingId — when the time is already claimed.",
+        "description": "Claims supplier time so nobody else can book it while your customer pays. Provide exactly one of: intervals (explicit supplier time — this is the form that works for a SINGLE session, with no package and no slate), slateId (hold every slot of a persisted package slate), or slotIds (cherry-pick slots of a slate). Every interval is claimed in ONE transaction, so a hold is all-or-nothing — you never end up holding 3 sessions of a 5-session package. Expiry is LAZY: nothing runs at heldUntil, the hold simply stops blocking, so convert before then. To HEARTBEAT a checkout page, re-post the same intervals AND the reservationId you were given (with the same heldBy): that EXTENDS the existing hold — heldUntil moves out, the same reservationId comes back, and no second hold is minted. Omitting reservationId always mints a NEW hold. Returns 409 with code SLOT_HELD/SLOT_BOOKED — naming the blocking reservationId or bookingId — when the time is already claimed, or RESERVATION_NOT_FOUND / RESERVATION_NOT_HELD / RESERVATION_FORBIDDEN when the reservationId you asked to extend is unknown, no longer held, or not yours.",
         "parameters": [
           {
             "schema": {
@@ -18104,7 +18104,7 @@
           }
         ],
         "requestBody": {
-          "description": "intervals | slateId | slotIds (+ optional heldBy, holdDurationMins)",
+          "description": "intervals | slateId | slotIds (+ optional reservationId to extend, heldBy, holdDurationMins)",
           "required": true,
           "content": {
             "application/json": {
@@ -18134,17 +18134,96 @@
                           "description": "Session end, UTC ISO-8601. Exclusive — a booking ending at 15:00 does not collide with one starting at 15:00.",
                           "example": "2026-07-15T15:00:00.000Z"
                         },
-                        "locationId": {
+                        "bookingTz": {
                           "type": "string",
                           "minLength": 1,
-                          "description": "Where the session happens. Supply it when known: a hold WITH a location participates in travel-buffer logic exactly as a booking does; without one it blocks only its exact interval.",
-                          "example": "loc_01kv60qgs4e4nbjhzradnqtj0h"
+                          "description": "IANA timezone the session occurs in. Required: it is carried onto the hold and the booking's local-time fields are derived from it at convert.",
+                          "example": "America/Toronto"
+                        },
+                        "locationType": {
+                          "type": "string",
+                          "enum": [
+                            "PHYSICAL",
+                            "VIRTUAL",
+                            "TRAVEL_ZONE"
+                          ],
+                          "description": "VIRTUAL, PHYSICAL, or TRAVEL_ZONE — same meaning as on a booking. It decides which of the fields below are required, and it is what tells convert whether locationId names a Location or a supplier travel zone.",
+                          "example": "TRAVEL_ZONE"
+                        },
+                        "locationId": {
+                          "type": "string",
+                          "nullable": true,
+                          "minLength": 1,
+                          "description": "For PHYSICAL: the Location id. For TRAVEL_ZONE: the supplierTravelZoneId. Null for VIRTUAL. A hold WITH a location participates in travel-buffer logic exactly as a booking does.",
+                          "example": "stz_01kv60qgs4e4nbjhzradnqtj0h"
+                        },
+                        "latitude": {
+                          "type": "number",
+                          "nullable": true,
+                          "description": "Client latitude. Required for TRAVEL_ZONE; must be omitted for PHYSICAL/VIRTUAL (PHYSICAL coordinates come from the Location).",
+                          "example": 43.6532
+                        },
+                        "longitude": {
+                          "type": "number",
+                          "nullable": true,
+                          "description": "Client longitude. Required for TRAVEL_ZONE; must be omitted for PHYSICAL/VIRTUAL (PHYSICAL coordinates come from the Location).",
+                          "example": -79.3832
+                        },
+                        "address": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "addressOneLine": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "streetNumber": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "streetName": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "city": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "state": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "country": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "zipCode": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "unitNumber": {
+                              "type": "string",
+                              "nullable": true
+                            }
+                          },
+                          "required": [
+                            "addressOneLine",
+                            "streetNumber",
+                            "streetName",
+                            "city",
+                            "state",
+                            "country",
+                            "zipCode"
+                          ],
+                          "description": "Structured client address. Required for TRAVEL_ZONE — the supplier travels to it, and the booking cannot be written without it."
                         }
                       },
                       "required": [
                         "supplierId",
                         "startUtc",
-                        "endUtc"
+                        "endUtc",
+                        "bookingTz",
+                        "locationType"
                       ]
                     },
                     "minItems": 1,
@@ -18165,10 +18244,16 @@
                     "minItems": 1,
                     "description": "Cherry-pick individual slots of a slate to hold."
                   },
+                  "reservationId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "EXTEND an existing hold instead of minting a new one — this is the checkout HEARTBEAT. Supply the reservationId a previous POST /holds handed you: heldUntil is pushed out, the hold keeps its original createdAt, the SAME claim stays on the supplier calendar (no second hold is minted), and the SAME reservationId comes back — so the id you convert later is still the right one. The intervals you send must be the ones that hold already claims, and heldBy must match the hold's owner. A mismatch is 409 RESERVATION_FORBIDDEN; an unknown id is 409 RESERVATION_NOT_FOUND; an already converted/released hold is 409 RESERVATION_NOT_HELD. Omit this field to mint a NEW hold.",
+                    "example": "resv_01kv8p20m1gnqvxl92xln6awk8"
+                  },
                   "heldBy": {
                     "type": "string",
                     "minLength": 1,
-                    "description": "Who owns the hold — typically your checkout session id. Re-holding the same time with the same heldBy EXTENDS the hold rather than conflicting, so a checkout page can heartbeat. Defaults to the API principal.",
+                    "description": "Who owns the hold — typically your checkout session id. Re-holding time you already hold under the same heldBy does not conflict with your own hold; to actually EXTEND that hold (the checkout heartbeat) pass its reservationId as well, otherwise a new hold is minted. Defaults to the API principal.",
                     "example": "checkout_9f2c1b"
                   },
                   "holdDurationMins": {
@@ -18225,9 +18310,87 @@
                             "type": "string",
                             "format": "date-time"
                           },
+                          "bookingTz": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "IANA timezone carried onto the hold; the booking's local times are derived from it at convert.",
+                            "example": "America/Toronto"
+                          },
+                          "locationType": {
+                            "type": "string",
+                            "nullable": true,
+                            "enum": [
+                              "PHYSICAL",
+                              "VIRTUAL",
+                              "TRAVEL_ZONE",
+                              null
+                            ],
+                            "description": "VIRTUAL, PHYSICAL or TRAVEL_ZONE. Null only on a hold placed before location carry-through existed.",
+                            "example": "TRAVEL_ZONE"
+                          },
                           "locationId": {
                             "type": "string",
-                            "nullable": true
+                            "nullable": true,
+                            "description": "The Location id (PHYSICAL) or supplierTravelZoneId (TRAVEL_ZONE). Null for VIRTUAL.",
+                            "example": "stz_01kv60qgs4e4nbjhzradnqtj0h"
+                          },
+                          "latitude": {
+                            "type": "number",
+                            "nullable": true,
+                            "example": 43.6532
+                          },
+                          "longitude": {
+                            "type": "number",
+                            "nullable": true,
+                            "example": -79.3832
+                          },
+                          "address": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "addressOneLine": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "streetNumber": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "streetName": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "city": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "country": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "zipCode": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "unitNumber": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            },
+                            "required": [
+                              "addressOneLine",
+                              "streetNumber",
+                              "streetName",
+                              "city",
+                              "state",
+                              "country",
+                              "zipCode"
+                            ],
+                            "description": "The structured client address held for a TRAVEL_ZONE session."
                           }
                         },
                         "required": [
@@ -18507,9 +18670,87 @@
                             "type": "string",
                             "format": "date-time"
                           },
+                          "bookingTz": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "IANA timezone carried onto the hold; the booking's local times are derived from it at convert.",
+                            "example": "America/Toronto"
+                          },
+                          "locationType": {
+                            "type": "string",
+                            "nullable": true,
+                            "enum": [
+                              "PHYSICAL",
+                              "VIRTUAL",
+                              "TRAVEL_ZONE",
+                              null
+                            ],
+                            "description": "VIRTUAL, PHYSICAL or TRAVEL_ZONE. Null only on a hold placed before location carry-through existed.",
+                            "example": "TRAVEL_ZONE"
+                          },
                           "locationId": {
                             "type": "string",
-                            "nullable": true
+                            "nullable": true,
+                            "description": "The Location id (PHYSICAL) or supplierTravelZoneId (TRAVEL_ZONE). Null for VIRTUAL.",
+                            "example": "stz_01kv60qgs4e4nbjhzradnqtj0h"
+                          },
+                          "latitude": {
+                            "type": "number",
+                            "nullable": true,
+                            "example": 43.6532
+                          },
+                          "longitude": {
+                            "type": "number",
+                            "nullable": true,
+                            "example": -79.3832
+                          },
+                          "address": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "addressOneLine": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "streetNumber": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "streetName": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "city": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "country": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "zipCode": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "unitNumber": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            },
+                            "required": [
+                              "addressOneLine",
+                              "streetNumber",
+                              "streetName",
+                              "city",
+                              "state",
+                              "country",
+                              "zipCode"
+                            ],
+                            "description": "The structured client address held for a TRAVEL_ZONE session."
                           }
                         },
                         "required": [

@@ -294,9 +294,12 @@ client can take the same time until you actually claim it, and you'll get a
 `409 SLOT_BOOKED` if they beat you to it.
 
 If you need to reserve the time while the customer pays, hold it:
-`POST /holds { intervals: [{ supplierId, startUtc, endUtc, locationId }] }`
-works for a **single session**, with no package or slate involved, and you
-then convert the hold into the booking. See
+`POST /holds` with an `intervals` array works for a **single session**, with
+no package or slate involved, and you then convert the hold into the booking.
+Each interval carries the same location contract as a booking —
+`{ supplierId, startUtc, endUtc, bookingTz, locationType, … }`, where
+`locationType` decides whether `locationId`, `latitude`, `longitude` and
+`address` come with it. See
 [Hold slots during checkout](/guides/hold-slots-for-checkout).
 </Warning>
 </Step>

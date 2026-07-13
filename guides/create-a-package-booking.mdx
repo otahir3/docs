@@ -348,6 +348,10 @@ control:
   success — the pattern you want for a timed checkout. `POST /holds
   { slateId }` → `POST /holds/{reservationId}/convert`. Full walkthrough in
   [Hold slots during checkout](/guides/hold-slots-for-checkout).
+  Holding by `slateId` (or `slotIds`) needs **no location fields at all** —
+  the slate's slots already carry the timezone, location type, location and
+  address, and the hold copies them onto the reservation. Only the explicit
+  `intervals` form makes you supply them.
 
 Transcribing sessions is covered in depth in the
 [availability and slates guide](/guides/availability-and-slates), along with
