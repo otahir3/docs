@@ -17,7 +17,7 @@ set up.
 
 ## Which availability endpoint
 
-There are three availability endpoints plus the supplier list. They answer
+There are four availability endpoints plus the supplier list. They answer
 different questions — pick by what you're rendering:
 
 | Endpoint | Answers | Shape |
@@ -25,6 +25,7 @@ different questions — pick by what you're rendering:
 | `POST .../availability/suppliers` | "Which **suppliers** can do this, and when?" | **Supplier-centric** — suppliers, each with open slots grouped by day. This guide. |
 | `POST .../availability/search` | "What **slots** exist for this service here?" | Slot-centric — two flat arrays (`timeSlots`, `openSlots`), supplier as a field inside each slot. See [Availability and slates](/guides/availability-and-slates). |
 | `POST .../availability/package-slate` | "Give me one supplier's **N-session plan** for a package." | A slate. See [Create a package booking](/guides/create-a-package-booking). |
+| `POST .../availability/package-options` | "Which of this service's **packages** can I actually book, and how?" | Every ACTIVE package of the service, each with a ready-to-book slate. Use it when rendering a package storefront and you want one call instead of a fan-out. Always `200` — an unbookable package carries its own `status` + `reason`. |
 | `GET .../suppliers` | "Who exists (regardless of availability)?" | The supplier catalogue, filterable by service/skill/location. See [Providers](/resources/providers). |
 
 <Note>

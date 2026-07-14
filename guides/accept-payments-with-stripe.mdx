@@ -354,6 +354,82 @@ flow applies. After payment, the order's ledger shows the `PAYMENT` plus a
 `CREDIT_REDEMPTION` transaction for each session booked against the package, so
 you can see both the money in and the credits drawn down.
 
+## Show the card a client last paid with
+
+Once a card payment settles, MarketBox records a small snapshot of the card on
+the client's profile. It's there for one purpose: so you can show a returning
+customer something like *"You last paid with Visa ending 4242"* without building
+your own card store.
+
+Read it from the client profile. Onboarding is idempotent, so calling it again
+for an already-onboarded client simply returns their current profile with a
+`200`:
+
+```ts
+// Requires BOTH an API key and the signed-in client's JWT.
+const res = await fetch(
+  `${API_BASE_URL}/v1/projects/${PROJECT_ID}/clients/me`,
+  {
+    method: 'POST',
+    headers: {
+      'x-api-key': MARKETBOX_API_KEY,          // server-only
+      authorization: `Bearer ${userToken}`,     // the signed-in end user
+    },
+  },
+);
+
+const { data: client } = await res.json();
+```
+
+The two fields to look at:
+
+```json
+{
+  "data": {
+    "clientId": "clt_dolphin_web",
+    "lastPaymentMethodId": "pm_1SxYz...",
+    "lastPayment": {
+      "type": "CARD",
+      "brand": "visa",
+      "last4": "4242",
+      "expMonth": 12,
+      "expYear": 2027,
+      "paidAt": "2026-07-14T15:04:11.000Z"
+    }
+  }
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `lastPaymentMethodId` | Stripe's payment-method id (`pm_…`) for the card most recently charged. |
+| `lastPayment.brand` | Card brand as Stripe reports it — `visa`, `mastercard`, `amex`, … |
+| `lastPayment.last4` | The last four digits. The only part of the card number MarketBox stores. |
+| `lastPayment.expMonth` / `expYear` | Expiry. May be absent. |
+| `lastPayment.paidAt` | When Stripe created the charge (not when MarketBox recorded it). |
+
+Both fields are **optional**. They're absent for a client who has never paid by
+card — a brand-new client, or one who has only ever paid by cash or been comped.
+Always guard before rendering.
+
+<Warning>
+**This is for display, not for deciding what to charge.** `lastPayment` is a
+derived, best-effort snapshot, and Stripe remains the source of truth for what
+cards a customer actually has. It is written from Stripe's `charge.succeeded`
+webhook, so it can lag a payment by a second or two, and in rare cases (a
+webhook that never lands and is recovered by reconciliation instead) it may not
+update at all until the client's next payment. Don't gate a checkout on it,
+don't reconcile against it, and don't infer from it that a card is still valid
+or chargeable.
+</Warning>
+
+<Note>
+There is no public endpoint to charge a saved card. Every payment in a custom
+booking flow goes through the Payment Element (Steps 2–3) — which is what keeps
+you at SAQ-A. `lastPayment` tells you what the customer *used* last; it does not
+let you re-use it.
+</Note>
+
 ## Reference
 
 ### Endpoints used in this guide
@@ -363,6 +439,7 @@ you can see both the money in and the credits drawn down.
 | `/v1/projects/{projectId}/orders/{orderId}/payment-intent` | `POST` | `x-api-key` | Create (or reuse) the PaymentIntent for an order. Returns `clientSecret`. |
 | `/v1/projects/{projectId}/orders/{orderId}` | `GET` | `x-api-key` | Read the order; poll `status` for `PAID`. |
 | `/v1/projects/{projectId}/transactions?orderId=` | `GET` | `x-api-key` | The order's transaction ledger. |
+| `/v1/projects/{projectId}/clients/me` | `POST` | `x-api-key` + user JWT | Idempotent. Returns the client profile, including `lastPayment` (see [above](#show-the-card-a-client-last-paid-with)). |
 
 ### Configuration
 
@@ -389,3 +466,4 @@ you can see both the money in and the credits drawn down.
 <Check>Card data is collected only by Stripe's Payment Element — never posted to your server.</Check>
 <Check>Order `status` (not the browser result) is what you treat as proof of payment.</Check>
 <Check>The publishable key and account id are the only Stripe values in the browser — both are public and safe.</Check>
+<Check>`lastPayment` is treated as display-only — never as proof a card is valid or chargeable.</Check>

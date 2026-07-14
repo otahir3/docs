@@ -6,7 +6,7 @@ description: A deep dive into the clusters/availability engine — slate anatomy
 This is the deep-dive companion to
 [Create a package booking with a slate](/guides/create-a-package-booking). That
 guide covers the primary flow — build a slate, create an order, book it by
-`slateId` — end to end. This page goes underneath it: what the three
+`slateId` — end to end. This page goes underneath it: what the four
 availability endpoints are for, exactly what a slate response contains, the
 cadence rules that shape it, and the two advanced booking paths that exist
 alongside book-by-`slateId`.
@@ -17,7 +17,7 @@ haven't.
 
 ## The availability engine
 
-Three endpoints sit under `/v1/projects/{projectId}/availability`, all
+Four endpoints sit under `/v1/projects/{projectId}/availability`, all
 authenticated with `x-api-key`. They're layers of the same clustering engine,
 from lowest to highest level:
 
@@ -26,6 +26,7 @@ from lowest to highest level:
 | `POST .../availability/time-slots` | You already hold the scheduling state (suppliers, their bookings, their availability) and want to run the engine directly, passing everything in the body. |
 | `POST .../availability/search` | You have a service + offering + location and want the API to resolve suppliers from project data and return suggested/open slots — one-off, single-session slots. |
 | `POST .../availability/package-slate` | You want a **complete N-session plan** for a package from one supplier, computed from a recurrence rule (`rrule`). This is the endpoint the rest of this guide covers. |
+| `POST .../availability/package-options` | You want **every** ACTIVE package of a service planned in one call, each with its own ready-to-book `slateId`. The composite built on `package-slate` — reach for it when rendering a package storefront. |
 
 <Note>
 `/search` and `/time-slots` are documented in full in the
@@ -177,43 +178,49 @@ offset and silently wrong results — the API rejects it outright instead:
 }
 ```
 
-### The 31-day look-ahead ceiling
+### The 120-day look-ahead ceiling
 
 You don't have to compute the look-ahead window yourself — by default it's
 **derived from your cadence and the package's `creditCount`**, so the engine
 searches exactly as far ahead as it needs to fit every session. That
-derived window is capped at **31 days**.
+derived window is capped at **120 days**.
 
-If the cadence is too sparse to fit all of a package's sessions within 31
+That ceiling is wide enough for the ordinary weekly product. A weekly
+10-session package (`FREQ=WEEKLY;BYDAY=MO;COUNT=10`) spans about 70 days —
+comfortably inside the window — so it plans and books normally. Weekly
+12-packs (~84 days) and biweekly 5-packs (~70 days) fit too.
+
+If the cadence is too sparse to fit all of a package's sessions within 120
 days, `package-slate` fails fast with a `422` **before running the engine at
-all**, naming the exact window it would have needed:
+all**, naming the exact window it would have needed. A cadence that needs
+more than 120 days still returns `NO_COMPLETE_SLATE` with a reason rather
+than silently dropping sessions — the guardrail moved, it didn't vanish.
 
-For example, a package with `creditCount: 8` requested with a
-Monday-only cadence (`FREQ=WEEKLY;BYDAY=MO;COUNT=8`) needs about 7 weeks
-(50 days including the inclusive end boundary) to fit all 8 sessions — over
-the cap. Because nothing is bookable, this comes back as a `422` in the
-standard [error envelope](/concepts/errors) (the `reason` becomes `message`
-and the `status` becomes `code`), **not** a `200` with a slate body:
+For example, a package with `creditCount: 20` requested with a Monday-only
+cadence (`FREQ=WEEKLY;BYDAY=MO;COUNT=20`) needs about 20 weeks (134 days
+including the inclusive end boundary) to fit all 20 sessions — over the cap.
+Because nothing is bookable, this comes back as a `422` in the standard
+[error envelope](/concepts/errors) (the `reason` becomes `message` and the
+`status` becomes `code`), **not** a `200` with a slate body:
 
 ```json
 {
   "code": "NO_COMPLETE_SLATE",
-  "message": "package cadence requires 50-day availability window for 8 sessions, which exceeds the 31-day maximum",
+  "message": "package cadence requires 134-day availability window for 20 sessions, which exceeds the 120-day maximum",
   "statusCode": 422,
   "requestId": "req_2hY3..."
 }
 ```
 
 Compare that to the working example from
-[Create a package booking](/guides/create-a-package-booking): the same
-8-session package with `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=8` fits 8
-sessions into under two weeks (five eligible weekdays per week), well inside
-the cap.
+[Create a package booking](/guides/create-a-package-booking): an 8-session
+package with `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=8` fits 8 sessions into
+under two weeks (five eligible weekdays per week), well inside the cap.
 
 <Tip>
 If you need a window wider than the derived default, pass `lookAheadDays` or
 `endDate` explicitly — they override the derivation. They're still subject
-to the same engine behavior (a wider window doesn't bypass the 31-day cap;
+to the same engine behavior (a wider window doesn't bypass the 120-day cap;
 it's the engine's absolute ceiling).
 </Tip>
 
@@ -320,6 +327,7 @@ convert. See [Concurrency](/concepts/concurrency).
 | `/v1/projects/{projectId}/availability/search` | `POST` | `x-api-key` | Single-session slot search. Full reference: [Availability](/resources/availability). |
 | `/v1/projects/{projectId}/availability/time-slots` | `POST` | `x-api-key` | Direct engine invocation. Full reference: [Availability](/resources/availability). |
 | `/v1/projects/{projectId}/availability/package-slate` | `POST` | `x-api-key` | Build an N-session slate for a package from one supplier. `422` when nothing is bookable. |
+| `/v1/projects/{projectId}/availability/package-options` | `POST` | `x-api-key` | Plan **every** ACTIVE package of a service in one call. Always `200` — an unbookable package carries its own `status` + `reason` instead of failing the request. |
 | `/v1/projects/{projectId}/orders/{orderId}/package-bookings` | `POST` | `x-api-key` | Book via `sessions` (Path A), `slateId`, or `slotIds` — exactly one. |
 | `/v1/projects/{projectId}/holds` | `POST` | `x-api-key` | Hold supplier time — `intervals`, `slateId`, or `slotIds` (exactly one). Returns `reservationId` + `heldUntil`. See [Hold slots during checkout](/guides/hold-slots-for-checkout). |
 | `/v1/projects/{projectId}/holds/{reservationId}/convert` | `POST` | `x-api-key` | Convert a hold into confirmed bookings. Idempotent — safe for webhooks. |
@@ -339,7 +347,7 @@ convert. See [Concurrency](/concepts/concurrency).
 | --- | --- | --- | --- |
 | `rrule` has no bounded `COUNT` | `VALIDATION_ERROR` | `400` | Add a positive `COUNT`, e.g. `FREQ=WEEKLY;BYDAY=MO;COUNT=8`. |
 | `lookAheadStartDate` has a `Z` suffix instead of a numeric offset | `VALIDATION_ERROR` | `400` | Use a numeric `±HH:MM` offset, e.g. `-04:00`. |
-| Cadence needs more than 31 days to fit the package's `creditCount` sessions | `NO_COMPLETE_SLATE` | `422` | `reason` names the exact window required. Use a denser cadence (more days per week), or fewer sessions per call. |
+| Cadence needs more than 120 days to fit the package's `creditCount` sessions | `NO_COMPLETE_SLATE` | `422` | `reason` names the exact window required. Use a denser cadence (more days per week), or fewer sessions per call. |
 | No availability at all for the requested window/location | `NO_AVAILABILITY` | `422` | Try a different location, timezone, or `lookAheadStartDate`. |
 | No complete single-supplier slate under the project's supplier policy | `NO_COMPLETE_SLATE` | `422` | Check `alternates`/`partial` in the response first — they may still be usable. Otherwise widen the window or location. |
 | Provided more than one (or none) of `sessions` / `slateId` / `slotIds` on booking or holding | `VALIDATION_ERROR` | `400` | Provide exactly one. |

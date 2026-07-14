@@ -1,0 +1,303 @@
+---
+title: Show a package storefront
+description: List a service's packages and render them as ready-to-book plans — one call for the catalog, one for the plans, no fan-out.
+---
+
+This guide covers **package discovery** — the screen a customer sees before
+they've picked anything: every package a service sells, each already priced
+and matched against real supplier availability. It's the step that comes
+*before* [Create a package booking](/guides/create-a-package-booking), which
+starts from a `packageId` and `slateId` you already have in hand.
+
+It builds on [The booking engine model](/concepts/booking-engine-model) —
+read that first if you haven't, especially the [Single vs package](/concepts/booking-engine-model#single-vs-package)
+and [Slates](/concepts/booking-engine-model#slates) sections. This guide also
+assumes the [BFF pattern](/guides/booking-flow-auth#the-bff-pattern) and an
+API key already set up.
+
+<Note>
+Every request path in this guide is
+`{API_BASE_URL}/v1/projects/{PROJECT_ID}/...`, with the `x-api-key` header
+attached server-side by your BFF — never in the browser.
+</Note>
+
+## How it works
+
+A package storefront is two calls, always in this order:
+
+1. **List the catalog.** `GET /services/{serviceId}/packages?status=ACTIVE`
+   returns every sellable bundle on the service, across all of its offerings —
+   the name, `creditCount`, and `pricing` you need to render a plan card.
+2. **Get bookable plans.** `POST /availability/package-options` takes the
+   same `serviceId` plus a location and plans **every** ACTIVE package in one
+   call — no client-side loop over packages. Each entry comes back with a
+   `status` and, when it's bookable, a ready-to-use `slateId`.
+3. **Book the one the customer picks.** Hand that entry's `slateId` (and its
+   `package.packageId`) to the order + booking flow in
+   [Create a package booking](/guides/create-a-package-booking).
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant BFF as Your BFF
+    participant MB as MarketBox API
+    B->>BFF: Show packages for a service
+    BFF->>MB: GET .../services/{serviceId}/packages?status=ACTIVE
+    MB-->>BFF: { data: [{ packageId, offeringId, creditCount, pricing }] }
+    BFF-->>B: Render plan cards (name, credits, price)
+    B->>BFF: Customer opens the storefront tab
+    BFF->>MB: POST .../availability/package-options { serviceId, location }
+    MB-->>BFF: { data: [{ package, status, slateId, primarySlate }] }
+    BFF-->>B: Mark OK entries bookable; surface reason on the rest
+    B->>BFF: Customer picks a plan
+    Note over BFF,MB: Continue with Create a package booking (order → package-bookings)
+```
+
+<Steps>
+<Step title="List the packages">
+List every package on the service with
+`GET /services/{serviceId}/packages?status=ACTIVE`. This spans **all of the
+service's offerings**, so you can call it before the customer has chosen an
+option, and each package carries its `offeringId` so you can join it against
+the offerings list you already hold.
+
+```ts
+// app/api/bff/packages/route.ts
+import { NextResponse } from 'next/server';
+
+export async function GET(request: Request) {
+  const serviceId = new URL(request.url).searchParams.get('serviceId')!;
+
+  const res = await fetch(
+    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/services/${serviceId}/packages?status=ACTIVE`,
+    {
+      headers: {
+        'x-api-key': process.env.MARKETBOX_API_KEY!, // server-only
+      },
+    },
+  );
+
+  const body = await res.json().catch(() => ({}));
+  return NextResponse.json(body, { status: res.status });
+}
+```
+
+The standard list envelope, one entry per bundle (abridged to one package):
+
+```json
+{
+  "data": [
+    {
+      "packageId": "pkg_01kvr4cgb3esg8hxx32kwhre7g",
+      "serviceId": "srv_01kv60qg12e82acr78edfnjhvv",
+      "offeringId": "off_01kv60qge5eh59ap0gw0pqrrys",
+      "name": { "en": "10-Session Pack" },
+      "creditCount": 10,
+      "pricingModel": "FLAT",
+      "pricing": [
+        {
+          "ruleId": "r_210b02de",
+          "scope": "COUNTRY",
+          "country": "CA",
+          "price": { "amount": 45000, "currency": "CAD" }
+        }
+      ],
+      "status": "ACTIVE"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+Join each package's `offeringId` against the offerings you already hold to
+build the card label — e.g. `pkg.offeringId` → `offering.name` gives you
+"10-Session Pack · Beginner 30 minutes · $450 CAD" from `name`, the joined
+offering name, and `pricing[0].price`.
+
+<Warning>
+**Don't list business models and render them as packages.** The
+`FLEXIBLE_PACKAGE` **business model** returned by
+`GET /services/{serviceId}/business-models` is only a flag on the service
+meaning "this service *can* be sold as packages." It is **not** a sellable
+bundle, and it carries **no `creditCount` and no `pricing`** — those fields
+live only on the packages this endpoint returns. Reading the business-models
+list and rendering each row as a package gives you one package-shaped object
+with a null session count and a null price, and a storefront that renders
+nothing. The packages are here; the business model just permits them.
+</Warning>
+
+<Note>
+**A service with no packages is a `200` with `data: []`, not an error** —
+hide the packages tab, don't branch on a status code. An **unknown**
+`serviceId` is a `404`, so a typo can never masquerade as "this service sells
+no packages." Valid `status` values are `DRAFT`, `ACTIVE`, and `ARCHIVED` —
+there is no `INACTIVE`.
+</Note>
+</Step>
+
+<Step title="Get bookable plans">
+Plan every ACTIVE package in one call with
+`POST /availability/package-options` — send the `serviceId` and a location
+(a stored `locationId`, or `lat` + `lng` + `address` for the travel-zone
+branch). Optionally pin a `supplierId`, or override the cadence with `rrule`.
+
+```ts
+// app/api/bff/package-options/route.ts
+import { NextResponse } from 'next/server';
+
+export async function POST(request: Request) {
+  const { serviceId } = await request.json();
+
+  const res = await fetch(
+    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/availability/package-options`,
+    {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.MARKETBOX_API_KEY!, // server-only
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        serviceId,
+        lat: 43.6532,
+        lng: -79.3832,
+        address: {
+          addressOneLine: '100 Queen St W, Toronto, ON M5H 2N2, Canada',
+          streetNumber: '100',
+          streetName: 'Queen St W',
+          city: 'Toronto',
+          state: 'ON',
+          country: 'CA',
+          zipCode: 'M5H 2N2',
+        },
+        timezone: 'America/Toronto',
+        lookAheadStartDate: '2026-08-01T00:00:00-04:00',
+      }),
+    },
+  );
+
+  const body = await res.json().catch(() => ({}));
+  return NextResponse.json(body, { status: res.status });
+}
+```
+
+<Warning>
+`lookAheadStartDate` must carry a **numeric `±HH:MM` offset** (e.g.
+`-04:00`) — a `Z` suffix is rejected with a `400`.
+</Warning>
+
+`rrule` is optional. Omit it and the cadence **defaults to
+`FREQ=WEEKLY;COUNT={creditCount}`, derived per package from its own credit
+count** — a 10-session package gets a 10-week weekly cadence automatically,
+with no need to compute one per plan card.
+
+One entry per ACTIVE package (abridged to two — a bookable plan and an
+unplannable one):
+
+```json
+{
+  "data": [
+    {
+      "package": {
+        "packageId": "pkg_01kvr4cgb3esg8hxx32kwhre7g",
+        "offeringId": "off_01kv60qge5eh59ap0gw0pqrrys",
+        "name": { "en": "10-Session Pack" },
+        "creditCount": 10,
+        "pricing": [{ "ruleId": "r_210b02de", "scope": "COUNTRY", "country": "CA", "price": { "amount": 45000, "currency": "CAD" } }],
+        "status": "ACTIVE"
+      },
+      "status": "OK",
+      "reason": null,
+      "slateId": "slate_01kx16ejsqffc9rbgdcc591w2p",
+      "primarySlate": {
+        "slateId": "slate_01kx16ejsqffc9rbgdcc591w2p",
+        "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+        "completeness": "COMPLETE",
+        "sessionsRequested": 10,
+        "sessionsFilled": 10,
+        "slots": [ { "sessionIndex": 1, "bookingStartUtc": "2026-08-01T13:30:00.000Z" } ]
+      },
+      "alternates": []
+    },
+    {
+      "package": {
+        "packageId": "pkg_01kvc5m1t8h2y4nq7wzb3jde6k",
+        "offeringId": "off_01kv60qge5eh59ap0gw0pqrrys",
+        "name": { "en": "20-Session Pack" },
+        "creditCount": 20,
+        "pricing": [{ "ruleId": "r_318c04ef", "scope": "COUNTRY", "country": "CA", "price": { "amount": 80000, "currency": "CAD" } }],
+        "status": "ACTIVE"
+      },
+      "status": "NO_COMPLETE_SLATE",
+      "reason": "package cadence requires 134-day availability window for 20 sessions, which exceeds the 120-day maximum",
+      "slateId": null,
+      "primarySlate": null,
+      "alternates": []
+    }
+  ]
+}
+```
+
+<Note>
+**This is a `200` even when some — or every — package is unplannable.**
+`package-options` never fails the request because one package couldn't be
+planned. Read each entry's `status`: render `OK` entries as bookable plan
+cards using `slateId`, and surface the others' `reason` (e.g. "no slots for
+this cadence" or, as above, a cadence that needs more than the 120-day
+look-ahead ceiling) instead of hiding them silently. A weekly 10-session
+package (~70 days) comfortably fits the ceiling and comes back `OK`; a
+weekly 20-session package (~134 days) does not.
+</Note>
+
+This also replaces a client-side fan-out of one `package-slate` call per
+package: the engine reads each **offering's** supplier availability once,
+however many packages sit on that offering, not once per package.
+</Step>
+
+<Step title="Book one">
+Once the customer picks a card, you already have everything the booking flow
+needs: `package.packageId` and `slateId` from the chosen entry. Skip
+straight to order creation — no need to rebuild a slate, since
+`package-options` already built one.
+
+```ts
+// pass straight into the order + booking flow
+const { packageId } = chosen.package;
+const { slateId } = chosen;
+```
+
+Continue with **Step 3 (Create the order)** and **Step 4 (Book the slate)**
+of [Create a package booking](/guides/create-a-package-booking) using these
+two values.
+</Step>
+</Steps>
+
+## Reference
+
+### Endpoints used in this guide
+
+| Endpoint | Method | Auth | Description |
+| --- | --- | --- | --- |
+| `/v1/projects/{projectId}/services/{serviceId}/packages` | `GET` | `x-api-key` | List every package on the service, across all its offerings. `?status=ACTIVE` for the purchasable bundles. `200 []` when the service sells none; `404` for an unknown `serviceId`. |
+| `/v1/projects/{projectId}/availability/package-options` | `POST` | `x-api-key` | Plan every ACTIVE package of a service in one call. Each entry carries `status`, `reason`, and — when bookable — a ready-to-use `slateId`. Always `200`; per-package failures never fail the request. |
+
+### Configuration
+
+| Value | Env var | Browser? |
+| --- | --- | --- |
+| API key | `MARKETBOX_API_KEY` | **No** (server-only) |
+| API base URL | `API_BASE_URL` | **No** (BFF-only) |
+| Project id | `PROJECT_ID` | **No** (BFF-only) |
+
+### Errors and edge cases
+
+| Scenario | `code` | Status | Resolution |
+| --- | --- | --- | --- |
+| The service exists but sells no packages | — | `200` | Not an error: `data` is `[]`. Hide the packages tab rather than branching on a status code. |
+| Unknown `serviceId` on the package list | `NOT_FOUND` | `404` | A typo never reads as "no packages" — check the id came from this project's service catalogue. |
+| A package's derived (or explicit) cadence needs more than the 120-day look-ahead ceiling | `NO_COMPLETE_SLATE` | `200`, per entry | Not a request-level error — that entry's `status` is `NO_COMPLETE_SLATE` and `reason` names the window required. Render the other `OK` entries normally; see [Availability and slates](/guides/availability-and-slates#the-120-day-look-ahead-ceiling). |
+| No supplier availability at all for a package's location/window | `NO_AVAILABILITY` | `200`, per entry | Also per-entry, not a request failure. Try a different location or a later `lookAheadStartDate`. |
+| `lookAheadStartDate` has a `Z` suffix instead of a numeric offset | `VALIDATION_ERROR` | `400` | Use a numeric `±HH:MM` offset, e.g. `-04:00`. |
+| Neither `locationId` nor `lat`+`lng`+`address` provided | `VALIDATION_ERROR` | `400` | Send one location form — a stored `locationId`, or the full travel-zone trio. |
+| Listing business models instead of packages | — | — | Not an API error — a modeling mistake. `GET .../business-models` rows have no `creditCount`/`pricing`; use `GET .../packages` instead. |
+
+See [Errors](/concepts/errors) for the full envelope and code list.

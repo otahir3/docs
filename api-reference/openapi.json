@@ -17705,6 +17705,1066 @@
         }
       }
     },
+    "/v1/projects/{projectId}/availability/package-options": {
+      "post": {
+        "tags": [
+          "Availability"
+        ],
+        "summary": "List a service's packages, each with a ready-to-book slate",
+        "description": "Returns every ACTIVE package of a service, each with a complete N-session plan built from a supplier's real availability. The response entry carries a slateId that can be booked directly via POST /orders/{orderId}/package-bookings. Cadence defaults to FREQ=WEEKLY;COUNT={creditCount}, derived per package. Packages that cannot be planned come back with status NO_COMPLETE_SLATE or NO_AVAILABILITY and a reason — they do not fail the request.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Service + location + optional supplier and cadence",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "serviceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The service whose ACTIVE packages should be priced and planned.",
+                    "example": "srv_01kq8cp17bf03t125zhakpcgyx"
+                  },
+                  "locationId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Discovery by a stored location id. Provide this OR lat+lng+address."
+                  },
+                  "lat": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "description": "Client latitude (travel-zone branch).",
+                    "example": 43.6532
+                  },
+                  "lng": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "description": "Client longitude (travel-zone branch).",
+                    "example": -79.3832
+                  },
+                  "address": {
+                    "type": "object",
+                    "properties": {
+                      "addressOneLine": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "streetNumber": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "streetName": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "city": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "state": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "country": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "zipCode": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "unitNumber": {
+                        "type": "string",
+                        "nullable": true
+                      }
+                    },
+                    "required": [
+                      "addressOneLine",
+                      "streetNumber",
+                      "streetName",
+                      "city",
+                      "state",
+                      "country",
+                      "zipCode"
+                    ],
+                    "description": "Structured client address. Required on the lat/lng (travel-zone) branch."
+                  },
+                  "supplierId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Pin every slate to one supplier. Omit to consider all suppliers serving the location."
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "IANA timezone. Defaults to the project's defaultTimezone."
+                  },
+                  "rrule": {
+                    "type": "string",
+                    "description": "Cadence for every package. Omit to default to FREQ=WEEKLY;COUNT={creditCount}, derived per package from its own credit count.",
+                    "example": "FREQ=WEEKLY;BYDAY=MO"
+                  },
+                  "lookAheadStartDate": {
+                    "type": "string",
+                    "description": "ISO start of the search window. Defaults to now. When provided, MUST carry a numeric UTC offset (e.g. -04:00), NOT a Z suffix.",
+                    "example": "2026-07-09T00:00:00-04:00"
+                  },
+                  "preferredTimes": {
+                    "type": "array",
+                    "nullable": true,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "startTime": {
+                          "type": "string"
+                        },
+                        "endTime": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "startTime",
+                        "endTime"
+                      ]
+                    }
+                  },
+                  "maxAlternates": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "persist": {
+                    "type": "boolean",
+                    "description": "Persist slates so primarySlate.slateId is bookable. Defaults to true."
+                  }
+                },
+                "required": [
+                  "serviceId"
+                ],
+                "description": "A service + a location (+ optionally a supplier and cadence)."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One entry per ACTIVE package",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "package": {
+                            "type": "object",
+                            "properties": {
+                              "entityType": {
+                                "type": "string",
+                                "enum": [
+                                  "SERVICE_PACKAGE"
+                                ]
+                              },
+                              "projectId": {
+                                "type": "string"
+                              },
+                              "serviceId": {
+                                "type": "string"
+                              },
+                              "offeringId": {
+                                "type": "string"
+                              },
+                              "packageId": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "description": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "pricingModel": {
+                                "type": "string",
+                                "enum": [
+                                  "PER_SESSION",
+                                  "FLAT"
+                                ]
+                              },
+                              "pricing": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "ruleId": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "scope": {
+                                      "type": "string",
+                                      "enum": [
+                                        "DEFAULT",
+                                        "COUNTRY",
+                                        "STATE",
+                                        "POSTAL"
+                                      ]
+                                    },
+                                    "country": {
+                                      "type": "string",
+                                      "minLength": 2,
+                                      "maxLength": 2
+                                    },
+                                    "state": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "postalCodes": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "price": {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "number",
+                                          "minimum": 0
+                                        },
+                                        "currency": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 3
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ]
+                                    },
+                                    "tax": {
+                                      "type": "object",
+                                      "properties": {
+                                        "taxable": {
+                                          "type": "boolean"
+                                        },
+                                        "taxPercentage": {
+                                          "type": "number",
+                                          "minimum": 0
+                                        }
+                                      },
+                                      "required": [
+                                        "taxable"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "ruleId",
+                                    "scope",
+                                    "price"
+                                  ]
+                                },
+                                "minItems": 1
+                              },
+                              "creditCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "validityDays": {
+                                "type": "integer",
+                                "nullable": true,
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "DRAFT",
+                                  "ACTIVE",
+                                  "ARCHIVED"
+                                ]
+                              },
+                              "capacity": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true
+                              },
+                              "deleted": {
+                                "type": "boolean"
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "updatedAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "createdBy": {
+                                "type": "string"
+                              },
+                              "updatedBy": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "entityType",
+                              "projectId",
+                              "serviceId",
+                              "offeringId",
+                              "packageId",
+                              "pricingModel",
+                              "pricing",
+                              "creditCount",
+                              "validityDays",
+                              "status",
+                              "capacity",
+                              "deleted",
+                              "createdAt",
+                              "updatedAt",
+                              "createdBy",
+                              "updatedBy"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "OK",
+                              "NO_COMPLETE_SLATE",
+                              "NO_AVAILABILITY"
+                            ],
+                            "description": "OK, NO_COMPLETE_SLATE, or NO_AVAILABILITY — for THIS package."
+                          },
+                          "reason": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Why this package is not bookable. Null when status is OK."
+                          },
+                          "slateId": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Book this package by passing this to POST .../package-bookings. Null unless OK."
+                          },
+                          "primarySlate": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "slateId": {
+                                "type": "string",
+                                "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
+                              },
+                              "supplierId": {
+                                "type": "string"
+                              },
+                              "completeness": {
+                                "type": "string",
+                                "enum": [
+                                  "COMPLETE",
+                                  "PARTIAL"
+                                ]
+                              },
+                              "sessionsRequested": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true,
+                                "description": "How many sessions were requested (the package's creditCount)."
+                              },
+                              "sessionsFilled": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "How many of the requested sessions the plan could fill."
+                              },
+                              "startTimeConsistencyPercent": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              "totalTravelTimeMins": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "slots": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "slotId": {
+                                      "type": "string",
+                                      "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
+                                    },
+                                    "sessionIndex": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true,
+                                      "description": "1-based index of this session within the slate."
+                                    },
+                                    "supplierId": {
+                                      "type": "string"
+                                    },
+                                    "serviceId": {
+                                      "type": "string"
+                                    },
+                                    "offeringId": {
+                                      "type": "string"
+                                    },
+                                    "bookingStartUtc": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "bookingEndUtc": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "bookingTz": {
+                                      "type": "string"
+                                    },
+                                    "locationType": {
+                                      "type": "string",
+                                      "enum": [
+                                        "PHYSICAL",
+                                        "VIRTUAL",
+                                        "TRAVEL_ZONE"
+                                      ]
+                                    },
+                                    "locationId": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "latitude": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "longitude": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "address": {
+                                      "type": "object",
+                                      "nullable": true,
+                                      "properties": {
+                                        "addressOneLine": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "streetNumber": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "streetName": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "city": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "state": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "country": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "zipCode": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "unitNumber": {
+                                          "type": "string",
+                                          "nullable": true
+                                        }
+                                      },
+                                      "required": [
+                                        "addressOneLine",
+                                        "streetNumber",
+                                        "streetName",
+                                        "city",
+                                        "state",
+                                        "country",
+                                        "zipCode"
+                                      ]
+                                    },
+                                    "travelTimeMins": {
+                                      "type": "number",
+                                      "nullable": true,
+                                      "minimum": 0
+                                    },
+                                    "capacity": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "reservationStatus": {
+                                      "type": "string",
+                                      "enum": [
+                                        "FREE",
+                                        "HELD",
+                                        "CONVERTED",
+                                        "RELEASED"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "slotId",
+                                    "sessionIndex",
+                                    "supplierId",
+                                    "serviceId",
+                                    "offeringId",
+                                    "bookingStartUtc",
+                                    "bookingEndUtc",
+                                    "bookingTz",
+                                    "locationType",
+                                    "locationId",
+                                    "latitude",
+                                    "longitude",
+                                    "address",
+                                    "travelTimeMins",
+                                    "capacity",
+                                    "reservationStatus"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "slateId",
+                              "supplierId",
+                              "completeness",
+                              "sessionsRequested",
+                              "sessionsFilled",
+                              "startTimeConsistencyPercent",
+                              "totalTravelTimeMins",
+                              "slots"
+                            ]
+                          },
+                          "alternates": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "slateId": {
+                                  "type": "string",
+                                  "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                  "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
+                                },
+                                "supplierId": {
+                                  "type": "string"
+                                },
+                                "completeness": {
+                                  "type": "string",
+                                  "enum": [
+                                    "COMPLETE",
+                                    "PARTIAL"
+                                  ]
+                                },
+                                "sessionsRequested": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "How many sessions were requested (the package's creditCount)."
+                                },
+                                "sessionsFilled": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "How many of the requested sessions the plan could fill."
+                                },
+                                "startTimeConsistencyPercent": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 100
+                                },
+                                "totalTravelTimeMins": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "slots": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "slotId": {
+                                        "type": "string",
+                                        "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
+                                      },
+                                      "sessionIndex": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true,
+                                        "description": "1-based index of this session within the slate."
+                                      },
+                                      "supplierId": {
+                                        "type": "string"
+                                      },
+                                      "serviceId": {
+                                        "type": "string"
+                                      },
+                                      "offeringId": {
+                                        "type": "string"
+                                      },
+                                      "bookingStartUtc": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      },
+                                      "bookingEndUtc": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      },
+                                      "bookingTz": {
+                                        "type": "string"
+                                      },
+                                      "locationType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "PHYSICAL",
+                                          "VIRTUAL",
+                                          "TRAVEL_ZONE"
+                                        ]
+                                      },
+                                      "locationId": {
+                                        "type": "string",
+                                        "nullable": true
+                                      },
+                                      "latitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                      },
+                                      "longitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                      },
+                                      "address": {
+                                        "type": "object",
+                                        "nullable": true,
+                                        "properties": {
+                                          "addressOneLine": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "streetNumber": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "streetName": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "city": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "state": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "country": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "zipCode": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          },
+                                          "unitNumber": {
+                                            "type": "string",
+                                            "nullable": true
+                                          }
+                                        },
+                                        "required": [
+                                          "addressOneLine",
+                                          "streetNumber",
+                                          "streetName",
+                                          "city",
+                                          "state",
+                                          "country",
+                                          "zipCode"
+                                        ]
+                                      },
+                                      "travelTimeMins": {
+                                        "type": "number",
+                                        "nullable": true,
+                                        "minimum": 0
+                                      },
+                                      "capacity": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true
+                                      },
+                                      "reservationStatus": {
+                                        "type": "string",
+                                        "enum": [
+                                          "FREE",
+                                          "HELD",
+                                          "CONVERTED",
+                                          "RELEASED"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "slotId",
+                                      "sessionIndex",
+                                      "supplierId",
+                                      "serviceId",
+                                      "offeringId",
+                                      "bookingStartUtc",
+                                      "bookingEndUtc",
+                                      "bookingTz",
+                                      "locationType",
+                                      "locationId",
+                                      "latitude",
+                                      "longitude",
+                                      "address",
+                                      "travelTimeMins",
+                                      "capacity",
+                                      "reservationStatus"
+                                    ]
+                                  }
+                                }
+                              },
+                              "required": [
+                                "slateId",
+                                "supplierId",
+                                "completeness",
+                                "sessionsRequested",
+                                "sessionsFilled",
+                                "startTimeConsistencyPercent",
+                                "totalTravelTimeMins",
+                                "slots"
+                              ]
+                            }
+                          },
+                          "partial": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "slateId": {
+                                "type": "string",
+                                "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
+                              },
+                              "supplierId": {
+                                "type": "string"
+                              },
+                              "completeness": {
+                                "type": "string",
+                                "enum": [
+                                  "COMPLETE",
+                                  "PARTIAL"
+                                ]
+                              },
+                              "sessionsRequested": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true,
+                                "description": "How many sessions were requested (the package's creditCount)."
+                              },
+                              "sessionsFilled": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "How many of the requested sessions the plan could fill."
+                              },
+                              "startTimeConsistencyPercent": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                              },
+                              "totalTravelTimeMins": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "slots": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "slotId": {
+                                      "type": "string",
+                                      "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
+                                    },
+                                    "sessionIndex": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true,
+                                      "description": "1-based index of this session within the slate."
+                                    },
+                                    "supplierId": {
+                                      "type": "string"
+                                    },
+                                    "serviceId": {
+                                      "type": "string"
+                                    },
+                                    "offeringId": {
+                                      "type": "string"
+                                    },
+                                    "bookingStartUtc": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "bookingEndUtc": {
+                                      "type": "string",
+                                      "format": "date-time"
+                                    },
+                                    "bookingTz": {
+                                      "type": "string"
+                                    },
+                                    "locationType": {
+                                      "type": "string",
+                                      "enum": [
+                                        "PHYSICAL",
+                                        "VIRTUAL",
+                                        "TRAVEL_ZONE"
+                                      ]
+                                    },
+                                    "locationId": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "latitude": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "longitude": {
+                                      "type": "number",
+                                      "nullable": true
+                                    },
+                                    "address": {
+                                      "type": "object",
+                                      "nullable": true,
+                                      "properties": {
+                                        "addressOneLine": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "streetNumber": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "streetName": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "city": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "state": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "country": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "zipCode": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        },
+                                        "unitNumber": {
+                                          "type": "string",
+                                          "nullable": true
+                                        }
+                                      },
+                                      "required": [
+                                        "addressOneLine",
+                                        "streetNumber",
+                                        "streetName",
+                                        "city",
+                                        "state",
+                                        "country",
+                                        "zipCode"
+                                      ]
+                                    },
+                                    "travelTimeMins": {
+                                      "type": "number",
+                                      "nullable": true,
+                                      "minimum": 0
+                                    },
+                                    "capacity": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "exclusiveMinimum": true
+                                    },
+                                    "reservationStatus": {
+                                      "type": "string",
+                                      "enum": [
+                                        "FREE",
+                                        "HELD",
+                                        "CONVERTED",
+                                        "RELEASED"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "slotId",
+                                    "sessionIndex",
+                                    "supplierId",
+                                    "serviceId",
+                                    "offeringId",
+                                    "bookingStartUtc",
+                                    "bookingEndUtc",
+                                    "bookingTz",
+                                    "locationType",
+                                    "locationId",
+                                    "latitude",
+                                    "longitude",
+                                    "address",
+                                    "travelTimeMins",
+                                    "capacity",
+                                    "reservationStatus"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "slateId",
+                              "supplierId",
+                              "completeness",
+                              "sessionsRequested",
+                              "sessionsFilled",
+                              "startTimeConsistencyPercent",
+                              "totalTravelTimeMins",
+                              "slots"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "package",
+                          "status",
+                          "reason",
+                          "slateId",
+                          "primarySlate",
+                          "alternates",
+                          "partial"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Service not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/projects/{projectId}/suggestions/slots/{slotId}/reschedule": {
       "post": {
         "tags": [
@@ -20249,6 +21309,47 @@
                         "lastPurchaseAt": {
                           "type": "string"
                         },
+                        "lastPaymentMethodId": {
+                          "type": "string"
+                        },
+                        "lastPayment": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "CARD"
+                              ]
+                            },
+                            "brand": {
+                              "type": "string"
+                            },
+                            "last4": {
+                              "type": "string",
+                              "minLength": 4,
+                              "maxLength": 4
+                            },
+                            "expMonth": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 1,
+                              "maximum": 12
+                            },
+                            "expYear": {
+                              "type": "integer",
+                              "nullable": true
+                            },
+                            "paidAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "brand",
+                            "last4",
+                            "paidAt"
+                          ]
+                        },
                         "active": {
                           "type": "boolean"
                         },
@@ -20445,6 +21546,47 @@
                         },
                         "lastPurchaseAt": {
                           "type": "string"
+                        },
+                        "lastPaymentMethodId": {
+                          "type": "string"
+                        },
+                        "lastPayment": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "CARD"
+                              ]
+                            },
+                            "brand": {
+                              "type": "string"
+                            },
+                            "last4": {
+                              "type": "string",
+                              "minLength": 4,
+                              "maxLength": 4
+                            },
+                            "expMonth": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 1,
+                              "maximum": 12
+                            },
+                            "expYear": {
+                              "type": "integer",
+                              "nullable": true
+                            },
+                            "paidAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "brand",
+                            "last4",
+                            "paidAt"
+                          ]
                         },
                         "active": {
                           "type": "boolean"
@@ -20994,6 +22136,47 @@
                         "lastPurchaseAt": {
                           "type": "string"
                         },
+                        "lastPaymentMethodId": {
+                          "type": "string"
+                        },
+                        "lastPayment": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "CARD"
+                              ]
+                            },
+                            "brand": {
+                              "type": "string"
+                            },
+                            "last4": {
+                              "type": "string",
+                              "minLength": 4,
+                              "maxLength": 4
+                            },
+                            "expMonth": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 1,
+                              "maximum": 12
+                            },
+                            "expYear": {
+                              "type": "integer",
+                              "nullable": true
+                            },
+                            "paidAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "brand",
+                            "last4",
+                            "paidAt"
+                          ]
+                        },
                         "active": {
                           "type": "boolean"
                         },
@@ -21358,6 +22541,47 @@
                         "lastPurchaseAt": {
                           "type": "string"
                         },
+                        "lastPaymentMethodId": {
+                          "type": "string"
+                        },
+                        "lastPayment": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "CARD"
+                              ]
+                            },
+                            "brand": {
+                              "type": "string"
+                            },
+                            "last4": {
+                              "type": "string",
+                              "minLength": 4,
+                              "maxLength": 4
+                            },
+                            "expMonth": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 1,
+                              "maximum": 12
+                            },
+                            "expYear": {
+                              "type": "integer",
+                              "nullable": true
+                            },
+                            "paidAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "brand",
+                            "last4",
+                            "paidAt"
+                          ]
+                        },
                         "active": {
                           "type": "boolean"
                         },
@@ -21624,6 +22848,47 @@
                         },
                         "lastPurchaseAt": {
                           "type": "string"
+                        },
+                        "lastPaymentMethodId": {
+                          "type": "string"
+                        },
+                        "lastPayment": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "CARD"
+                              ]
+                            },
+                            "brand": {
+                              "type": "string"
+                            },
+                            "last4": {
+                              "type": "string",
+                              "minLength": 4,
+                              "maxLength": 4
+                            },
+                            "expMonth": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 1,
+                              "maximum": 12
+                            },
+                            "expYear": {
+                              "type": "integer",
+                              "nullable": true
+                            },
+                            "paidAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "brand",
+                            "last4",
+                            "paidAt"
+                          ]
                         },
                         "active": {
                           "type": "boolean"
@@ -21893,6 +23158,47 @@
                         },
                         "lastPurchaseAt": {
                           "type": "string"
+                        },
+                        "lastPaymentMethodId": {
+                          "type": "string"
+                        },
+                        "lastPayment": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "CARD"
+                              ]
+                            },
+                            "brand": {
+                              "type": "string"
+                            },
+                            "last4": {
+                              "type": "string",
+                              "minLength": 4,
+                              "maxLength": 4
+                            },
+                            "expMonth": {
+                              "type": "integer",
+                              "nullable": true,
+                              "minimum": 1,
+                              "maximum": 12
+                            },
+                            "expYear": {
+                              "type": "integer",
+                              "nullable": true
+                            },
+                            "paidAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "brand",
+                            "last4",
+                            "paidAt"
+                          ]
                         },
                         "active": {
                           "type": "boolean"
@@ -28046,6 +29352,313 @@
           },
           "403": {
             "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/services/{serviceId}/packages": {
+      "get": {
+        "tags": [
+          "ServicePackages"
+        ],
+        "summary": "List every package for a service (storefront discovery)",
+        "description": "Returns every package under the service, across all of its offerings — the call a storefront makes before the customer has chosen an option. Pass ?status=ACTIVE for only the purchasable bundles. Each package carries its offeringId, so the client can join it against the offerings list it already holds.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "serviceId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "ACTIVE",
+                "ARCHIVED"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Packages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "entityType": {
+                            "type": "string",
+                            "enum": [
+                              "SERVICE_PACKAGE"
+                            ]
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "serviceId": {
+                            "type": "string"
+                          },
+                          "offeringId": {
+                            "type": "string"
+                          },
+                          "packageId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "description": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "pricingModel": {
+                            "type": "string",
+                            "enum": [
+                              "PER_SESSION",
+                              "FLAT"
+                            ]
+                          },
+                          "pricing": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "ruleId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "scope": {
+                                  "type": "string",
+                                  "enum": [
+                                    "DEFAULT",
+                                    "COUNTRY",
+                                    "STATE",
+                                    "POSTAL"
+                                  ]
+                                },
+                                "country": {
+                                  "type": "string",
+                                  "minLength": 2,
+                                  "maxLength": 2
+                                },
+                                "state": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "postalCodes": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "price": {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    },
+                                    "currency": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 3
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ]
+                                },
+                                "tax": {
+                                  "type": "object",
+                                  "properties": {
+                                    "taxable": {
+                                      "type": "boolean"
+                                    },
+                                    "taxPercentage": {
+                                      "type": "number",
+                                      "minimum": 0
+                                    }
+                                  },
+                                  "required": [
+                                    "taxable"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "ruleId",
+                                "scope",
+                                "price"
+                              ]
+                            },
+                            "minItems": 1
+                          },
+                          "creditCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true
+                          },
+                          "validityDays": {
+                            "type": "integer",
+                            "nullable": true,
+                            "minimum": 0,
+                            "exclusiveMinimum": true
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "DRAFT",
+                              "ACTIVE",
+                              "ARCHIVED"
+                            ]
+                          },
+                          "capacity": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true
+                          },
+                          "deleted": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "createdBy": {
+                            "type": "string"
+                          },
+                          "updatedBy": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "entityType",
+                          "projectId",
+                          "serviceId",
+                          "offeringId",
+                          "packageId",
+                          "pricingModel",
+                          "pricing",
+                          "creditCount",
+                          "validityDays",
+                          "status",
+                          "capacity",
+                          "deleted",
+                          "createdAt",
+                          "updatedAt",
+                          "createdBy",
+                          "updatedBy"
+                        ]
+                      }
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "nextCursor"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "example": {
+                    "message": "Hello World"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Service not found",
             "content": {
               "application/json": {
                 "schema": {

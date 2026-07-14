@@ -3,6 +3,31 @@ title: "Changelog"
 description: "New features, updates, and fixes to the MarketBox API."
 ---
 
+<Update label="July 14, 2026" tags={["API"]}>
+
+## Package discovery, bookable package options, and a wider look-ahead window
+
+Packages are now discoverable and plannable in one call each — and the weekly multi-session package that the engine used to refuse is bookable.
+
+**New**
+
+- **`GET /v1/projects/{projectId}/services/{serviceId}/packages`** — every package on a service, **across all of its offerings**. This is the call a storefront makes *before* the customer picks an option, when it holds a `serviceId` and no `offeringId` — previously there was no endpoint that could answer it. Pass `?status=ACTIVE` for just the purchasable bundles. Each package carries its `offeringId`, so you can join it against the offerings list you already hold. A real service that sells no packages is a `200` with `data: []`; an **unknown** `serviceId` is a `404`, so a typo can never masquerade as "no packages".
+- **`POST /v1/projects/{projectId}/availability/package-options`** — every ACTIVE package of a service, each planned against a supplier's real availability and carrying a ready-to-book `slateId`. Send a `serviceId` and a location (`locationId`, or `lat` + `lng` + `address`); `supplierId`, `timezone`, and `rrule` are optional. Cadence defaults to `FREQ=WEEKLY;COUNT={creditCount}`, derived **per package** from its own credit count. It replaces the client-side fan-out of one `package-slate` call per package, and it's cheaper than that loop — supplier bundles are read once per offering, not once per package.
+
+**Changed**
+
+- **The package look-ahead ceiling moved from 31 days to 120 days.** The window is still derived from your cadence and the package's `creditCount` — only the cap on that derivation changed. A weekly 10-session package spans about 70 days, so it was **unbookable** under the old 31-day cap and always came back `NO_COMPLETE_SLATE`; it now plans and books normally, as do weekly 12-packs (~84 days) and biweekly 5-packs (~70 days). A cadence that still needs more than 120 days keeps the existing fail-loud behaviour — `NO_COMPLETE_SLATE` with a `reason` naming the exact window required, never a silently truncated slate.
+
+**What this means for you**
+
+- If you were listing **business models** and rendering each row as a package, stop. `FLEXIBLE_PACKAGE` is a business model — a flag meaning "this service *can* be sold as packages" — not a sellable bundle, and it carries no `creditCount` and no `pricing`. The bundles are what the new package list returns.
+- If you hardcoded a dense weekday `rrule` (e.g. `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR`) purely to squeeze a multi-session package under the 31-day cap, you can drop the workaround and send the cadence you actually sell.
+- Purely additive: no existing route, schema, or DTO changed shape. Every request valid before this release is still valid.
+
+Walkthroughs: [Create a package booking with a slate](/guides/create-a-package-booking) (now starts at finding the package) and [Availability and slates](/guides/availability-and-slates) for the cadence rules and the new ceiling.
+
+</Update>
+
 <Update label="July 13, 2026" tags={["API"]}>
 
 ## Holds, the double-booking guard — and a breaking change to `POST /holds`

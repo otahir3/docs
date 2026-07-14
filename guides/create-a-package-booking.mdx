@@ -35,17 +35,21 @@ segment bookings by business model.
 
 ## How it works
 
-A package booking is three calls, always in this order:
+A package booking is four calls, always in this order:
 
-1. **Build the slate.** `POST /availability/package-slate` with the
+1. **Find the package.** `GET /services/{serviceId}/packages?status=ACTIVE`
+   lists every sellable bundle on the service, across all of its offerings —
+   the call a storefront makes before the customer has picked an option. It
+   gives you the `packageId` every later step needs.
+2. **Build the slate.** `POST /availability/package-slate` with the
    `packageId`, a location, and an `rrule` (recurrence pattern) returns a
    `primarySlate` — the best single supplier's plan that fills every
    session — with a `slateId`.
-2. **Create the order.** `POST /orders` with one `PACKAGE` item is what makes
+3. **Create the order.** `POST /orders` with one `PACKAGE` item is what makes
    the package purchasable — it's the order item every session will draw
    down. The server derives the service, offering, session count, and price
    from the package.
-3. **Book the slate.** `POST /orders/{orderId}/package-bookings` with just
+4. **Book the slate.** `POST /orders/{orderId}/package-bookings` with just
    `{ orderItemId, slateId }` creates all N bookings atomically. You never
    copy times or locations out of the slate response by hand — the server
    re-resolves every session itself.
@@ -56,6 +60,8 @@ sequenceDiagram
     participant BFF as Your BFF
     participant MB as MarketBox API
     B->>BFF: Start a package booking
+    BFF->>MB: GET .../services/{serviceId}/packages?status=ACTIVE
+    MB-->>BFF: { data: [{ packageId, creditCount, pricing }] }
     BFF->>MB: POST .../availability/package-slate { packageId, location, rrule }
     MB-->>BFF: { status: "OK", primarySlate: { slateId, slots[] } }
     BFF->>MB: POST .../orders { PACKAGE item }
@@ -73,6 +79,91 @@ payment on afterward with [Accept payments with Stripe](/guides/accept-payments-
 </Note>
 
 <Steps>
+<Step title="Find the package">
+A **package** is a sellable bundle — a name, a `creditCount`, and `pricing`.
+List every one on a service with
+`GET /services/{serviceId}/packages?status=ACTIVE`. This is the discovery
+call: it spans **all of the service's offerings**, so you can make it before
+the customer has chosen an option, and each package carries its `offeringId`
+so you can join it against the offerings list you already hold.
+
+```ts
+// app/api/bff/packages/route.ts
+import { NextResponse } from 'next/server';
+
+export async function GET(request: Request) {
+  const serviceId = new URL(request.url).searchParams.get('serviceId')!;
+
+  const res = await fetch(
+    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/services/${serviceId}/packages?status=ACTIVE`,
+    {
+      headers: {
+        'x-api-key': process.env.MARKETBOX_API_KEY!, // server-only
+      },
+    },
+  );
+
+  const body = await res.json().catch(() => ({}));
+  return NextResponse.json(body, { status: res.status });
+}
+```
+
+The standard list envelope, one entry per bundle (abridged to two of the
+service's packages):
+
+```json
+{
+  "data": [
+    {
+      "packageId": "pkg_01kvr4cgb3esg8hxx32kwhre7g",
+      "serviceId": "srv_01kv60qg12e82acr78edfnjhvv",
+      "offeringId": "off_01kv60qge5eh59ap0gw0pqrrys",
+      "name": { "en": "10-Session Pack" },
+      "creditCount": 10,
+      "capacity": 1,
+      "pricingModel": "FLAT",
+      "pricing": [
+        {
+          "ruleId": "r_210b02de",
+          "scope": "COUNTRY",
+          "country": "CA",
+          "price": { "amount": 45000, "currency": "CAD" }
+        }
+      ],
+      "status": "ACTIVE"
+    },
+    {
+      "packageId": "pkg_01kvc5m1t8h2y4nq7wzb3jde6k",
+      "offeringId": "off_01kv60qge5eh59ap0gw0pqrrys",
+      "name": { "en": "5-Session Pack" },
+      "creditCount": 5,
+      "status": "ACTIVE"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+<Note>
+**Don't list business models and render them as packages.** The
+`FLEXIBLE_PACKAGE` **business model** is only a flag on the service meaning
+"this service *can* be sold as packages." It is **not** a sellable bundle,
+and it carries **no `creditCount` and no `pricing`** — those fields live on
+the packages this endpoint returns. Reading the business-models list and
+rendering each row as a package gives you one package-shaped object with
+null session count and null price, and hides the real bundles entirely.
+The packages are here; the business model just permits them.
+</Note>
+
+<Note>
+**A service with no packages is a `200` with `data: []`, not an error** —
+hide the tab, don't branch on a status code. An **unknown** `serviceId` is a
+`404`, so a typo can never masquerade as "this service sells no packages."
+</Note>
+
+Take the `packageId` of the bundle the customer picks into the next step.
+</Step>
+
 <Step title="Build the slate">
 Call `POST /availability/package-slate` with the package, a location, a
 timezone, and a bounded recurrence rule. The example below uses the
@@ -247,12 +338,12 @@ Same nesting as single bookings: the order id is at `data.order.orderId`,
 
 This `orderItemId` **is** the package instance — its `quantityRemaining` is
 the live credit ledger every booking call decrements. Hold onto it along
-with `orderId` and the `slateId` from Step 1.
+with `orderId` and the `slateId` from Step 2.
 </Step>
 
 <Step title="Book the slate">
-Book all N sessions in one call by passing the `orderItemId` from Step 2 and
-the `slateId` from Step 1 — no session details required. Provide **exactly
+Book all N sessions in one call by passing the `orderItemId` from Step 3 and
+the `slateId` from Step 2 — no session details required. Provide **exactly
 one** of `sessions`, `slateId`, or `slotIds`; `slateId` is the recommended
 path.
 
@@ -317,7 +408,7 @@ abridged to the first two of eight):
 
 <Tip>
 **Off-by-one trap.** `sessionIndex` is **1-based** in the slate's `slots[]`
-(Step 1) but **0-based** in this `created[]` response. Slot `sessionIndex: 1`
+(Step 2) but **0-based** in this `created[]` response. Slot `sessionIndex: 1`
 corresponds to booking `sessionIndex: 0` — don't compare them directly
 without adjusting.
 </Tip>
@@ -370,6 +461,7 @@ will not consume your own hold and returns `409 SLOT_HELD` naming the
 
 | Endpoint | Method | Auth | Description |
 | --- | --- | --- | --- |
+| `/v1/projects/{projectId}/services/{serviceId}/packages` | `GET` | `x-api-key` | List every package on the service, across all its offerings. `?status=ACTIVE` for the purchasable bundles. `200 []` when the service sells none; `404` for an unknown `serviceId`. |
 | `/v1/projects/{projectId}/availability/package-slate` | `POST` | `x-api-key` | Build an N-session slate for a package from one supplier. Returns `primarySlate.slateId`. `422` when nothing is bookable. |
 | `/v1/projects/{projectId}/orders` | `POST` | `x-api-key` | Create the order and its `PACKAGE` item. Order id nested at `data.order.orderId`; item at `data.items[]`. |
 | `/v1/projects/{projectId}/orders/{orderId}/package-bookings` | `POST` | `x-api-key` | Book all N sessions of the slate atomically (or best-effort). Response is **not** wrapped in `{ data }`. |
@@ -386,6 +478,8 @@ will not consume your own hold and returns `409 SLOT_HELD` naming the
 
 | Scenario | `code` | Status | Resolution |
 | --- | --- | --- | --- |
+| The service exists but sells no packages | — | `200` | Not an error: `data` is `[]`. Hide the packages tab rather than branching on a status code. |
+| Unknown `serviceId` on the package list | `NOT_FOUND` | `404` | A typo never reads as "no packages" — check the id came from this project's service catalogue. |
 | No complete slate for the request under the project's supplier policy | `NO_COMPLETE_SLATE` | `422` | Widen the `rrule`/`lookAheadStartDate` window, try a different location, or ask the project to enable `suggestionConfig.allowPartialPackages` if a partial plan is acceptable. |
 | No availability at all in the requested window | `NO_AVAILABILITY` | `422` | Try a different location, timezone, or a later `lookAheadStartDate`. |
 | `lookAheadStartDate` has a `Z` suffix instead of a numeric offset | `VALIDATION_ERROR` | `400` | Use a numeric `±HH:MM` offset, e.g. `-04:00`. |
@@ -401,7 +495,7 @@ will not consume your own hold and returns `409 SLOT_HELD` naming the
 | The package's validity window has expired | `PACKAGE_EXPIRED` | `409` | The order item's `expiresAt` has passed — no more sessions can be booked against it. |
 | Requested more sessions than the order item has remaining | `ORDER_ITEM_QUANTITY_UNAVAILABLE` | `400` | The up-front precheck rejects this. Check `quantityRemaining` before booking. |
 | A concurrent draw-down consumed the credits mid-transaction | `ORDER_ITEM_QUANTITY_UNAVAILABLE` | `409` | A race with another booking exhausted the item after the precheck. Re-fetch `quantityRemaining` and retry with what's left. |
-| `orderItemId` isn't a `PACKAGE` item | `NOT_A_PACKAGE_ITEM` | `400` | Pass the `orderItemId` of the `PACKAGE` item from Step 2, not a `SINGLE_SESSION` item. |
+| `orderItemId` isn't a `PACKAGE` item | `NOT_A_PACKAGE_ITEM` | `400` | Pass the `orderItemId` of the `PACKAGE` item from Step 3, not a `SINGLE_SESSION` item. |
 | `orderId` doesn't exist, or belongs to another project | `INVALID_ORDER_REFERENCE` | `400` | Double-check the `orderId` came from a `POST /orders` call in the same project. |
 | `orderItemId` doesn't exist on that order | `NOT_FOUND` | `404` | Re-fetch the order aggregate — you may be reusing a stale id. |
 

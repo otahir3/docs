@@ -40,6 +40,7 @@
             "pages": [
               "guides/booking-flow-auth",
               "guides/create-a-single-booking",
+              "guides/show-a-package-storefront",
               "guides/create-a-package-booking",
               "guides/availability-and-slates",
               "guides/hold-slots-for-checkout",
