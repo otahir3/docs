@@ -21722,10 +21722,18 @@
                         },
                         "config": {
                           "type": "object",
+                          "properties": {
+                            "serviceFee": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "Optional flat service fee ($) charged on top of the price for this business model.",
+                              "example": 5
+                            }
+                          },
+                          "default": {},
                           "additionalProperties": {
                             "nullable": true
-                          },
-                          "default": {}
+                          }
                         }
                       },
                       "required": ["type", "paymentOptions"]
@@ -23159,6 +23167,14 @@
                           },
                           "config": {
                             "type": "object",
+                            "properties": {
+                              "serviceFee": {
+                                "type": "number",
+                                "minimum": 0,
+                                "description": "Optional flat service fee ($) charged on top of the price for this business model.",
+                                "example": 5
+                              }
+                            },
                             "additionalProperties": {
                               "nullable": true
                             }
@@ -23305,10 +23321,18 @@
                   },
                   "config": {
                     "type": "object",
+                    "properties": {
+                      "serviceFee": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "Optional flat service fee ($) charged on top of the price for this business model.",
+                        "example": 5
+                      }
+                    },
+                    "default": {},
                     "additionalProperties": {
                       "nullable": true
-                    },
-                    "default": {}
+                    }
                   }
                 },
                 "required": ["type", "paymentOptions"]
@@ -23366,6 +23390,14 @@
                         },
                         "config": {
                           "type": "object",
+                          "properties": {
+                            "serviceFee": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "Optional flat service fee ($) charged on top of the price for this business model.",
+                              "example": 5
+                            }
+                          },
                           "additionalProperties": {
                             "nullable": true
                           }
@@ -23527,6 +23559,14 @@
                   },
                   "config": {
                     "type": "object",
+                    "properties": {
+                      "serviceFee": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "Optional flat service fee ($) charged on top of the price for this business model.",
+                        "example": 5
+                      }
+                    },
                     "additionalProperties": {
                       "nullable": true
                     }
@@ -23586,6 +23626,14 @@
                         },
                         "config": {
                           "type": "object",
+                          "properties": {
+                            "serviceFee": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "Optional flat service fee ($) charged on top of the price for this business model.",
+                              "example": 5
+                            }
+                          },
                           "additionalProperties": {
                             "nullable": true
                           }
@@ -23789,6 +23837,14 @@
                         },
                         "config": {
                           "type": "object",
+                          "properties": {
+                            "serviceFee": {
+                              "type": "number",
+                              "minimum": 0,
+                              "description": "Optional flat service fee ($) charged on top of the price for this business model.",
+                              "example": 5
+                            }
+                          },
                           "additionalProperties": {
                             "nullable": true
                           }
