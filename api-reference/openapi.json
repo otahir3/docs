@@ -274,8 +274,7 @@
         "required": ["message"],
         "example": {
           "message": "Hello World"
-        },
-        "id": "ErrorMessage"
+        }
       },
       "Money": {
         "type": "object",
