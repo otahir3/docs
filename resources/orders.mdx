@@ -49,7 +49,7 @@ enforces this at add-item time and at create-time:
 
 ```json
 {
-  "code": "CURRENCY_MISMATCH",
+  "code": "BAD_REQUEST",
   "message": "Item off_xxx currency EUR does not match order currency USD",
   "statusCode": 400,
   "requestId": "req_..."
@@ -59,17 +59,29 @@ enforces this at add-item time and at create-time:
 This rule eliminates the order/item currency desync that plagues most
 naive commerce schemas.
 
+<Note>
+An item's `unitPrice` is resolved from the offering's (or package's)
+regional price rules against the order's region, not from a single fixed
+price — a mismatch here more often means the order didn't resolve the
+region you expected than that the price data is wrong. See
+[Regional pricing](/concepts/regional-pricing).
+</Note>
+
 ## Creating an order
 
-`POST /v1/projects/{projectId}/orders`:
+`POST /v1/projects/{projectId}/orders`. Optionally pass one region source —
+`reservationId`, `locationId`, or `address` — so items price against the
+right regional rule instead of falling back to the client's default address
+or the `DEFAULT` rule; see [Regional pricing](/concepts/regional-pricing):
 
 ```json
 {
   "clientId": "cli_456",
   "currency": "USD",
+  "locationId": "loc_01kx16f2a0h8a2my9u3f4tv0sp",
   "items": [
     {
-      "skuType": "SERVICE",
+      "skuType": "SINGLE_SESSION",
       "serviceId":  "svc_...",
       "offeringId": "off_...",
       "quantity": 1

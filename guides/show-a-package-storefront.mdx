@@ -96,6 +96,11 @@ The standard list envelope, one entry per bundle (abridged to one package):
       "pricingModel": "FLAT",
       "pricing": [
         {
+          "ruleId": "r_9f2c1b04",
+          "scope": "DEFAULT",
+          "price": { "amount": 45000, "currency": "USD" }
+        },
+        {
           "ruleId": "r_210b02de",
           "scope": "COUNTRY",
           "country": "CA",
@@ -109,10 +114,27 @@ The standard list envelope, one entry per bundle (abridged to one package):
 }
 ```
 
+<Note>
+**`pricing[]` is the full rule set, not one number.** Every package (and
+offering) carries a `DEFAULT` rule plus zero or more regional overrides
+(`COUNTRY` / `STATE` / `POSTAL`) — a rule set with no `DEFAULT` is invalid,
+so it's always there. The storefront's job is to pick **one** entry to
+*display*, based on where you already know (or guess) the customer is
+booking from; the order-create call later must pass a matching region
+source (`reservationId`, `locationId`, or `address`) so the **server**
+resolves that same rule. Show the `COUNTRY/CA` price and then create the
+order with no region fields, and the order will price off `DEFAULT`
+instead — possibly a different currency than what you displayed. See
+[Regional pricing](/concepts/regional-pricing) for the full resolution
+rule and how to keep display and order-create in agreement.
+</Note>
+
 Join each package's `offeringId` against the offerings you already hold to
 build the card label — e.g. `pkg.offeringId` → `offering.name` gives you
 "10-Session Pack · Beginner 30 minutes · $450 CAD" from `name`, the joined
-offering name, and `pricing[0].price`.
+offering name, and the entry of `pricing[]` matching the customer's known or
+selected region (falling back to the `DEFAULT` entry when you don't know it
+yet).
 
 <Warning>
 **Don't list business models and render them as packages.** The
@@ -202,7 +224,7 @@ unplannable one):
         "offeringId": "off_01kv60qge5eh59ap0gw0pqrrys",
         "name": { "en": "10-Session Pack" },
         "creditCount": 10,
-        "pricing": [{ "ruleId": "r_210b02de", "scope": "COUNTRY", "country": "CA", "price": { "amount": 45000, "currency": "CAD" } }],
+        "pricing": [{ "ruleId": "r_9f2c1b04", "scope": "DEFAULT", "price": { "amount": 45000, "currency": "USD" } }, { "ruleId": "r_210b02de", "scope": "COUNTRY", "country": "CA", "price": { "amount": 45000, "currency": "CAD" } }],
         "status": "ACTIVE"
       },
       "status": "OK",
@@ -224,7 +246,7 @@ unplannable one):
         "offeringId": "off_01kv60qge5eh59ap0gw0pqrrys",
         "name": { "en": "20-Session Pack" },
         "creditCount": 20,
-        "pricing": [{ "ruleId": "r_318c04ef", "scope": "COUNTRY", "country": "CA", "price": { "amount": 80000, "currency": "CAD" } }],
+        "pricing": [{ "ruleId": "r_5e8a71c2", "scope": "DEFAULT", "price": { "amount": 80000, "currency": "USD" } }, { "ruleId": "r_318c04ef", "scope": "COUNTRY", "country": "CA", "price": { "amount": 80000, "currency": "CAD" } }],
         "status": "ACTIVE"
       },
       "status": "NO_COMPLETE_SLATE",

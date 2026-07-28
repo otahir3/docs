@@ -69,7 +69,13 @@ created.
 <Step title="Create the order">
 Create an order with a single `SINGLE_SESSION` item naming the service and
 offering being booked. You don't send a price — the server prices the item
-from the offering itself.
+from the offering itself. You **do** need to tell the order where this
+session happens: this example books a `TRAVEL_ZONE` session (Step 3 below),
+so it passes the client's service `address` — the same one the booking call
+uses. Booking a `PHYSICAL` session instead? Pass that Location's
+`locationId` here rather than `address`. See
+[Regional pricing](/concepts/regional-pricing) for the full priority order
+(`reservationId` → `locationId` → `address`) and why it matters.
 
 ```ts
 // app/api/bff/orders/route.ts
@@ -89,6 +95,15 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         clientId,
         currency: 'CAD',
+        address: {                      // the session's address — selects the CAD price
+          addressOneLine: '123 Queen St W, Toronto, ON M5H 2M9, Canada',
+          streetNumber: '123',
+          streetName: 'Queen St W',
+          city: 'Toronto',
+          state: 'ON',
+          country: 'CA',
+          zipCode: 'M5H 2M9',
+        },
         items: [
           {
             skuType: 'SINGLE_SESSION',
@@ -105,6 +120,15 @@ export async function POST(request: Request) {
   return NextResponse.json(body, { status: res.status });
 }
 ```
+
+<Warning>
+**Without `reservationId`, `locationId`, or `address`, the order prices at
+the offering's `DEFAULT` rule** — which may be a different currency from the
+regional price you displayed. If you get `Item currency X does not match
+order currency Y`, that's what happened: you told the order what currency
+you quoted, but not *where* the session happens, so it couldn't resolve the
+same regional rule. See [Regional pricing](/concepts/regional-pricing).
+</Warning>
 
 The response nests the order under `order`, not at the top level:
 

@@ -53,7 +53,10 @@ A checkout with a hold is three calls, always in this order:
 2. **Create the order and take payment.** An order with a
    `SINGLE_SESSION` item (for a one-session hold) or a `PACKAGE` item (for
    a multi-session hold) is what funds the bookings. Charge the customer
-   however you already do.
+   however you already do. Pass this hold's `reservationId` on the
+   order-create call — it's the preferred region source, so the order
+   prices off the exact location the hold (and the eventual bookings)
+   already carry. See [Regional pricing](/concepts/regional-pricing).
 3. **Convert.** `POST /holds/{reservationId}/convert` with
    `{ orderId, orderItemId }` — call it from your payment webhook. It is
    idempotent on the `reservationId`, so a webhook that fires twice replays
@@ -70,7 +73,7 @@ sequenceDiagram
     B->>BFF: Start checkout for 2026-07-15 14:00
     BFF->>MB: POST .../holds { intervals: [...], heldBy }
     MB-->>BFF: 201 { reservationId, status: "HELD", heldUntil }
-    BFF->>MB: POST .../orders { SINGLE_SESSION item }
+    BFF->>MB: POST .../orders { SINGLE_SESSION item, reservationId }
     MB-->>BFF: { data: { order: { orderId }, items: [{ orderItemId }] } }
     BFF-->>B: Payment page (timer runs to heldUntil)
     Note over BFF: Stripe payment_intent.succeeded
@@ -547,9 +550,12 @@ convert in Step 3 will fail. Check the echo, don't assume.
 
 <Step title="Create the order and charge the customer">
 Nothing travel-zone-specific here: an order with one `SINGLE_SESSION` item
-for the service and offering being sold, then your usual Stripe flow. The
-address you sent to `/holds` is the *session's* address — it is not the
-order's billing address and is not sent again.
+for the service and offering being sold, plus this hold's `reservationId`,
+then your usual Stripe flow. The address you sent to `/holds` is the
+*session's* address — it is not the order's billing address and is not sent
+again on the order; passing `reservationId` is what lets the order read that
+same address back out to resolve the same regional price the booking will
+use. See [Regional pricing](/concepts/regional-pricing).
 
 Heartbeat the hold while the payment page is open (Step 3 above), re-sending
 these same intervals **with all their location fields** plus the

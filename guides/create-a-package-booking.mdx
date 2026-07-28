@@ -118,11 +118,16 @@ service's packages):
       "packageId": "pkg_01kvr4cgb3esg8hxx32kwhre7g",
       "serviceId": "srv_01kv60qg12e82acr78edfnjhvv",
       "offeringId": "off_01kv60qge5eh59ap0gw0pqrrys",
-      "name": { "en": "10-Session Pack" },
-      "creditCount": 10,
+      "name": { "en": "8-Session Pack" },
+      "creditCount": 8,
       "capacity": 1,
       "pricingModel": "FLAT",
       "pricing": [
+        {
+          "ruleId": "r_9f2c1b04",
+          "scope": "DEFAULT",
+          "price": { "amount": 45000, "currency": "USD" }
+        },
         {
           "ruleId": "r_210b02de",
           "scope": "COUNTRY",
@@ -275,7 +280,12 @@ You only need `primarySlate.slateId` for the next steps — hold onto it.
 <Step title="Create the order">
 Create an order with one `PACKAGE` item naming the package. You don't send
 the service, offering, session count, or price — the server derives all of
-them from the package definition.
+them from the package definition. You **do** need to tell the order where
+this booking happens, or it prices off the package's `DEFAULT` rule instead
+of the regional one. This guide's flow never holds the slate (holding is
+covered separately, below), so the region source it actually has on hand at
+this point is the same `address` (or `locationId`) passed to
+`POST /availability/package-slate` in Step 2 — pass that:
 
 ```ts
 // app/api/bff/orders/route.ts
@@ -295,6 +305,18 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         clientId,
         currency: 'CAD',
+        // Same address passed to package-slate in Step 2 — this is what
+        // selects the CAD price. Booking a stored Location instead of a
+        // travel zone? Pass that Location's locationId here instead.
+        address: {
+          addressOneLine: '100 Queen St W, Toronto, ON M5H 2N2, Canada',
+          streetNumber: '100',
+          streetName: 'Queen St W',
+          city: 'Toronto',
+          state: 'ON',
+          country: 'CA',
+          zipCode: 'M5H 2N2',
+        },
         items: [{ skuType: 'PACKAGE', packageId }],
       }),
     },
@@ -304,6 +326,36 @@ export async function POST(request: Request) {
   return NextResponse.json(body, { status: res.status });
 }
 ```
+
+<Tip>
+**Holding the slate first (see [Hold slots during checkout](/guides/hold-slots-for-checkout))?
+Pass `reservationId` instead — it's the preferred region source when you have
+it**, since the hold is the same record the eventual bookings are rebuilt
+from, so the order can't disagree with them on price:
+
+```ts
+body: JSON.stringify({
+  clientId,
+  currency: 'CAD',
+  reservationId,          // the hold — this is what selects the CAD price
+  items: [{ skuType: 'PACKAGE', packageId }],
+}),
+```
+
+`reservationId` takes priority over `locationId`/`address` if you send more
+than one — see [Regional pricing](/concepts/regional-pricing) for the full
+priority order.
+</Tip>
+
+<Warning>
+**Without `reservationId`, `locationId`, or `address`, the order prices at
+the package's `DEFAULT` rule** — which may be a different currency from the
+regional price you displayed on the storefront. If you get `Package
+currency X does not match order currency Y`, that's what happened: you told
+the order what currency you quoted, but not *where* the booking happens, so
+it couldn't resolve the same regional rule. See
+[Regional pricing](/concepts/regional-pricing).
+</Warning>
 
 Same response shape as a single-session order — the order under `data.order`,
 the item(s) under `data.items[]`. For a `PACKAGE` item, `quantity` and
@@ -315,7 +367,7 @@ the item(s) under `data.items[]`. For a `PACKAGE` item, `quantity` and
     "order": {
       "orderId": "ord_01kx16f0a1c7b2sd91xzq3mn5p",
       "status": "DRAFT",
-      "total": { "amount": 32000, "currency": "CAD" }
+      "total": { "amount": 45000, "currency": "CAD" }
     },
     "items": [
       {

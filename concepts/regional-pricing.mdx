@@ -1,0 +1,230 @@
+---
+title: Regional pricing
+description: How MarketBox picks a price rule and currency for an order, and how to tell it where the booking happens.
+---
+
+An offering or package isn't priced with a single number — it's priced with
+a **rule set**, and different regions can see different prices in different
+currencies. This page covers how that rule set resolves, and — this is the
+part that actually matters for integrators — how you tell an order *which*
+region it's pricing for. Get that wrong and the order prices off the wrong
+rule, which can mean the wrong currency and a `400` on a request that looked
+correct.
+
+It builds on [The booking engine model](/concepts/booking-engine-model) —
+read that first if you haven't.
+
+## Price rules resolve most specific first
+
+An offering's (or package's) `pricing` is an array of rules, each scoped to
+`DEFAULT`, `COUNTRY`, `STATE`, or `POSTAL`. Given a region, the server picks
+the single most specific rule that matches:
+
+```
+POSTAL  →  STATE  →  COUNTRY  →  DEFAULT
+```
+
+A `POSTAL` rule for the exact zip beats a `STATE` rule for the province,
+which beats a `COUNTRY` rule, which beats `DEFAULT`. `DEFAULT` isn't a
+placeholder or an error case — it's a real, advertised fallback ("price
+for any region we haven't set a specific rule for"), and every offering and
+package **must** have one. A rule set with no `DEFAULT` rule is invalid; the
+server throws rather than silently pricing at zero.
+
+Here's a realistic rule set for a package sold in Canada, priced slightly
+higher in Ontario, with a USD price for everywhere else:
+
+```json
+"pricing": [
+  { "ruleId": "r_9f2c1b04", "scope": "DEFAULT", "price": { "amount": 45000, "currency": "USD" } },
+  { "ruleId": "r_210b02de", "scope": "COUNTRY", "country": "CA", "price": { "amount": 45000, "currency": "CAD" } },
+  { "ruleId": "r_7ac31de9", "scope": "STATE", "country": "CA", "state": "ON", "price": { "amount": 47500, "currency": "CAD" } }
+]
+```
+
+<Warning>
+**`DEFAULT` can be — and often is — a different currency from every regional
+rule.** That's not a misconfiguration; it's the normal shape for a business
+that has one advertised "rest of world" price and separate regional deals.
+It is also exactly what makes getting the region source right non-optional:
+resolve against the wrong region (or no region at all) and you can land on
+`DEFAULT` USD when you meant `COUNTRY/CA` CAD — same offering, different
+price, different currency.
+</Warning>
+
+## The region comes from where the booking happens, not who's buying
+
+This is the rule, and it's the same everywhere in the platform — bookings,
+holds, and orders all resolve it identically:
+
+| `locationType` | Region comes from |
+| --- | --- |
+| `TRAVEL_ZONE` | The **service address** — the client's address for that in-home session. There is no `Location` record for a travel zone, so the address is the only region signal that exists. |
+| `PHYSICAL` | The **Location** record's `country` / `state` / `postalCode`. |
+| `VIRTUAL` | No region at all — a virtual session has no place to key a rule on. |
+
+Note what's *not* in that table: the client's billing address, their profile
+country, or anything else about who's paying. Two clients buying the same
+`PHYSICAL` offering at the same Location get the same regional price,
+regardless of where either of them lives. Regional pricing is about the
+**booking's** place, not the **buyer's**.
+
+## How to tell an order which region
+
+`POST /v1/projects/{projectId}/orders` accepts three optional fields that
+supply the region source, checked in this priority order:
+
+1. **`reservationId`** — the hold this order funds. **Preferred.** The hold
+   already knows where the booking happens (it's the same record the eventual
+   bookings are rebuilt from at convert), so pricing the order off it is what
+   guarantees the order and its bookings can never disagree on price. See
+   [Hold slots during checkout](/guides/hold-slots-for-checkout).
+2. **`locationId`** — a stored Location, for a `PHYSICAL` booking.
+3. **`address`** — the service address, for a `TRAVEL_ZONE` (in-home)
+   booking. Same structured shape as everywhere else — see
+   [Booking addresses](/guides/booking-addresses).
+
+```ts
+body: JSON.stringify({
+  clientId,
+  currency: 'CAD',
+  reservationId, // preferred — prices from the held location
+  items: [{ skuType: 'PACKAGE', packageId }],
+}),
+```
+
+<Warning>
+**Behavior change: omitting all three now falls back to the client's default
+saved address, not to `DEFAULT` pricing directly.** If that address resolves
+to a regional rule, the price — and possibly the currency — differs from
+what an order created the same way used to return. A request that previously
+succeeded can start returning `400` on the currency check purely because the
+client now has a saved address that resolves to a different currency than
+you quoted. If you were relying on "no region fields = `DEFAULT` price",
+that assumption no longer holds — pass one of the three fields explicitly
+instead of depending on the fallback chain's last step.
+
+Only when there's also no saved address at all does the order fall through
+to `DEFAULT`.
+</Warning>
+
+The full chain: `reservationId` → `locationId` → `address` → the client's
+default saved address → no region (`DEFAULT`).
+
+### Errors from a bad region source
+
+A `reservationId` or `locationId` that doesn't exist is a caller error and
+404s, naming the id:
+
+```json
+{ "code": "NOT_FOUND", "message": "Reservation resv_01k8p2… not found", "statusCode": 404 }
+```
+
+A **reservation** that **exists** but genuinely has no region — a `VIRTUAL`
+hold, for instance — is **not** an error. It resolves to no region, the
+order prices off `DEFAULT`, and the request succeeds. Don't treat that as a
+bug; a virtual session was never going to have a regional price. (This
+"exists but regionless" outcome is specific to reservations — it's what a
+`VIRTUAL` or address-less `TRAVEL_ZONE` interval on a hold resolves to. An
+existing Location record doesn't have an equivalent regionless state: once
+`locationId` resolves to a real Location, that's a `LOCATION` source, full
+stop. The only no-region outcome for `locationId` is the 404 above, for a
+`locationId` that doesn't resolve at all.)
+
+## The currency you send is the currency you're asserting
+
+`currency` in the order-create body is the price **you quoted the buyer** —
+not a label the server takes on faith. The server independently resolves the
+region (per the rules above), prices every item against it, and checks that
+each resolved currency matches the `currency` you sent. A mismatch is a
+`400`:
+
+```json
+{
+  "code": "BAD_REQUEST",
+  "message": "Package currency USD does not match order currency CAD",
+  "statusCode": 400
+}
+```
+
+**Read this error as "your region source is missing or wrong," not as "the
+price data is broken."** The exact failure that motivated this page: an
+integrator displayed a Canadian package's `COUNTRY/CA` CAD price on a
+storefront, then created the order with `currency: 'CAD'` and no
+`reservationId` / `locationId` / `address` at all. With no region to resolve,
+the order priced off the package's `DEFAULT` rule — which happened to be USD
+— and the currency check correctly rejected it. The price data was fine; the
+order just didn't know where the booking was happening.
+
+## Confirm what actually priced
+
+Every order item carries `priceRuleId` and `priceScope`
+(`DEFAULT` | `COUNTRY` | `STATE` | `POSTAL`) — read them back and assert they
+match what you displayed:
+
+```json
+{
+  "orderItemId": "oi_01kx16f0a1d8c3se02yzq4mn6q",
+  "skuType": "PACKAGE",
+  "unitPrice": { "amount": 47500, "currency": "CAD" },
+  "priceRuleId": "r_7ac31de9",
+  "priceScope": "STATE"
+}
+```
+
+`priceScope: "DEFAULT"` when you expected a regional price is the tell that
+your region didn't resolve — check that you sent one of the three region
+fields, and that the reservation/Location/address you sent actually carries
+the country/state/postal you expect.
+
+## Country and state codes
+
+`country` must be **ISO 3166-1 alpha-2** (`"CA"`, not `"Canada"`) and
+`state` the **ISO 3166-2 subdivision code** (`"ON"`, not `"Ontario"`) —
+these are what price rules key on. Both are coerced tolerantly on the way
+in: `"Canada"` resolves to `"CA"`, `"Ontario"` resolves to `"ON"`, and an
+alpha-3 country code (`"CAN"`) resolves too. Anything unrecognizable — a
+misspelling, a region that doesn't belong to the given country — is a
+`400`, not a silent `DEFAULT` fallback:
+
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "message": "address.state: state must be an ISO 3166-2 subdivision of CA — a code (\"CA-XX\" or \"XX\") or its English name; got \"Ontarioo\"",
+  "statusCode": 400
+}
+```
+
+<Note>
+The `path.field` prefix (`address.state` above) is not specific to geo
+coercion — every validation failure on this API is reported the same way:
+the dot-joined field path, a colon, then the underlying message. Match on
+`message.includes(...)` or split on the first `:` if you need the bare
+reason; don't match the whole string expecting no prefix.
+</Note>
+
+## Money is minor units
+
+Every `price` object — on a rule, an order item, or an order total — is
+`{ amount: integer, currency: 3-letter ISO }`, where `amount` is an integer
+in the currency's minor unit (cents, not dollars). See
+[Money](/api-reference/introduction#conventions) for the full convention;
+regional pricing doesn't change it — a `47500` CAD rule is `$475.00`, the
+same as anywhere else in the API.
+
+## Where to go next
+
+<CardGroup cols={2}>
+<Card title="Create a package booking" icon="layer-group" href="/guides/create-a-package-booking">
+  The order-create step, with a reservationId so the price resolves correctly.
+</Card>
+<Card title="Hold slots during checkout" icon="lock-open" href="/guides/hold-slots-for-checkout">
+  Why the hold is the preferred region source — it's the same record bookings are rebuilt from.
+</Card>
+<Card title="Show a package storefront" icon="store" href="/guides/show-a-package-storefront">
+  pricing[] is the full rule set for display — pass the matching region source at order time.
+</Card>
+<Card title="Booking addresses" icon="location-dot" href="/guides/booking-addresses">
+  The structured address shape used for TRAVEL_ZONE region resolution.
+</Card>
+</CardGroup>
