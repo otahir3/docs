@@ -1290,6 +1290,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "List bookings for a project",
+        "description": "Bookings across the whole project, filtered by the supported query fields and paginated with `limit`/`cursor` (`nextCursor: null` is the last page). For one supplier's diary or one client's history, prefer the dedicated `/suppliers/{supplierId}/bookings` and `/clients/{clientId}/bookings` lists — they are indexed for exactly that and avoid paging the project.",
         "parameters": [
           {
             "schema": {
@@ -1417,6 +1418,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "Get a booking by ID",
+        "description": "The booking record on its own — times, supplier, client, location and status. Local-time fields (`bookingLocalDate`, `bookingLocalStartTime`, …) are derived server-side from the UTC times and the booking timezone, so render those rather than converting the UTC values yourself. Use the `/aggregate` variant when you also need services, participants or notes.",
         "parameters": [
           {
             "schema": {
@@ -1495,6 +1497,7 @@
       "patch": {
         "tags": ["Bookings"],
         "summary": "Reschedule or update a booking",
+        "description": "Moves a booking in time, or edits its details. Send UTC times (`bookingStartUtc`, `bookingEndUtc`) with `bookingTz`; the four local-time fields are computed from those and are deliberately NOT accepted here — passing local times directly is how a booking ends up disagreeing with itself across timezones. Rescheduling re-checks supplier availability, so a slot taken in the meantime is rejected rather than double-booked. Returns 409 if the booking changed underneath you.",
         "parameters": [
           {
             "schema": {
@@ -1638,6 +1641,7 @@
       "delete": {
         "tags": ["Bookings"],
         "summary": "Soft-delete a booking",
+        "description": "Marks the booking deleted and hides it from lists, retaining the record so history stays auditable. This is not how you cancel: use `POST /status` with `CANCELLED` for a booking that genuinely was called off — that path releases supplier time and returns package credits. Reserve delete for bookings created in error. Returns 204 with no body.",
         "parameters": [
           {
             "schema": {
@@ -1715,6 +1719,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "Get a booking with its services, participants and notes",
+        "description": "The booking plus everything hanging off it — service lines, participants and notes — in one call. This is the shape for a booking detail screen; assembling it from four separate endpoints is slower and can tear if something changes mid-sequence.",
         "parameters": [
           {
             "schema": {
@@ -2155,6 +2160,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Change a booking status",
+        "description": "Moves the booking through its lifecycle. Only these transitions are allowed, and anything else is a 400:\n\n- `SCHEDULED` -\u003E `STARTED`, `CANCELLED`, `NO_SHOW`\n- `STARTED` -\u003E `COMPLETED`, `CANCELLED`\n- `COMPLETED`, `CANCELLED`, `NO_SHOW` -\u003E nothing\n\nThe last three are terminal: a completed, cancelled or no-showed booking cannot be reopened, so create a new booking instead. Cancelling releases the supplier time; for a package session it also returns the credit to the order item. Returns 409 if the booking changed underneath you.",
         "parameters": [
           {
             "schema": {
@@ -2283,6 +2289,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "List bookings for a supplier",
+        "description": "One supplier's diary, ordered by date and paginated. This is the indexed path for a provider-facing schedule — use it rather than listing the project and filtering client-side.",
         "parameters": [
           {
             "schema": {
@@ -2422,6 +2429,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "List bookings for a client",
+        "description": "One client's bookings, past and upcoming, ordered by date and paginated. This is the call behind a customer-facing \"my appointments\" view.",
         "parameters": [
           {
             "schema": {
@@ -2561,6 +2569,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Register a participant on a booking",
+        "description": "Adds a client to a booking that seats more than one person, such as a class or a group session. Capacity is enforced, so registering past the capacity set on the booking is rejected rather than silently overbooking. Registering the same client twice is a conflict, not a duplicate row.",
         "parameters": [
           {
             "schema": {
@@ -2746,6 +2755,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "List participants on a booking",
+        "description": "Everyone registered on the booking, with their check-in state. This is the roster a provider works from at the door.",
         "parameters": [
           {
             "schema": {
@@ -2888,6 +2898,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "Get a single booking participant",
+        "description": "One participant's registration on this booking, including whether they have checked in. Returns 404 when the client is not registered on it.",
         "parameters": [
           {
             "schema": {
@@ -3047,6 +3058,7 @@
       "delete": {
         "tags": ["Bookings"],
         "summary": "Cancel a booking participant",
+        "description": "Removes one participant from the booking, freeing their seat for someone else. The booking itself stays scheduled for everyone else — to call off the whole booking, change its status to CANCELLED instead. Returns 204 with no body.",
         "parameters": [
           {
             "schema": {
@@ -3126,6 +3138,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Check in a participant",
+        "description": "Records that the participant physically arrived. Idempotent in effect — checking in someone already checked in leaves them checked in — so it is safe to retry from a door-scanning client with unreliable connectivity. This tracks attendance only; it does not change the booking status.",
         "parameters": [
           {
             "schema": {
@@ -3287,6 +3300,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Create a booking note",
+        "description": "Attaches a free-text note to the booking — preparation details, access instructions, what happened on the day. Notes are operational context for staff, not a channel to the client, and nothing here is shown to the customer automatically.",
         "parameters": [
           {
             "schema": {
@@ -3443,6 +3457,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "List booking notes",
+        "description": "Every note on the booking, newest first. Also available inside GET /bookings/{bookingId}/aggregate, so prefer that when you need the booking and its notes together.",
         "parameters": [
           {
             "schema": {
@@ -3568,6 +3583,7 @@
       "patch": {
         "tags": ["Bookings"],
         "summary": "Update a booking note",
+        "description": "Edits the body of an existing note in place. The note keeps its id and position in the list, so an edit does not resurface it as new.",
         "parameters": [
           {
             "schema": {
@@ -3738,6 +3754,7 @@
       "delete": {
         "tags": ["Bookings"],
         "summary": "Delete a booking note",
+        "description": "Permanently removes the note. Unlike bookings and orders, notes are not soft-deleted — there is no audit reason to retain one, and nothing else references it. Returns 204 with no body.",
         "parameters": [
           {
             "schema": {
@@ -4145,6 +4162,7 @@
       "get": {
         "tags": ["Orders"],
         "summary": "List orders for a project by status",
+        "description": "`status` is REQUIRED, not a convenience filter: orders are indexed by status, so there is no way to page every order in a project in one call. To sweep them all, call this once per status (DRAFT, PENDING, PAID, CANCELLED). Paginate with `limit` and `cursor`; `nextCursor: null` is the last page. To list one client's orders instead, use `GET /projects/{projectId}/clients/{clientId}/orders`, which needs no status.",
         "parameters": [
           {
             "schema": {
@@ -4248,6 +4266,7 @@
       "get": {
         "tags": ["Orders"],
         "summary": "Get an order by ID",
+        "description": "Returns the order header only — totals, currency, status and the `pricingRegion` it resolved at create time. It does NOT include line items; use the `/aggregate` variant when you need the items too, rather than calling this and then listing items separately.",
         "parameters": [
           {
             "schema": {
@@ -4326,6 +4345,7 @@
       "patch": {
         "tags": ["Orders"],
         "summary": "Update an order",
+        "description": "Deliberately narrow: `tax` is the only field you can change. Currency is fixed at creation, and totals derive from the line items, so neither is editable here — that is what stops an order and its items disagreeing about money. Change the line items to change the total, and use `POST /status` to move the order through its lifecycle. Returns 409 if the order changed underneath you.",
         "parameters": [
           {
             "schema": {
@@ -4440,6 +4460,7 @@
       "delete": {
         "tags": ["Orders"],
         "summary": "Soft-delete an order",
+        "description": "Marks the order deleted and hides it from list endpoints. The record is retained rather than destroyed, so financial history stays auditable. This is not the same as cancelling: use `POST /status` with `CANCELLED` to record that a real order was called off, and reserve delete for orders raised in error. Returns 204 with no body.",
         "parameters": [
           {
             "schema": {
@@ -4517,6 +4538,7 @@
       "get": {
         "tags": ["Orders"],
         "summary": "Get an order with its items",
+        "description": "The order header plus every line item in one call — the shape to use when rendering a receipt or reconciling what was charged. Each item carries `priceRuleId` and `priceScope`, so you can prove which regional price rule produced its amount: `priceScope: \"DEFAULT\"` where you expected a regional price means the order resolved no region. Prefer this over a GET on the order followed by a separate item fetch.",
         "parameters": [
           {
             "schema": {
@@ -4716,6 +4738,7 @@
       "get": {
         "tags": ["Orders"],
         "summary": "List orders for a client",
+        "description": "Every order belonging to one client, newest first, across all statuses — unlike the project-level list, no `status` is required. This is the call behind a customer's order history.",
         "parameters": [
           {
             "schema": {
@@ -4822,6 +4845,7 @@
       "post": {
         "tags": ["Orders"],
         "summary": "Change order status",
+        "description": "Moves the order through its lifecycle. Only these transitions are allowed, and anything else is a 400:\n\n- `DRAFT` -\u003E `PENDING`, `CANCELLED`\n- `PENDING` -\u003E `PAID`, `CANCELLED`, `DRAFT`\n- `PAID` -\u003E `CANCELLED`\n- `CANCELLED` -\u003E nothing. Cancellation is terminal; a cancelled order cannot be revived, so issue a new one instead.\n\nPass `cancellationReason` when moving to `CANCELLED` — it is recorded with the caller as `cancelledBy` and ignored for every other target status. Returns 409 if the order changed underneath you.",
         "parameters": [
           {
             "schema": {
@@ -4944,6 +4968,7 @@
       "post": {
         "tags": ["Orders"],
         "summary": "Add an item to an order",
+        "description": "Adds a line and returns the whole order with its items, so you never need a follow-up read to get the new total. You do not send a price: the server resolves it from the offering or package against the order's `pricingRegion`, which is what keeps the charge honest. A line whose resolved currency differs from the order's is rejected with 400 rather than silently converted — if you hit that, the order resolved a different region than you expected, so check `priceScope` on the existing items.",
         "parameters": [
           {
             "schema": {
@@ -5193,6 +5218,7 @@
       "patch": {
         "tags": ["Orders"],
         "summary": "Update an order item quantity",
+        "description": "Changes quantity only — the unit price stays as resolved when the line was added, so re-pricing an existing line is not possible through this endpoint. Remove the line and add it again if the price must change. Returns the whole order with its recalculated totals.",
         "parameters": [
           {
             "schema": {
@@ -5430,6 +5456,7 @@
       "delete": {
         "tags": ["Orders"],
         "summary": "Remove an order item",
+        "description": "Drops the line and returns the order with its recalculated totals. Removing a PACKAGE line does not retract bookings already drawn from it, so check `GET /orders/{orderId}/items/{orderItemId}/package-bookings` before removing one that has been booked against.",
         "parameters": [
           {
             "schema": {
@@ -6538,6 +6565,7 @@
       "get": {
         "tags": ["Orders"],
         "summary": "List the bookings created for a PACKAGE order item",
+        "description": "Every session already booked against this order — the other half of the package ledger. Compare the count against the item's credit count to see how many sessions remain unbooked, and call this before removing or refunding a PACKAGE line so you know what has already been consumed. Optional `startDate`/`endDate` narrow the window.",
         "parameters": [
           {
             "schema": {
