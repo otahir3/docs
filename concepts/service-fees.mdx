@@ -1,0 +1,270 @@
+---
+title: Service fees
+description: How fees configured on a business model become discrete order-level charges, outside subtotal and outside tax.
+---
+
+A service fee is an additional charge — a booking fee, an admin fee, a
+convenience surcharge — that rides along with a sale without being folded
+into the price of any single line. This page covers where fees live, how
+they're charged, and the three behaviours around currency, tax, and
+resolution that you can't infer from the schema alone.
+
+## Fees are configured on a business model, not an offering
+
+`fees` is a top-level array on a **`ServiceBusinessModel`**
+(`POST` / `PUT /v1/projects/{projectId}/services/{serviceId}/business-models`),
+not on the offering or the package being sold:
+
+```json
+// POST .../business-models
+{
+  "type": "SINGLE_BOOKING",
+  "paymentOptions": ["PAY_WHILE_BOOKING"],
+  "fees": [
+    {
+      "feeId": "fee_booking",
+      "name": { "en": "Booking fee" },
+      "calculation": "FLAT",
+      "amount": 2500,
+      "taxable": false
+    },
+    {
+      "feeId": "fee_admin",
+      "name": { "en": "Admin fee" },
+      "calculation": "PERCENT",
+      "percentage": 5,
+      "taxable": true
+    }
+  ]
+}
+```
+
+A business model is the commercial definition behind *how* a service is
+sold (`SINGLE_BOOKING`, `PACKAGE`, `SCHEDULED_PACKAGE`,
+`SCHEDULED_SUBSCRIPTION`, `FLEXIBLE_SUBSCRIPTION`) — every offering under
+that service inherits whichever business model governs the order line's
+`skuType`. Configure the fee once on the business model, and every offering
+sold under it picks the fee up automatically. You will not find `fees`
+anywhere on an offering or package resource; it does not exist there.
+
+## Fees apply once per order, not once per line
+
+If a business model's fee governs three order lines, the fee is still
+charged **once** — not three times. Fees are grouped by
+`(businessModelId, feeId)`: every line on the order that resolved to the
+same business model contributes to the same fee instance, and that instance
+appears once in the order summary, however many lines it governs.
+
+This also means a `PERCENT` fee's basis is not "this one line's total" — it's
+**the pre-tax total of every line on the order sold under that same business
+model**. Add a second line under the same business model and the fee's basis
+(and therefore its amount) grows to include it; add a line under a
+*different* business model and it has no effect on this fee at all.
+
+## Fees sit outside subtotal
+
+A fee is not baked into any line's price and is not tax. It's a third,
+parallel component of the order total:
+
+```
+total = subtotal + feeTotal + taxTotal
+```
+
+Fee tax is included in `taxTotal` (not folded into `feeTotal`), but the fee
+itself is never folded into `subtotal`. The order summary surfaces this as
+discrete data rather than requiring you to infer it:
+
+```json
+// GET .../orders/{orderId}/aggregate → data.summary (abridged)
+{
+  "subtotal": { "amount": 20000, "currency": "CAD" },
+  "fees": [
+    {
+      "feeId": "fee_booking",
+      "businessModelId": "bm_01k8p2q7f3g5h9j2k4m6n8p0q2",
+      "name": { "en": "Booking fee" },
+      "calculation": "FLAT",
+      "basis": { "amount": 20000, "currency": "CAD" },
+      "amount": { "amount": 2500, "currency": "CAD" },
+      "tax": { "amount": 0, "currency": "CAD" },
+      "taxable": false
+    }
+  ],
+  "feeTotal": { "amount": 2500, "currency": "CAD" },
+  "taxTotal": { "amount": 0, "currency": "CAD" },
+  "total": { "amount": 22500, "currency": "CAD" }
+}
+```
+
+Each entry in `summary.fees` carries `basis` — the amount the fee was
+calculated against — even for a `FLAT` fee, where it isn't used in the
+calculation. It's reported anyway so the figure is auditable: you can see
+exactly which lines the fee grouped with, without recomputing the grouping
+yourself.
+
+<Note>
+`fees` and `feeTotal` appear on every response shape that carries an order
+summary — order create, the items endpoints, and the aggregate GET. They are
+never absent from a summary; an order with no applicable fees simply returns
+`fees: []` and `feeTotal: { amount: 0, ... }`.
+</Note>
+
+## Three things the schema won't tell you
+
+### A FLAT fee has no currency of its own
+
+`amount` on a `FLAT` fee is a bare integer in the currency's **minor unit**
+— it carries no currency field. It is charged in whatever currency the
+order is placed in, whatever that turns out to be:
+
+```json
+{ "feeId": "fee_booking", "calculation": "FLAT", "amount": 2500 }
+```
+
+`2500` is **CA$25.00** on an order placed in CAD, and **US$25.00** on an
+order placed in USD — same configured value, different real-world cost to
+the buyer depending on which currency the order resolved to (see
+[Regional pricing](/concepts/regional-pricing) for how that's decided).
+If a fee needs to represent the same buyer-facing cost regardless of
+currency, that's not what `FLAT` does. Use `calculation: "PERCENT"` instead
+— a percentage scales correctly with whatever the order's lines already
+priced at in that currency.
+
+### A taxable fee on a package-only order resolves to zero tax
+
+Setting `taxable: true` makes a fee inherit the tax rate that its governing
+lines already resolved — it does not carry a rate of its own. `PACKAGE`
+lines are tax-exempt in this API and therefore never resolve a tax rate at
+all, so a taxable fee whose only governing lines are `PACKAGE` lines has
+nothing to inherit and comes back with `tax: { amount: 0, ... }`. This is
+expected, not a bug in your integration or a sign the fee is misconfigured:
+mix in a taxable single-session or offering line under the same business
+model and the fee will pick up that line's rate instead.
+
+### No matching active business model means no fee — and no error
+
+An order line's business model is resolved **server-side**, from the line's
+`skuType`, against the service's `ServiceBusinessModel` records — you never
+name a business model directly when creating an order or an order item. If
+the service has no `ServiceBusinessModel` at all for that `skuType`, or the
+matching one has `active: false`, resolution returns nothing: the line
+carries no `businessModelId`, no fee is attached to it, and it doesn't
+contribute to any other line's fee basis either. The order is still created
+successfully. Business models have always been optional on a service, and
+adding fees to the model didn't change that — a service with no business
+model configured simply sells at its offering price with no fees layered on
+top.
+
+## Configuring fees
+
+### Which business model to put the fee on
+
+You never name a business model when creating an order. The server picks it from
+the line's `skuType`, so **the model type you configure the fee on determines
+which sales the fee applies to**:
+
+| Order line `skuType` | Business model that governs it |
+| --- | --- |
+| `SINGLE_SESSION` | `SINGLE_BOOKING` |
+| `PACKAGE` | `PACKAGE`, falling back to `SCHEDULED_PACKAGE` |
+| `SUBSCRIPTION` | `SCHEDULED_SUBSCRIPTION`, falling back to `FLEXIBLE_SUBSCRIPTION` |
+| `MEMBERSHIP` | none — a fee can never apply |
+| `DEPOSIT` | none — a fee can never apply |
+
+"Falling back" means the exact match wins when it is active, and the fallback is
+used only when no exact match is active. So a `PACKAGE` line prefers your
+`PACKAGE` model and drops to `SCHEDULED_PACKAGE` if that is the only active one.
+
+<Warning>
+`MEMBERSHIP` and `DEPOSIT` have no business model counterpart at all, so fees can
+never be charged on those lines. There is no error and no warning — the line
+simply carries no fee. If you need a charge on a membership or a deposit, a
+service fee is the wrong mechanism.
+</Warning>
+
+### Updating fees replaces the whole array
+
+`fees` on `PUT .../business-models/{businessModelId}` is a **whole-value
+replacement**, matching `paymentOptions` and `config` on the same endpoint. It is
+not a merge and not an append.
+
+| You send | Result |
+| --- | --- |
+| `fees` omitted entirely | stored fees are left untouched |
+| `fees: [feeA]` | the model now has **only** `feeA`; anything else is deleted |
+| `fees: []` | all fees cleared |
+
+<Warning>
+To add a second fee, send **both** fees in one `PUT`. Sending only the new one
+deletes the existing one, with a `200` and no warning. Read the current array
+first (`GET .../business-models`), append to it, and send the whole thing back.
+</Warning>
+
+### Validation rules
+
+A malformed array is rejected with a `400` before anything is stored:
+
+| Rule | Detail |
+| --- | --- |
+| Maximum fees per business model | 20 |
+| `feeId` | required, non-empty, and **unique within the business model** |
+| `name` | required, localized — at minimum `{ "en": "..." }` |
+| `calculation` | required, `FLAT` or `PERCENT` |
+| `FLAT` | **requires** `amount`; must **not** set `percentage` |
+| `PERCENT` | **requires** `percentage` (0-100); must **not** set `amount` |
+| `amount` | integer, non-negative, in the currency's minor unit (`2500` = $25.00) |
+| `taxable` | optional boolean, defaults to `false` |
+
+Setting both `amount` and `percentage`, or neither, is the most common `400`
+here. The two fields are mutually exclusive and which one is required is decided
+entirely by `calculation`.
+
+### The model must be active
+
+A fee on an inactive business model is stored but never charged. Activate with:
+
+```json
+// POST .../business-models/{businessModelId}/status
+{ "active": true }
+```
+
+Toggling status never touches `fees` — deactivating preserves them, and
+reactivating restores the model with its fees intact.
+
+## Why isn't my fee being charged?
+
+Fee resolution is deliberately silent: when no fee applies, the order still
+succeeds. That makes a misconfiguration look like nothing happening rather than
+like an error. Work through these in order:
+
+1. **Is the business model `active`?** An inactive model resolves to nothing.
+   Check with `GET .../business-models`.
+2. **Does the model's `type` govern the `skuType` you are selling?** See the
+   mapping table above. A fee on a `SINGLE_BOOKING` model does nothing for a
+   `PACKAGE` line.
+3. **Is the line's `skuType` `MEMBERSHIP` or `DEPOSIT`?** Those never resolve a
+   business model, so they can never carry a fee.
+4. **Is the fee still there?** A previous `PUT` that omitted it from the `fees`
+   array will have deleted it. `GET .../business-models` to confirm.
+5. **Is the fee on the right service?** Business models are per-service, so a
+   fee on service A never applies to a line selling service B — even if both
+   sell the same business model type.
+6. **Did you expect tax on it?** A `taxable` fee whose only governing lines are
+   `PACKAGE` lines resolves to zero tax, because package lines are tax-exempt
+   and carry no rate to inherit. The fee itself is still charged.
+
+To confirm what actually happened on a given order, read
+`data.summary.fees` from `GET .../orders/{orderId}/aggregate`. Each entry names
+the `businessModelId` that levied it, so you can see exactly which model applied
+and what basis it used.
+
+## Where to go next
+
+<CardGroup cols={2}>
+<Card title="Regional pricing" icon="earth-americas" href="/concepts/regional-pricing">
+  How the order's currency is resolved in the first place — the input a FLAT fee's amount depends on.
+</Card>
+<Card title="The booking engine model" icon="calendar-check" href="/concepts/booking-engine-model">
+  How orders, order items, and bookings fit together — the lines a business model's fees govern.
+</Card>
+</CardGroup>

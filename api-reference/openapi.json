@@ -314,6 +314,9 @@
           "subtotal": {
             "$ref": "#/components/schemas/Money"
           },
+          "feeTotal": {
+            "$ref": "#/components/schemas/Money"
+          },
           "tax": {
             "$ref": "#/components/schemas/Money"
           },
@@ -467,6 +470,61 @@
               }
             },
             "required": ["taxable"]
+          },
+          "feeSnapshot": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "object",
+              "properties": {
+                "feeId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Stable identifier for this fee, unique within the business model.",
+                  "example": "fee_booking"
+                },
+                "name": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Buyer-facing label, rendered as its own line on the order summary.",
+                  "example": {
+                    "en": "Booking fee"
+                  }
+                },
+                "calculation": {
+                  "type": "string",
+                  "enum": ["FLAT", "PERCENT"],
+                  "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs.",
+                  "example": "FLAT"
+                },
+                "amount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "FLAT fees only. Integer minor units, charged in whatever currency the order is placed in — 2500 is CA$25.00 on a CAD order and US$25.00 on a USD one. Use a PERCENT fee if you need it to scale.",
+                  "example": 2500
+                },
+                "percentage": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "PERCENT fees only. Applied to the pre-tax total of this business model's lines on the order.",
+                  "example": 5
+                },
+                "taxable": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                  "example": false
+                }
+              },
+              "required": ["feeId", "name", "calculation"]
+            }
+          },
+          "businessModelId": {
+            "type": "string",
+            "nullable": true
           },
           "label": {
             "type": "object",
@@ -4078,6 +4136,104 @@
                                 ]
                               }
                             },
+                            "fees": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "feeId": {
+                                    "type": "string",
+                                    "description": "The fee as configured on the business model."
+                                  },
+                                  "businessModelId": {
+                                    "type": "string",
+                                    "description": "The business model that levied this fee — the commercial definition the charge belongs to."
+                                  },
+                                  "name": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    },
+                                    "description": "Buyer-facing label, snapshotted at purchase time."
+                                  },
+                                  "calculation": {
+                                    "type": "string",
+                                    "enum": ["FLAT", "PERCENT"],
+                                    "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs."
+                                  },
+                                  "percentage": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "description": "Echoed for PERCENT fees so the buyer can be shown the rate that applied (e.g. \"Admin fee (5%)\"). Absent for FLAT fees."
+                                  },
+                                  "basis": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "currency": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 3
+                                      }
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "description": "Pre-tax total of this business model's lines — what a PERCENT fee was calculated against. Reported for FLAT fees too, so the figure is auditable."
+                                  },
+                                  "amount": {
+                                    "$ref": "#/components/schemas/Money"
+                                  },
+                                  "tax": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "currency": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 3
+                                      }
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "description": "Tax on this fee, at the rate its governing lines resolved. Zero when the fee is not taxable, and zero on a package-only order because package lines are tax-exempt and carry no rate to inherit."
+                                  },
+                                  "taxable": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "feeId",
+                                  "businessModelId",
+                                  "name",
+                                  "calculation",
+                                  "basis",
+                                  "amount",
+                                  "tax",
+                                  "taxable"
+                                ]
+                              },
+                              "description": "Service fees levied by the business models on this order. Each is a discrete charge in its own right, NOT folded into `taxTotal` or `subtotal`. Applied once per fee however many lines it governs."
+                            },
+                            "feeTotal": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 3
+                                }
+                              },
+                              "required": ["amount", "currency"],
+                              "description": "Sum of `fees[].amount`. Sits outside `subtotal`, so `total = subtotal + feeTotal + taxTotal`."
+                            },
                             "subtotal": {
                               "$ref": "#/components/schemas/Money"
                             },
@@ -4100,6 +4256,8 @@
                           "required": [
                             "currency",
                             "lines",
+                            "fees",
+                            "feeTotal",
                             "subtotal",
                             "taxTotal",
                             "total",
@@ -4662,6 +4820,104 @@
                                 ]
                               }
                             },
+                            "fees": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "feeId": {
+                                    "type": "string",
+                                    "description": "The fee as configured on the business model."
+                                  },
+                                  "businessModelId": {
+                                    "type": "string",
+                                    "description": "The business model that levied this fee — the commercial definition the charge belongs to."
+                                  },
+                                  "name": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    },
+                                    "description": "Buyer-facing label, snapshotted at purchase time."
+                                  },
+                                  "calculation": {
+                                    "type": "string",
+                                    "enum": ["FLAT", "PERCENT"],
+                                    "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs."
+                                  },
+                                  "percentage": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "description": "Echoed for PERCENT fees so the buyer can be shown the rate that applied (e.g. \"Admin fee (5%)\"). Absent for FLAT fees."
+                                  },
+                                  "basis": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "currency": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 3
+                                      }
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "description": "Pre-tax total of this business model's lines — what a PERCENT fee was calculated against. Reported for FLAT fees too, so the figure is auditable."
+                                  },
+                                  "amount": {
+                                    "$ref": "#/components/schemas/Money"
+                                  },
+                                  "tax": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "currency": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 3
+                                      }
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "description": "Tax on this fee, at the rate its governing lines resolved. Zero when the fee is not taxable, and zero on a package-only order because package lines are tax-exempt and carry no rate to inherit."
+                                  },
+                                  "taxable": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "feeId",
+                                  "businessModelId",
+                                  "name",
+                                  "calculation",
+                                  "basis",
+                                  "amount",
+                                  "tax",
+                                  "taxable"
+                                ]
+                              },
+                              "description": "Service fees levied by the business models on this order. Each is a discrete charge in its own right, NOT folded into `taxTotal` or `subtotal`. Applied once per fee however many lines it governs."
+                            },
+                            "feeTotal": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 3
+                                }
+                              },
+                              "required": ["amount", "currency"],
+                              "description": "Sum of `fees[].amount`. Sits outside `subtotal`, so `total = subtotal + feeTotal + taxTotal`."
+                            },
                             "subtotal": {
                               "$ref": "#/components/schemas/Money"
                             },
@@ -4684,6 +4940,8 @@
                           "required": [
                             "currency",
                             "lines",
+                            "fees",
+                            "feeTotal",
                             "subtotal",
                             "taxTotal",
                             "total",
@@ -5132,6 +5390,104 @@
                                 ]
                               }
                             },
+                            "fees": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "feeId": {
+                                    "type": "string",
+                                    "description": "The fee as configured on the business model."
+                                  },
+                                  "businessModelId": {
+                                    "type": "string",
+                                    "description": "The business model that levied this fee — the commercial definition the charge belongs to."
+                                  },
+                                  "name": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    },
+                                    "description": "Buyer-facing label, snapshotted at purchase time."
+                                  },
+                                  "calculation": {
+                                    "type": "string",
+                                    "enum": ["FLAT", "PERCENT"],
+                                    "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs."
+                                  },
+                                  "percentage": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "description": "Echoed for PERCENT fees so the buyer can be shown the rate that applied (e.g. \"Admin fee (5%)\"). Absent for FLAT fees."
+                                  },
+                                  "basis": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "currency": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 3
+                                      }
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "description": "Pre-tax total of this business model's lines — what a PERCENT fee was calculated against. Reported for FLAT fees too, so the figure is auditable."
+                                  },
+                                  "amount": {
+                                    "$ref": "#/components/schemas/Money"
+                                  },
+                                  "tax": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "currency": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 3
+                                      }
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "description": "Tax on this fee, at the rate its governing lines resolved. Zero when the fee is not taxable, and zero on a package-only order because package lines are tax-exempt and carry no rate to inherit."
+                                  },
+                                  "taxable": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "feeId",
+                                  "businessModelId",
+                                  "name",
+                                  "calculation",
+                                  "basis",
+                                  "amount",
+                                  "tax",
+                                  "taxable"
+                                ]
+                              },
+                              "description": "Service fees levied by the business models on this order. Each is a discrete charge in its own right, NOT folded into `taxTotal` or `subtotal`. Applied once per fee however many lines it governs."
+                            },
+                            "feeTotal": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 3
+                                }
+                              },
+                              "required": ["amount", "currency"],
+                              "description": "Sum of `fees[].amount`. Sits outside `subtotal`, so `total = subtotal + feeTotal + taxTotal`."
+                            },
                             "subtotal": {
                               "$ref": "#/components/schemas/Money"
                             },
@@ -5154,6 +5510,8 @@
                           "required": [
                             "currency",
                             "lines",
+                            "fees",
+                            "feeTotal",
                             "subtotal",
                             "taxTotal",
                             "total",
@@ -5372,6 +5730,104 @@
                                 ]
                               }
                             },
+                            "fees": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "feeId": {
+                                    "type": "string",
+                                    "description": "The fee as configured on the business model."
+                                  },
+                                  "businessModelId": {
+                                    "type": "string",
+                                    "description": "The business model that levied this fee — the commercial definition the charge belongs to."
+                                  },
+                                  "name": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    },
+                                    "description": "Buyer-facing label, snapshotted at purchase time."
+                                  },
+                                  "calculation": {
+                                    "type": "string",
+                                    "enum": ["FLAT", "PERCENT"],
+                                    "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs."
+                                  },
+                                  "percentage": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "description": "Echoed for PERCENT fees so the buyer can be shown the rate that applied (e.g. \"Admin fee (5%)\"). Absent for FLAT fees."
+                                  },
+                                  "basis": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "currency": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 3
+                                      }
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "description": "Pre-tax total of this business model's lines — what a PERCENT fee was calculated against. Reported for FLAT fees too, so the figure is auditable."
+                                  },
+                                  "amount": {
+                                    "$ref": "#/components/schemas/Money"
+                                  },
+                                  "tax": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "currency": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 3
+                                      }
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "description": "Tax on this fee, at the rate its governing lines resolved. Zero when the fee is not taxable, and zero on a package-only order because package lines are tax-exempt and carry no rate to inherit."
+                                  },
+                                  "taxable": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "feeId",
+                                  "businessModelId",
+                                  "name",
+                                  "calculation",
+                                  "basis",
+                                  "amount",
+                                  "tax",
+                                  "taxable"
+                                ]
+                              },
+                              "description": "Service fees levied by the business models on this order. Each is a discrete charge in its own right, NOT folded into `taxTotal` or `subtotal`. Applied once per fee however many lines it governs."
+                            },
+                            "feeTotal": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 3
+                                }
+                              },
+                              "required": ["amount", "currency"],
+                              "description": "Sum of `fees[].amount`. Sits outside `subtotal`, so `total = subtotal + feeTotal + taxTotal`."
+                            },
                             "subtotal": {
                               "$ref": "#/components/schemas/Money"
                             },
@@ -5394,6 +5850,8 @@
                           "required": [
                             "currency",
                             "lines",
+                            "fees",
+                            "feeTotal",
                             "subtotal",
                             "taxTotal",
                             "total",
@@ -5592,6 +6050,104 @@
                                 ]
                               }
                             },
+                            "fees": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "feeId": {
+                                    "type": "string",
+                                    "description": "The fee as configured on the business model."
+                                  },
+                                  "businessModelId": {
+                                    "type": "string",
+                                    "description": "The business model that levied this fee — the commercial definition the charge belongs to."
+                                  },
+                                  "name": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    },
+                                    "description": "Buyer-facing label, snapshotted at purchase time."
+                                  },
+                                  "calculation": {
+                                    "type": "string",
+                                    "enum": ["FLAT", "PERCENT"],
+                                    "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs."
+                                  },
+                                  "percentage": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "description": "Echoed for PERCENT fees so the buyer can be shown the rate that applied (e.g. \"Admin fee (5%)\"). Absent for FLAT fees."
+                                  },
+                                  "basis": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "currency": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 3
+                                      }
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "description": "Pre-tax total of this business model's lines — what a PERCENT fee was calculated against. Reported for FLAT fees too, so the figure is auditable."
+                                  },
+                                  "amount": {
+                                    "$ref": "#/components/schemas/Money"
+                                  },
+                                  "tax": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                      },
+                                      "currency": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 3
+                                      }
+                                    },
+                                    "required": ["amount", "currency"],
+                                    "description": "Tax on this fee, at the rate its governing lines resolved. Zero when the fee is not taxable, and zero on a package-only order because package lines are tax-exempt and carry no rate to inherit."
+                                  },
+                                  "taxable": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "feeId",
+                                  "businessModelId",
+                                  "name",
+                                  "calculation",
+                                  "basis",
+                                  "amount",
+                                  "tax",
+                                  "taxable"
+                                ]
+                              },
+                              "description": "Service fees levied by the business models on this order. Each is a discrete charge in its own right, NOT folded into `taxTotal` or `subtotal`. Applied once per fee however many lines it governs."
+                            },
+                            "feeTotal": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 3
+                                }
+                              },
+                              "required": ["amount", "currency"],
+                              "description": "Sum of `fees[].amount`. Sits outside `subtotal`, so `total = subtotal + feeTotal + taxTotal`."
+                            },
                             "subtotal": {
                               "$ref": "#/components/schemas/Money"
                             },
@@ -5614,6 +6170,8 @@
                           "required": [
                             "currency",
                             "lines",
+                            "fees",
+                            "feeTotal",
                             "subtotal",
                             "taxTotal",
                             "total",
@@ -6689,6 +7247,7 @@
       "get": {
         "tags": ["Suppliers"],
         "summary": "List suppliers for a project, enriched with services and skills; filter by service/skill/location",
+        "description": "The supplier directory, each row already carrying its resolved `services` and `skills`, so a \"who can do X, near Y\" page needs one call. Every filter is AND, both within a parameter and across parameters: `services=a,b` means a supplier offering BOTH, never either. The location filter is hierarchical and each level requires the one above — `state` without `country` is a 400, as is `city` without both. Use ISO codes: `country` as 3166-1 alpha-2, `state` as 3166-2 in either form (\"CA-ON\" or \"ON\").\n\nTwo behaviours to plan for. A page can hold fewer rows than `limit` while `nextCursor` is still set, because the store applies the limit before filtering — so stop when `nextCursor` is null, never when a page looks short. And a cursor is only valid against the filter set that produced it; changing any filter mid-walk gives undefined results, so restart the walk instead. Suppliers marked inactive are returned by the unfiltered and location-only queries but omitted once a `services` or `skills` filter is applied, so the same supplier can appear in one query and not another. Soft-deleted suppliers never appear.",
         "parameters": [
           {
             "schema": {
@@ -7768,6 +8327,7 @@
       "delete": {
         "tags": ["Suppliers"],
         "summary": "Soft-delete a supplier (cascade-removes its mappings and avatar)",
+        "description": "Retires a supplier. The profile is soft-deleted and stays readable to bookings that reference it, but the cascade around it is permanent: every service and skill mapping is hard-deleted and the avatar images are removed from storage. There is no undelete — recreating the supplier means re-adding all mappings and re-uploading the avatar, so use the `active` flag on update if you only need them off the roster temporarily. Existing bookings are not cancelled and not reassigned; deal with the diary first or the supplier stays booked for work nobody will be matched to. Deleting an id from another project, or one already deleted, is a 404.",
         "parameters": [
           {
             "schema": {
@@ -7835,6 +8395,7 @@
       "post": {
         "tags": ["Suppliers"],
         "summary": "Add a service to a supplier",
+        "description": "Declares that this supplier performs this service, which is what makes them appear in availability searches and in `?services=` filters for it. Idempotent: re-adding an existing mapping succeeds and changes nothing, so you can call it without checking first. The service must already exist in the project — an unknown id is a 400, not a silently created mapping. Returns the full enriched supplier, so use this response rather than re-fetching. Adding one mapping at a time is fine for a handful; to replace a supplier's whole service set in one write, send `serviceIds` to PUT /suppliers/{supplierId} instead.",
         "parameters": [
           {
             "schema": {
@@ -8113,6 +8674,7 @@
       "delete": {
         "tags": ["Suppliers"],
         "summary": "Remove a service from a supplier",
+        "description": "Stops this supplier being offered for this service in availability searches. The mapping is hard-deleted, not soft-deleted, so re-adding it later creates a fresh mapping with no memory of the old one. Idempotent and forgiving: removing a mapping that was never there still returns 204, so a 204 is not evidence the mapping existed. Bookings already made against this supplier for the service are untouched and still stand — this only affects future matching.",
         "parameters": [
           {
             "schema": {
@@ -8192,6 +8754,7 @@
       "post": {
         "tags": ["Suppliers"],
         "summary": "Add a skill to a supplier",
+        "description": "Grants the supplier a skill. Skills gate offerings rather than services: an offering that lists `skillIds` can only be performed by suppliers holding all of them, so a supplier mapped to the right service can still be invisible in availability if a skill is missing — check here first when a supplier you expect does not come back from a slot search. Idempotent, and an unknown `skillId` is a 400. Returns the full enriched supplier. To set the whole skill set at once, send `skillIds` to PUT /suppliers/{supplierId}.",
         "parameters": [
           {
             "schema": {
@@ -8470,6 +9033,7 @@
       "delete": {
         "tags": ["Suppliers"],
         "summary": "Remove a skill from a supplier",
+        "description": "Revokes a skill, narrowing which offerings this supplier can be matched to. Expect the supplier to drop out of availability for every offering that required it, which is often more than the one you had in mind — list the supplier first if you want to see what they currently hold. The mapping is hard-deleted, and removing one that is not there still returns 204, so the status code says nothing about whether anything changed. Bookings already placed are unaffected.",
         "parameters": [
           {
             "schema": {
@@ -8549,6 +9113,7 @@
       "post": {
         "tags": ["Suppliers"],
         "summary": "Get a presigned URL to upload a supplier avatar",
+        "description": "Step 1 of 2. The image never passes through this API: you get back a short-lived URL and PUT the bytes straight to storage, then call PUT /suppliers/{supplierId}/avatar with the `variantId` returned here to attach the result.\n\nSend exactly the `headers` map you get back and nothing else. The routing metadata is signed into the URL query string, so adding `x-amz-meta-*` headers of your own makes the upload fail with a 403 that looks like a permissions problem and is not. The URL expires in 5 minutes — presign immediately before uploading, not while the user is still choosing a file. `contentType` must be image/jpeg, image/png or image/webp, and `contentLength` must be the real byte length, above zero and at most 5 MB; anything else is a 400 here rather than a failure at upload time.",
         "parameters": [
           {
             "schema": {
@@ -8698,6 +9263,7 @@
       "put": {
         "tags": ["Suppliers"],
         "summary": "Confirm an uploaded avatar and attach it to the supplier",
+        "description": "Step 2 of 2: attaches the uploaded image to the supplier and returns the enriched supplier with its new avatar. Pass the `variantId` from the presign response, not the `uploadId`.\n\nResizing happens asynchronously after your upload lands, so calling this straight away often returns 400 \"Avatar variant not ready yet\". That is a retry signal, not a failure — back off a second or two and call again; the upload is fine. Only a successful call here attaches anything, so an upload that is never confirmed leaves the supplier unchanged. Confirming a different `variantId` replaces the current avatar and deletes the old image variants, which cannot be undone; re-confirming the same one is harmless.",
         "parameters": [
           {
             "schema": {
@@ -8984,6 +9550,7 @@
       "delete": {
         "tags": ["Suppliers"],
         "summary": "Remove a supplier's avatar",
+        "description": "Clears the avatar reference and deletes the stored image variants. Both the reference and the images are gone for good, so restoring the same picture means uploading it again through the presign flow. Returns 204 whether or not the supplier had an avatar, so use it freely without a prior read — but do not read the 204 as proof one was removed. To swap an avatar, skip this and confirm the new one directly; that replaces the old image in a single step and leaves no window where the supplier has none.",
         "parameters": [
           {
             "schema": {
@@ -9051,6 +9618,7 @@
       "post": {
         "tags": ["Reviews"],
         "summary": "Create a supplier review (1–5 star rating with optional comment)",
+        "description": "Records a rating against a supplier and folds it into that supplier's running average in the same atomic write, so the aggregate never disagrees with the rows behind it.\n\nTreat this as permanent. There is no update or delete route, so a review posted by mistake moves the supplier's average for good — validate on your side before calling. Nothing is deduplicated and no booking is required: the same reviewer can post repeatedly, and each submission counts again, so enforce \"one review per completed booking\" yourself if that is your intent. `reviewerId` is optional and stored as given; it is not authenticated or checked against the client who was served. `ratingStars` must be a whole number from 1 to 5, and `reviewText` is optional and capped at 5000 characters. The supplier must exist in this project, or 404.",
         "parameters": [
           {
             "schema": {
@@ -9193,6 +9761,7 @@
       "get": {
         "tags": ["Reviews"],
         "summary": "List reviews for a project (newest first); filter by supplier",
+        "description": "Reviews newest-first, either across the project or for one supplier via `supplierId`. This returns individual reviews only. The running average maintained when a review is created is not exposed by this API, and no supplier field carries it, so a star rating has to be computed here — which means walking every page for that supplier, not averaging the first one. Paginated with an opaque cursor that stays valid only while the filter is unchanged. Unlike creating a review, an unknown `supplierId` is not rejected here — it simply returns an empty page, so an empty result does not confirm the id was right.",
         "parameters": [
           {
             "schema": {
@@ -9333,6 +9902,7 @@
       "post": {
         "tags": ["Availability"],
         "summary": "Find suppliers + suggested/open slots for a service, location and window",
+        "description": "The main \"when can this be booked\" call. Returns two parallel, slot-centric arrays: `timeSlots`, the engine's ranked suggestions with travel between jobs taken into account, and `openSlots`, every free interval at `interval` granularity with no ranking. Show `timeSlots` to customers and keep `openSlots` for a \"more times\" view; they overlap by design. Identify the place with `locationId`, or with both `lat` and `lng` for in-home and travel-zone discovery — one or the other is required. `durationMinutes` is honoured only for FLEXIBLE offerings and is otherwise ignored in favour of the offering's own duration.\n\nFailures come back inside a 200. The body carries `status` and an `errors` array, so an empty `timeSlots` with a non-empty `errors` means the search broke, not that nobody is free — check `errors` before telling a customer there is no availability.\n\nSetting `bookingType: \"recurring\"` changes what `timeSlots` contains: recurring time patterns rather than individual slots, so do not parse the two the same way. That branch adds three requirements, each a 400 and each guarding an input that used to return silence instead of an error — `rrule` is required, it must carry a bounded positive COUNT (e.g. \"FREQ=WEEKLY;BYDAY=TU;COUNT=3\"), and `lookAheadStartDate` must carry a numeric offset like \"+00:00\" rather than a \"Z\" suffix.",
         "parameters": [
           {
             "schema": {
@@ -9575,6 +10145,7 @@
       "post": {
         "tags": ["Availability"],
         "summary": "Generate clustered time slots from suppliers + engine config",
+        "description": "Runs the clustering engine directly on suppliers and a config YOU supply. Nothing is read from the project — not the catalogue, not the supplier roster, not existing bookings — so this answers \"what would the engine do with these inputs\", not \"when is this bookable\". The supplier availability you pass is taken at face value, which means it will happily return slots for people who are already booked; never drive a booking flow from it. Use /availability/search, or /availability/suppliers for a supplier-centric view, for anything a customer sees.\n\nIt exists for tuning and diagnosis: `metrics` and `kpis` in the response let you compare configs against a fixed input set, and replaying a captured payload reproduces a result exactly. `config` is passed through to the engine largely unvalidated, so a malformed knob tends to surface as poor output or an entry in `errors` rather than a 400 — and as with the other availability routes, `errors` arrives inside a 200.",
         "parameters": [
           {
             "schema": {
@@ -11626,6 +12197,7 @@
       "post": {
         "tags": ["Suggestions"],
         "summary": "Reschedule a suggested slot to a new time (server-validated), refreshing its slate",
+        "description": "Moves ONE slot of a proposed slate to a time the customer picked, before anything is booked. This is the \"actually, can we do Thursday instead\" step of a multi-session proposal — it does not touch bookings, which have their own reschedule route. The new time is validated against the supplier's real availability rather than trusted, and on success the parent slate's aggregates are recomputed and the whole updated slate is returned, so re-render from this response instead of patching the one slot locally.\n\nNearly everything that goes wrong is a 409, and the four causes need different handling — branch on the `code`, never on the status alone. The time may be held or booked on the supplier's calendar, in which case the body names the blocking reservation or booking. The supplier may simply not work then, though the time is valid and in the future. You may have lost a race to a concurrent hold, which returns SLOT_NO_LONGER_FREE and is worth one retry at a different time. Or the suggestion itself may have expired — and that response carries a freshly computed set of suggestions with it, so re-render those rather than starting a new availability search. A past or malformed `bookingStartUtc` is a 400.",
         "parameters": [
           {
             "schema": {
@@ -13770,6 +14342,7 @@
       "post": {
         "tags": ["Clients"],
         "summary": "Add a service address to the caller's client profile",
+        "description": "Saves a service address for the signed-in client. Requires both the API key and the client user JWT, and the caller must already be onboarded — POST /clients/me first, or this is a 404.\n\nThe address id is derived from the address content, so this is an upsert, not an append: posting the same address twice returns the same id and leaves one record, while changing so much as a street number creates a second. The first address a client saves silently becomes their default; later ones do not displace it, so use the default route to move it rather than expecting the newest to win.\n\nThis matters beyond delivery: the default address is the last-resort source of the pricing region for an order that pins no reservation, location or explicit address. A client with no saved address resolves to no region at all and is priced at the offering's DEFAULT rule, in the DEFAULT rule's currency — which is how a customer abroad ends up quoted in the wrong currency and rejected. Save the address before the first order.",
         "parameters": [
           {
             "schema": {
@@ -14015,6 +14588,7 @@
       "delete": {
         "tags": ["Clients"],
         "summary": "Remove one of the caller's addresses",
+        "description": "Deletes one saved address and returns the client profile as it now stands. The removal is permanent — there is no soft delete — but bookings already placed against that address are unaffected, since they captured it at the time.\n\nDeleting the default is allowed and quietly reassigns it: the oldest remaining address is promoted, and `defaultAddressId` is dropped entirely when nothing is left. So a client can silently end up defaulting to an address you did not choose, and a client with no addresses left has no pricing region to fall back on — read `defaultAddressId` off the returned profile rather than assuming it survived. An unknown `addressId` is a 404.",
         "parameters": [
           {
             "schema": {
@@ -14085,6 +14659,7 @@
       "put": {
         "tags": ["Clients"],
         "summary": "Set the caller's default address",
+        "description": "Points the client's `defaultAddressId` at an address they have already saved; it does not create one, so add the address first or this is a 404. Returns the whole updated profile.\n\nWorth doing deliberately rather than leaving to chance, because the default is not just a delivery preference: it is the fallback the pricing engine uses to pick a region when an order names no reservation, location or address of its own. Moving the default across a country or subdivision border therefore changes what that client is quoted for the same offering. It does not touch orders already placed, which snapshot their region at creation, so repointing it fixes future orders only.",
         "parameters": [
           {
             "schema": {
@@ -14155,6 +14730,7 @@
       "post": {
         "tags": ["Services"],
         "summary": "Create a new service",
+        "description": "A service is the umbrella record; the sellable variants hang off it as offerings, and only an offering carries price and duration. So a service on its own sells nothing — create at least one offering before publishing. The new service is always DRAFT regardless of what you send; publish it with POST /services/{serviceId}/status. Names must be unique within the project per language, compared with case, accents and punctuation normalised away, so a near-duplicate is a 409 rather than a second service. `businessModels` and `attributes` can be supplied inline here instead of as follow-up calls. `newCategory` is written in a separate transaction BEFORE the service, and is not rolled back if the service write then fails — after any error here, retry with `categoryId` pointing at the category that was already created, not `newCategory` again.",
         "parameters": [
           {
             "schema": {
@@ -14260,16 +14836,82 @@
                           },
                           "minItems": 1
                         },
+                        "fees": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "feeId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Stable identifier for this fee, unique within the business model.",
+                                "example": "fee_booking"
+                              },
+                              "name": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                },
+                                "description": "Buyer-facing label, rendered as its own line on the order summary.",
+                                "example": {
+                                  "en": "Booking fee"
+                                }
+                              },
+                              "calculation": {
+                                "type": "string",
+                                "enum": ["FLAT", "PERCENT"],
+                                "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs.",
+                                "example": "FLAT"
+                              },
+                              "amount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "FLAT fees only. Integer minor units, charged in whatever currency the order is placed in — 2500 is CA$25.00 on a CAD order and US$25.00 on a USD one. Use a PERCENT fee if you need it to scale.",
+                                "example": 2500
+                              },
+                              "percentage": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "description": "PERCENT fees only. Applied to the pre-tax total of this business model's lines on the order.",
+                                "example": 5
+                              },
+                              "taxable": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                                "example": false
+                              }
+                            },
+                            "required": ["feeId", "name", "calculation"]
+                          },
+                          "maxItems": 20,
+                          "default": [],
+                          "description": "Service fees — additional charges attached to this business model, applied to any order line sold under it. Each fee applies once per order regardless of how many lines it governs, and appears as its own entry on the order summary rather than being folded into tax.",
+                          "example": [
+                            {
+                              "feeId": "fee_booking",
+                              "name": {
+                                "en": "Booking fee"
+                              },
+                              "calculation": "FLAT",
+                              "amount": 2500,
+                              "taxable": false
+                            },
+                            {
+                              "feeId": "fee_admin",
+                              "name": {
+                                "en": "Admin fee"
+                              },
+                              "calculation": "PERCENT",
+                              "percentage": 5,
+                              "taxable": true
+                            }
+                          ]
+                        },
                         "config": {
                           "type": "object",
-                          "properties": {
-                            "serviceFee": {
-                              "type": "number",
-                              "minimum": 0,
-                              "description": "Optional flat service fee ($) charged on top of the price for this business model.",
-                              "example": 5
-                            }
-                          },
+                          "properties": {},
                           "default": {},
                           "additionalProperties": {
                             "nullable": true
@@ -14513,6 +15155,7 @@
       "get": {
         "tags": ["Services"],
         "summary": "List services for a project",
+        "description": "The project catalogue, sorted by name within each status. Unlike most list endpoints this one is not paginated: a project holds few enough services to return in one response, so `nextCursor` is always null and there is no `limit`. All three statuses are included unless you filter — pass `status=LIVE` for anything customer-facing, or DRAFT services that were never meant to be public will appear in your storefront. Soft-deleted services are never returned.",
         "parameters": [
           {
             "schema": {
@@ -14725,6 +15368,7 @@
       "get": {
         "tags": ["Services"],
         "summary": "Get a service by ID",
+        "description": "The service header on its own — its offerings, business models and attributes are separate resources and are not embedded here, so pricing and duration require a second call to the offerings endpoint. `counts.offerings` tells you whether that call is worth making. A soft-deleted service is a 404, not a tombstone.",
         "parameters": [
           {
             "schema": {
@@ -14923,6 +15567,7 @@
       "put": {
         "tags": ["Services"],
         "summary": "Update a service",
+        "description": "Edits the descriptive fields only. `name` and `description` are whole-map replacements, not merges: send every language you want to keep or the ones you omit are dropped. Renaming re-runs the uniqueness check and returns 409 if the new name is taken, so read the error before retrying — the rest of the update did not apply either. Status is not settable here; use POST /services/{serviceId}/status.",
         "parameters": [
           {
             "schema": {
@@ -15186,6 +15831,7 @@
       "delete": {
         "tags": ["Services"],
         "summary": "Soft delete a service",
+        "description": "Marks the service deleted and flips it to INACTIVE. It disappears from lists and GETs while the record is retained, so bookings and orders already placed against it still resolve. The name reservation is released in the same write, meaning the name is immediately reusable by a new service — deleting is therefore how you free up a name you typed wrong. Offerings are not cascaded: they keep their own status and stay individually readable, so deactivate them first if anything of yours reads offerings without checking the parent.",
         "parameters": [
           {
             "schema": {
@@ -15253,6 +15899,7 @@
       "post": {
         "tags": ["Services"],
         "summary": "Change service status",
+        "description": "The publish switch: only LIVE services are bookable. Allowed transitions are DRAFT to LIVE, DRAFT to INACTIVE, LIVE to INACTIVE and INACTIVE to LIVE; anything else is a 400. Note there is no route back to DRAFT once published, so a service you want to keep working on privately should go to INACTIVE, not be published early. INACTIVE stops new bookings and leaves existing ones intact.",
         "parameters": [
           {
             "schema": {
@@ -15482,6 +16129,7 @@
       "get": {
         "tags": ["ServiceBusinessModels"],
         "summary": "List business models for a service",
+        "description": "How this service may be sold, and on what payment terms. Check here first when a package create returns 400: creating packages requires an entry with `type: \"PACKAGE\"` and `active: true`, and this is the only way to see whether the service has one. Inactive models are returned too — read `active`, do not assume presence means enabled. Not paginated; `nextCursor` is always null.",
         "parameters": [
           {
             "schema": {
@@ -15559,16 +16207,81 @@
                               ]
                             }
                           },
+                          "fees": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "feeId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "description": "Stable identifier for this fee, unique within the business model.",
+                                  "example": "fee_booking"
+                                },
+                                "name": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  },
+                                  "description": "Buyer-facing label, rendered as its own line on the order summary.",
+                                  "example": {
+                                    "en": "Booking fee"
+                                  }
+                                },
+                                "calculation": {
+                                  "type": "string",
+                                  "enum": ["FLAT", "PERCENT"],
+                                  "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs.",
+                                  "example": "FLAT"
+                                },
+                                "amount": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "FLAT fees only. Integer minor units, charged in whatever currency the order is placed in — 2500 is CA$25.00 on a CAD order and US$25.00 on a USD one. Use a PERCENT fee if you need it to scale.",
+                                  "example": 2500
+                                },
+                                "percentage": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 100,
+                                  "description": "PERCENT fees only. Applied to the pre-tax total of this business model's lines on the order.",
+                                  "example": 5
+                                },
+                                "taxable": {
+                                  "type": "boolean",
+                                  "default": false,
+                                  "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                                  "example": false
+                                }
+                              },
+                              "required": ["feeId", "name", "calculation"]
+                            },
+                            "maxItems": 20,
+                            "description": "Service fees — additional charges attached to this business model, applied to any order line sold under it. Each fee applies once per order regardless of how many lines it governs, and appears as its own entry on the order summary rather than being folded into tax.",
+                            "example": [
+                              {
+                                "feeId": "fee_booking",
+                                "name": {
+                                  "en": "Booking fee"
+                                },
+                                "calculation": "FLAT",
+                                "amount": 2500,
+                                "taxable": false
+                              },
+                              {
+                                "feeId": "fee_admin",
+                                "name": {
+                                  "en": "Admin fee"
+                                },
+                                "calculation": "PERCENT",
+                                "percentage": 5,
+                                "taxable": true
+                              }
+                            ]
+                          },
                           "config": {
                             "type": "object",
-                            "properties": {
-                              "serviceFee": {
-                                "type": "number",
-                                "minimum": 0,
-                                "description": "Optional flat service fee ($) charged on top of the price for this business model.",
-                                "example": 5
-                              }
-                            },
+                            "properties": {},
                             "additionalProperties": {
                               "nullable": true
                             }
@@ -15642,6 +16355,7 @@
       "post": {
         "tags": ["ServiceBusinessModels"],
         "summary": "Add a business model to a service",
+        "description": "Declares a way the service can be sold, and gates what you can build on it — a service cannot have packages created against it until it carries an active PACKAGE model, so this call usually comes before the first package. The model is created active. Nothing here is deduplicated: posting the same `type` twice leaves two rows, both live, so list before you add. `type` cannot be changed afterwards, only deactivated, so pick it deliberately. `paymentOptions` sets when money is taken and must hold at least one option. `fees` are additional charges — a booking fee, an admin fee — attached to this business model and applied automatically to any order line sold under it. Each fee is charged once per order however many lines it governs, and surfaces as its own entry in the order summary rather than being folded into tax. A FLAT fee is a bare minor-unit figure that takes the currency of whatever order it lands on; use a PERCENT fee if you need it to scale.",
         "parameters": [
           {
             "schema": {
@@ -15702,16 +16416,82 @@
                     },
                     "minItems": 1
                   },
+                  "fees": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "feeId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Stable identifier for this fee, unique within the business model.",
+                          "example": "fee_booking"
+                        },
+                        "name": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "Buyer-facing label, rendered as its own line on the order summary.",
+                          "example": {
+                            "en": "Booking fee"
+                          }
+                        },
+                        "calculation": {
+                          "type": "string",
+                          "enum": ["FLAT", "PERCENT"],
+                          "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs.",
+                          "example": "FLAT"
+                        },
+                        "amount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "FLAT fees only. Integer minor units, charged in whatever currency the order is placed in — 2500 is CA$25.00 on a CAD order and US$25.00 on a USD one. Use a PERCENT fee if you need it to scale.",
+                          "example": 2500
+                        },
+                        "percentage": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "PERCENT fees only. Applied to the pre-tax total of this business model's lines on the order.",
+                          "example": 5
+                        },
+                        "taxable": {
+                          "type": "boolean",
+                          "default": false,
+                          "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                          "example": false
+                        }
+                      },
+                      "required": ["feeId", "name", "calculation"]
+                    },
+                    "maxItems": 20,
+                    "default": [],
+                    "description": "Service fees — additional charges attached to this business model, applied to any order line sold under it. Each fee applies once per order regardless of how many lines it governs, and appears as its own entry on the order summary rather than being folded into tax.",
+                    "example": [
+                      {
+                        "feeId": "fee_booking",
+                        "name": {
+                          "en": "Booking fee"
+                        },
+                        "calculation": "FLAT",
+                        "amount": 2500,
+                        "taxable": false
+                      },
+                      {
+                        "feeId": "fee_admin",
+                        "name": {
+                          "en": "Admin fee"
+                        },
+                        "calculation": "PERCENT",
+                        "percentage": 5,
+                        "taxable": true
+                      }
+                    ]
+                  },
                   "config": {
                     "type": "object",
-                    "properties": {
-                      "serviceFee": {
-                        "type": "number",
-                        "minimum": 0,
-                        "description": "Optional flat service fee ($) charged on top of the price for this business model.",
-                        "example": 5
-                      }
-                    },
+                    "properties": {},
                     "default": {},
                     "additionalProperties": {
                       "nullable": true
@@ -15772,16 +16552,81 @@
                             ]
                           }
                         },
+                        "fees": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "feeId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Stable identifier for this fee, unique within the business model.",
+                                "example": "fee_booking"
+                              },
+                              "name": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                },
+                                "description": "Buyer-facing label, rendered as its own line on the order summary.",
+                                "example": {
+                                  "en": "Booking fee"
+                                }
+                              },
+                              "calculation": {
+                                "type": "string",
+                                "enum": ["FLAT", "PERCENT"],
+                                "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs.",
+                                "example": "FLAT"
+                              },
+                              "amount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "FLAT fees only. Integer minor units, charged in whatever currency the order is placed in — 2500 is CA$25.00 on a CAD order and US$25.00 on a USD one. Use a PERCENT fee if you need it to scale.",
+                                "example": 2500
+                              },
+                              "percentage": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "description": "PERCENT fees only. Applied to the pre-tax total of this business model's lines on the order.",
+                                "example": 5
+                              },
+                              "taxable": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                                "example": false
+                              }
+                            },
+                            "required": ["feeId", "name", "calculation"]
+                          },
+                          "maxItems": 20,
+                          "description": "Service fees — additional charges attached to this business model, applied to any order line sold under it. Each fee applies once per order regardless of how many lines it governs, and appears as its own entry on the order summary rather than being folded into tax.",
+                          "example": [
+                            {
+                              "feeId": "fee_booking",
+                              "name": {
+                                "en": "Booking fee"
+                              },
+                              "calculation": "FLAT",
+                              "amount": 2500,
+                              "taxable": false
+                            },
+                            {
+                              "feeId": "fee_admin",
+                              "name": {
+                                "en": "Admin fee"
+                              },
+                              "calculation": "PERCENT",
+                              "percentage": 5,
+                              "taxable": true
+                            }
+                          ]
+                        },
                         "config": {
                           "type": "object",
-                          "properties": {
-                            "serviceFee": {
-                              "type": "number",
-                              "minimum": 0,
-                              "description": "Optional flat service fee ($) charged on top of the price for this business model.",
-                              "example": 5
-                            }
-                          },
+                          "properties": {},
                           "additionalProperties": {
                             "nullable": true
                           }
@@ -15862,6 +16707,7 @@
       "put": {
         "tags": ["ServiceBusinessModels"],
         "summary": "Update a business model",
+        "description": "Edits `paymentOptions`, `fees`, and `config` only. `type` is fixed at creation and there is no way to change it — to switch a service from one selling model to another, deactivate this one and add the model you want. All three fields are whole-value replacements: sending `paymentOptions` discards the previous list rather than merging into it, and sending `config` replaces the whole object. Omit a field entirely to leave it untouched. Sending `fees` likewise replaces the entire list: omit the field to leave configured fees untouched, send `[]` to clear them.",
         "parameters": [
           {
             "schema": {
@@ -15923,16 +16769,81 @@
                     },
                     "minItems": 1
                   },
+                  "fees": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "feeId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Stable identifier for this fee, unique within the business model.",
+                          "example": "fee_booking"
+                        },
+                        "name": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "description": "Buyer-facing label, rendered as its own line on the order summary.",
+                          "example": {
+                            "en": "Booking fee"
+                          }
+                        },
+                        "calculation": {
+                          "type": "string",
+                          "enum": ["FLAT", "PERCENT"],
+                          "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs.",
+                          "example": "FLAT"
+                        },
+                        "amount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "FLAT fees only. Integer minor units, charged in whatever currency the order is placed in — 2500 is CA$25.00 on a CAD order and US$25.00 on a USD one. Use a PERCENT fee if you need it to scale.",
+                          "example": 2500
+                        },
+                        "percentage": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "PERCENT fees only. Applied to the pre-tax total of this business model's lines on the order.",
+                          "example": 5
+                        },
+                        "taxable": {
+                          "type": "boolean",
+                          "default": false,
+                          "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                          "example": false
+                        }
+                      },
+                      "required": ["feeId", "name", "calculation"]
+                    },
+                    "maxItems": 20,
+                    "description": "Service fees — additional charges attached to this business model, applied to any order line sold under it. Each fee applies once per order regardless of how many lines it governs, and appears as its own entry on the order summary rather than being folded into tax.",
+                    "example": [
+                      {
+                        "feeId": "fee_booking",
+                        "name": {
+                          "en": "Booking fee"
+                        },
+                        "calculation": "FLAT",
+                        "amount": 2500,
+                        "taxable": false
+                      },
+                      {
+                        "feeId": "fee_admin",
+                        "name": {
+                          "en": "Admin fee"
+                        },
+                        "calculation": "PERCENT",
+                        "percentage": 5,
+                        "taxable": true
+                      }
+                    ]
+                  },
                   "config": {
                     "type": "object",
-                    "properties": {
-                      "serviceFee": {
-                        "type": "number",
-                        "minimum": 0,
-                        "description": "Optional flat service fee ($) charged on top of the price for this business model.",
-                        "example": 5
-                      }
-                    },
+                    "properties": {},
                     "additionalProperties": {
                       "nullable": true
                     }
@@ -15991,16 +16902,81 @@
                             ]
                           }
                         },
+                        "fees": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "feeId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Stable identifier for this fee, unique within the business model.",
+                                "example": "fee_booking"
+                              },
+                              "name": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                },
+                                "description": "Buyer-facing label, rendered as its own line on the order summary.",
+                                "example": {
+                                  "en": "Booking fee"
+                                }
+                              },
+                              "calculation": {
+                                "type": "string",
+                                "enum": ["FLAT", "PERCENT"],
+                                "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs.",
+                                "example": "FLAT"
+                              },
+                              "amount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "FLAT fees only. Integer minor units, charged in whatever currency the order is placed in — 2500 is CA$25.00 on a CAD order and US$25.00 on a USD one. Use a PERCENT fee if you need it to scale.",
+                                "example": 2500
+                              },
+                              "percentage": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "description": "PERCENT fees only. Applied to the pre-tax total of this business model's lines on the order.",
+                                "example": 5
+                              },
+                              "taxable": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                                "example": false
+                              }
+                            },
+                            "required": ["feeId", "name", "calculation"]
+                          },
+                          "maxItems": 20,
+                          "description": "Service fees — additional charges attached to this business model, applied to any order line sold under it. Each fee applies once per order regardless of how many lines it governs, and appears as its own entry on the order summary rather than being folded into tax.",
+                          "example": [
+                            {
+                              "feeId": "fee_booking",
+                              "name": {
+                                "en": "Booking fee"
+                              },
+                              "calculation": "FLAT",
+                              "amount": 2500,
+                              "taxable": false
+                            },
+                            {
+                              "feeId": "fee_admin",
+                              "name": {
+                                "en": "Admin fee"
+                              },
+                              "calculation": "PERCENT",
+                              "percentage": 5,
+                              "taxable": true
+                            }
+                          ]
+                        },
                         "config": {
                           "type": "object",
-                          "properties": {
-                            "serviceFee": {
-                              "type": "number",
-                              "minimum": 0,
-                              "description": "Optional flat service fee ($) charged on top of the price for this business model.",
-                              "example": 5
-                            }
-                          },
+                          "properties": {},
                           "additionalProperties": {
                             "nullable": true
                           }
@@ -16081,6 +17057,7 @@
       "post": {
         "tags": ["ServiceBusinessModels"],
         "summary": "Toggle business model active status",
+        "description": "Turns a selling model on or off without deleting it, which is how you retire one while keeping its history. Deactivating the PACKAGE model blocks NEW packages from being created against the service, but does nothing to packages that already exist — they keep selling until you archive them individually, so do both if you mean to stop package sales entirely. Toggling status never modifies the model itself: `type`, `paymentOptions` and `fees` are all left exactly as they were, so deactivating preserves configured fees and reactivating restores creation with them intact. Note a fee on an inactive model is stored but never charged, because order lines only resolve against ACTIVE business models.",
         "parameters": [
           {
             "schema": {
@@ -16185,16 +17162,81 @@
                             ]
                           }
                         },
+                        "fees": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "feeId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Stable identifier for this fee, unique within the business model.",
+                                "example": "fee_booking"
+                              },
+                              "name": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                },
+                                "description": "Buyer-facing label, rendered as its own line on the order summary.",
+                                "example": {
+                                  "en": "Booking fee"
+                                }
+                              },
+                              "calculation": {
+                                "type": "string",
+                                "enum": ["FLAT", "PERCENT"],
+                                "description": "How a service fee is calculated. FLAT charges a fixed amount; PERCENT charges a percentage of the pre-tax total of the lines the fee governs.",
+                                "example": "FLAT"
+                              },
+                              "amount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "FLAT fees only. Integer minor units, charged in whatever currency the order is placed in — 2500 is CA$25.00 on a CAD order and US$25.00 on a USD one. Use a PERCENT fee if you need it to scale.",
+                                "example": 2500
+                              },
+                              "percentage": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "description": "PERCENT fees only. Applied to the pre-tax total of this business model's lines on the order.",
+                                "example": 5
+                              },
+                              "taxable": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                                "example": false
+                              }
+                            },
+                            "required": ["feeId", "name", "calculation"]
+                          },
+                          "maxItems": 20,
+                          "description": "Service fees — additional charges attached to this business model, applied to any order line sold under it. Each fee applies once per order regardless of how many lines it governs, and appears as its own entry on the order summary rather than being folded into tax.",
+                          "example": [
+                            {
+                              "feeId": "fee_booking",
+                              "name": {
+                                "en": "Booking fee"
+                              },
+                              "calculation": "FLAT",
+                              "amount": 2500,
+                              "taxable": false
+                            },
+                            {
+                              "feeId": "fee_admin",
+                              "name": {
+                                "en": "Admin fee"
+                              },
+                              "calculation": "PERCENT",
+                              "percentage": 5,
+                              "taxable": true
+                            }
+                          ]
+                        },
                         "config": {
                           "type": "object",
-                          "properties": {
-                            "serviceFee": {
-                              "type": "number",
-                              "minimum": 0,
-                              "description": "Optional flat service fee ($) charged on top of the price for this business model.",
-                              "example": 5
-                            }
-                          },
+                          "properties": {},
                           "additionalProperties": {
                             "nullable": true
                           }
@@ -16275,6 +17317,7 @@
       "post": {
         "tags": ["ServiceOfferings"],
         "summary": "Add an offering to a service",
+        "description": "The offering is the sellable variant — price and duration live here, not on the service, so this is the call that makes a service purchasable. It is created ACTIVE; there is no draft step. `pricing` is a rule hierarchy, not a single amount: exactly one DEFAULT rule is required, a STATE rule is rejected without a COUNTRY rule for the same country, and a POSTAL rule is rejected without the matching STATE rule. `country` and `state` accept full names and are stored as ISO codes (\"Canada\" becomes \"CA\", \"Ontario\" becomes \"ON\"), so read back what you wrote rather than assuming your spelling survived. Anything an order cannot match a region rule for falls through to DEFAULT — including its currency, which is why a catalogue sold abroad needs a COUNTRY rule per currency and not just a translated name. Every id in `skillIds` and `locationIds` must already exist and be active in the project, or the whole call is a 400.",
         "parameters": [
           {
             "schema": {
@@ -16785,6 +17828,7 @@
       "get": {
         "tags": ["ServiceOfferings"],
         "summary": "List offerings for a service",
+        "description": "Every offering on the service, each already hydrated with the full `skills` and `locations` records behind its `skillIds`/`locationIds` — so rendering a service page needs no second round-trip per offering. Not paginated: `nextCursor` is always null and the whole set comes back at once. Soft-deleted offerings are excluded; INACTIVE ones are included unless you pass `status=ACTIVE`. An id that no longer resolves is dropped from the enriched arrays rather than erroring, so `skills` can be shorter than `skillIds`.",
         "parameters": [
           {
             "schema": {
@@ -17161,6 +18205,7 @@
       "get": {
         "tags": ["ServiceOfferings"],
         "summary": "Get an offering",
+        "description": "One offering with its `skills` and `locations` resolved to full records, the same shape the list endpoint returns. This is where you read `pricing` and `duration` back after a write — the geo coercion means what you sent is not always what is stored. Offerings created before regional pricing existed report a single synthesised DEFAULT rule with `ruleId: \"r_legacy_default\"`; treat it as real pricing, but note it is derived at read time and is not what an update would preserve. A soft-deleted offering is a 404.",
         "parameters": [
           {
             "schema": {
@@ -17539,6 +18584,7 @@
       "put": {
         "tags": ["ServiceOfferings"],
         "summary": "Update an offering",
+        "description": "A partial update despite the verb: only the fields you send are written and the rest are left alone. Where a field is an array — `pricing`, `skillIds`, `locationIds`, `attributeValues` — sending it replaces the whole array, so add to a set by sending the full new one, never just the delta. Supplying `pricing` re-runs the same hierarchy and ISO coercion rules as create, so a partial rule set that drops the DEFAULT rule is a 400. This route does not verify the offering exists first and has no 404: a wrong `offeringId` writes a new, partial record rather than failing, so confirm the id before calling it.",
         "parameters": [
           {
             "schema": {
@@ -18047,6 +19093,7 @@
       "delete": {
         "tags": ["ServiceOfferings"],
         "summary": "Soft delete an offering",
+        "description": "Marks the offering deleted, forces it INACTIVE and decrements the parent service's `counts.offerings`. The record is retained so bookings and order items that snapshot it still resolve. Packages built on this offering are not cascaded and keep selling — archive those separately, or a storefront package will quote a session against an offering that no longer appears in the catalogue. Prefer the status route if you only want it off sale, since deletion cannot be undone through the API.",
         "parameters": [
           {
             "schema": {
@@ -18126,6 +19173,7 @@
       "post": {
         "tags": ["ServiceOfferings"],
         "summary": "Change offering status",
+        "description": "Takes one variant off sale without touching the rest of the service. An INACTIVE offering stops accepting new bookings while bookings already made against it stand, so this is the safe way to retire a price point or a duration. Unlike service status there is no transition table — ACTIVE and INACTIVE move freely in both directions. Like the update route it does not check the offering exists, so an unknown `offeringId` writes a stub rather than returning 404.",
         "parameters": [
           {
             "schema": {
@@ -18469,6 +19517,7 @@
       "post": {
         "tags": ["ServicePackages"],
         "summary": "Create a sellable package (bundle) for an offering",
+        "description": "Sells `creditCount` prepaid sessions of one offering as a single bundle. The parent service must already carry an ACTIVE business model of type PACKAGE — without it this is a 400, and that guard is the usual reason a first package create fails, so add the business model before the package. The offering must belong to the service named in the path and not be deleted, or 404. Pricing is FLAT and cannot be changed: each rule's amount is the total for the WHOLE bundle, not per session, so a 10-session bundle at 45000 charges 45000 once. The `pricing` array obeys the same rules as an offering's — exactly one DEFAULT rule, children require parents, country and state coerce to ISO codes. Defaults if omitted: status ACTIVE (so it is on sale the moment it is created — send DRAFT if it is not ready), capacity 1, and validityDays null meaning credits never expire.",
         "parameters": [
           {
             "schema": {
@@ -18674,6 +19723,7 @@
       },
       "get": {
         "tags": ["ServicePackages"],
+        "description": "The bundles buyable for one specific offering, ordered by status and then by credit count ascending — so the cheapest bundle leads and a price ladder renders without client-side sorting. Pass `status=ACTIVE` for the purchasable set; DRAFT and ARCHIVED bundles are included otherwise. Not paginated: `nextCursor` is always null, since a single offering's bundle list is small and bounded. Use the service-scoped list instead when the customer has not yet chosen an offering. Unlike that route, an unknown `offeringId` here returns an empty list rather than 404, so an empty `data` does not prove the id was right.",
         "summary": "List packages for an offering (storefront)",
         "parameters": [
           {
@@ -18874,6 +19924,7 @@
       "get": {
         "tags": ["ServicePackages"],
         "summary": "Get a package by id",
+        "description": "Resolves a package from its id alone, without needing the serviceId — the order and slate flows hold a `packageId` and nothing else, which is why this route exists alongside the nested ones. Read it before creating an order to confirm `creditCount`, `capacity` and the region rules you are about to be charged against. Packages predating regional pricing report one synthesised DEFAULT rule with `ruleId: \"r_legacy_default\"`. A deleted or archived-then-deleted package is a 404; note that an order item already placed against it stays bookable even though this returns nothing.",
         "parameters": [
           {
             "schema": {
@@ -18952,6 +20003,7 @@
       "put": {
         "tags": ["ServicePackages"],
         "summary": "Update a package",
+        "description": "A partial update: only the fields you send change. Editing `pricing` or `creditCount` affects future purchases ONLY — every order item already placed snapshots the package at purchase time, so repricing never disturbs credits a customer has already bought and never retro-bills them. `pricing` is revalidated in full against the hierarchy rules, so send the complete rule set including its DEFAULT, not just the region you are changing. Neither the offering nor the service can be reassigned here; build a new package instead. Status is set through POST /packages/{packageId}/status, not here.",
         "parameters": [
           {
             "schema": {
@@ -19139,6 +20191,7 @@
       "post": {
         "tags": ["ServicePackages"],
         "summary": "Change package status (rewrites the storefront sort key)",
+        "description": "Moves the bundle between DRAFT, ACTIVE and ARCHIVED. Any status can follow any other — unlike services, there is no transition table, so a bundle can be pulled and reinstated freely. ARCHIVED is the correct way to retire a bundle: it drops out of the storefront and blocks new orders, while credits customers already bought stay bookable, which deleting the offering underneath would not achieve. Status is encoded in the storefront index key and rewritten here in the same write, so a status-filtered list reflects the change immediately rather than lagging.",
         "parameters": [
           {
             "schema": {
@@ -19248,6 +20301,7 @@
       "post": {
         "tags": ["Transactions"],
         "summary": "Record a manual (cash/external/comp) transaction against an order",
+        "description": "Books money that moved outside Stripe — cash at the door, a bank transfer, a comped session. Card payments do not belong here: `source` accepts only CASH, EXTERNAL and COMP, and STRIPE is rejected, because Stripe rows are created by the payment-intent flow and settled by webhook. `kind: \"REFUND\"` is likewise rejected; refunds are not yet supported.\n\nThe two kinds behave differently and the difference is easy to miss. PAYMENT adds to the order's `amountPaid` in the same atomic write, so it changes what the order still owes. ADJUSTMENT records a ledger row and leaves `amountPaid` alone — use it for corrections you want visible in history without moving the balance. Either way the row is written SUCCEEDED immediately, with no pending state to poll.\n\n`amount.currency` must equal the order's currency exactly or the call is a 400; the order's currency is fixed at creation and cannot be converted here. A 409 means the order changed between this call reading it and writing — re-read the order and retry, rather than assuming the payment was recorded. `clientId` defaults to the order's client.",
         "parameters": [
           {
             "schema": {
@@ -19502,6 +20556,7 @@
       "get": {
         "tags": ["Transactions"],
         "summary": "List transactions (filter by order, client, or status)",
+        "description": "The money ledger for the project, newest first, for reconciliation and payment history.\n\nThe filters are not combinable, and this is the mistake to avoid: exactly one of `orderId`, `clientId` and `status` takes effect, in that order of precedence, and the others are ignored without an error. Sending `orderId` with `status=FAILED` returns EVERY transaction on that order, failed or not — so filter by status client-side when you also need one of the others. With none of the three set, the whole project is listed. `startDate` and `endDate` are the exception: they narrow whichever of the four queries runs.\n\nResults are paginated with an opaque cursor that is only valid for the same filters that produced it. Both settled and unsettled rows come back, so sum only `status: \"SUCCEEDED\"` when computing what was actually collected — a PENDING Stripe row is an intent, not money.",
         "parameters": [
           {
             "schema": {
@@ -19766,6 +20821,7 @@
       "post": {
         "tags": ["Transactions"],
         "summary": "Create a Stripe PaymentIntent for an order (client-side confirmation)",
+        "description": "Starts a card payment for whatever the order still owes. Returns a `clientSecret` to confirm with Stripe.js in the browser — the card details never reach this API. The charge is created on the project's connected account for `total - amountPaid`, so part-paid orders are billed only for the remainder and a fully-paid order is a 400.\n\nSafe to call more than once: if an open PENDING intent already exists for the order, its existing `clientSecret` is returned instead of a second intent being created, so a user who reloads checkout is not charged twice. Reuse means the amount comes from the original intent, though — if the order total changed in between, cancel the outstanding intent rather than expecting a fresh figure here.\n\nThe order must be DRAFT or PENDING; anything further along its lifecycle is a 400. A 409 means the project has no Stripe account connected or is not yet cleared to take charges, which is a setup problem no retry will fix. Confirming the intent does NOT settle the transaction here: the row stays PENDING until Stripe's webhook confirms it, so treat payment as complete only once the transaction reads SUCCEEDED.",
         "parameters": [
           {
             "schema": {
