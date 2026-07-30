@@ -123,6 +123,23 @@ The snapshot pattern is deliberate: an order is a historical record of
 of mutable fields — currently just `tax`. Client and currency are not
 mutable. To change them, cancel the order and create a new one.
 
+Sending `tax` also **rewrites the order's stored `total`**, recomputed as
+`subtotal + feeTotal + tax`. The fee is preserved: patching tax on an order
+carrying service fees never drops them from the total.
+
+<Warning>
+The `tax` you send is treated as the order's **entire** tax — line tax **and**
+the tax on any taxable service fee. It is stored verbatim, not reconciled
+against the line items.
+
+On an order with taxable fees, computing tax against `subtotal` alone
+therefore persists a `tax` and `total` lower than the figures
+`GET .../orders/{orderId}/aggregate` computes from the line snapshots, and
+your order header will disagree with the summary you display. Either include
+the fee's tax in the value you send, or add and update line items and let tax
+resolve from the snapshots instead. See [Service fees](/concepts/service-fees).
+</Warning>
+
 ## Listing orders
 
 | Endpoint                                                     | Notes                                              |

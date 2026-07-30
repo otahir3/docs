@@ -109,6 +109,13 @@ never absent from a summary; an order with no applicable fees simply returns
 `fees: []` and `feeTotal: { amount: 0, ... }`.
 </Note>
 
+The one place you set a figure in this equation yourself is
+`PATCH .../orders/{orderId}`, which stores the `tax` you send verbatim and
+recomputes the order's `total` as `subtotal + feeTotal + tax`. The fee is kept,
+but the tax is not reconciled against the lines — so on an order with taxable
+fees, send tax that already includes the fee's share. See
+[Updating an order](/resources/orders#updating-an-order).
+
 ## Three things the schema won't tell you
 
 ### A FLAT fee has no currency of its own
