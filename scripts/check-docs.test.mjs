@@ -6,6 +6,7 @@ import { walkDocs } from './lib/mdx.mjs';
 import { runRules } from './check-docs.mjs';
 import hosts from './rules/hosts.mjs';
 import idPrefixes from './rules/id-prefixes.mjs';
+import paths from './rules/paths.mjs';
 
 test('walkDocs strips frontmatter and keeps original line numbers', async () => {
   const pages = [];
@@ -54,4 +55,24 @@ test('id-prefixes rule flags unknown prefixes only', async () => {
   const flagged = findings.map((f) => f.message.match(/`([a-z]+)_`/)[1]).sort();
   assert.deepEqual(flagged, ['prv', 'proj', 'svc'].sort());
   assert.deepEqual(findings.map((f) => f.line).sort((a, b) => a - b), [5, 7, 7]);
+});
+
+const SPEC = {
+  paths: {
+    '/v1/projects/{projectId}/bookings': {},
+    '/v1/projects/{projectId}/services/{serviceId}/offerings': {},
+  },
+};
+
+test('paths rule flags only paths absent from the spec', async () => {
+  const findings = await runRules(
+    join(import.meta.dirname, '__fixtures__', 'paths'),
+    CONTRACT,
+    SPEC,
+    [paths],
+  );
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].line, 5);
+  assert.match(findings[0].message, /offerings/);
 });
