@@ -5,8 +5,7 @@
     "version": "1.0.0",
     "description": "The MarketBox public API for building booking experiences. Core model: create an order, then draw its order items down into bookings. Single bookings reference an order item per service line; package bookings draw one PACKAGE item down across N sessions. To schedule a package, build a slate (POST /availability/package-slate) and book it by slateId (POST /orders/{orderId}/package-bookings). See the guides for end-to-end walkthroughs.",
     "contact": {
-      "name": "MarketBox support",
-      "url": "https://marketbox.io/support"
+      "name": "MarketBox support"
     }
   },
   "servers": [
