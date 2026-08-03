@@ -30,6 +30,15 @@ async function main() {
     readFile(join(ROOT, 'api-reference', 'openapi.json'), 'utf8').then(JSON.parse),
   ]);
 
+  const snippet = await readFile(join(ROOT, 'snippets', 'base-url.mdx'), 'utf8');
+  if (!snippet.includes(contract.baseUrl)) {
+    console.error(
+      `snippets/base-url.mdx does not contain the contract's baseUrl (${contract.baseUrl}).\n` +
+        'Re-sync docs-contract.json from mb-core and update the snippet.',
+    );
+    process.exit(1);
+  }
+
   const findings = await runRules(ROOT, contract, spec, await loadRules());
 
   if (findings.length === 0) {
