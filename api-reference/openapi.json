@@ -982,7 +982,7 @@
                   "supplierId": {
                     "type": "string",
                     "minLength": 1,
-                    "description": "Assigned provider. Omit to create an unassigned booking.",
+                    "description": "Assigned supplier. Omit to create an unassigned booking.",
                     "example": "sup_01kv60qgnef2kt3pvqgwmkbzfr"
                   },
                   "clientId": {
@@ -1493,11 +1493,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           }
@@ -1572,11 +1572,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           }
@@ -1716,11 +1716,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           }
@@ -1794,11 +1794,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           }
@@ -1840,7 +1840,7 @@
                                   "SCHEDULED_SUBSCRIPTION",
                                   "FLEXIBLE_SUBSCRIPTION"
                                 ],
-                                "description": "How the service is sold. SINGLE_BOOKING is one appointment at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
+                                "description": "How the service is sold. SINGLE_BOOKING is one booking at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
                               },
                               "offeringSnapshot": {
                                 "type": "object",
@@ -2235,11 +2235,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           }
@@ -2346,7 +2346,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "List bookings for a supplier",
-        "description": "One supplier's diary, ordered by date and paginated. This is the indexed path for a provider-facing schedule — use it rather than listing the project and filtering client-side.",
+        "description": "One supplier's diary, ordered by date and paginated. This is the indexed path for a supplier-facing schedule — use it rather than listing the project and filtering client-side.",
         "parameters": [
           {
             "schema": {
@@ -2486,7 +2486,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "List bookings for a client",
-        "description": "One client's bookings, past and upcoming, ordered by date and paginated. This is the call behind a customer-facing \"my appointments\" view.",
+        "description": "One client's bookings, past and upcoming, ordered by date and paginated. This is the call behind a client-facing \"my bookings\" view.",
         "parameters": [
           {
             "schema": {
@@ -2644,11 +2644,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           }
@@ -2812,7 +2812,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "List participants on a booking",
-        "description": "Everyone registered on the booking, with their check-in state. This is the roster a provider works from at the door.",
+        "description": "Everyone registered on the booking, with their check-in state. This is the roster a supplier works from at the door.",
         "parameters": [
           {
             "schema": {
@@ -2830,11 +2830,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           }
@@ -2973,11 +2973,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           },
@@ -3133,11 +3133,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           },
@@ -3213,11 +3213,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           },
@@ -3357,7 +3357,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Create a booking note",
-        "description": "Attaches a free-text note to the booking — preparation details, access instructions, what happened on the day. Notes are operational context for staff, not a channel to the client, and nothing here is shown to the customer automatically.",
+        "description": "Attaches a free-text note to the booking — preparation details, access instructions, what happened on the day. Notes are operational context for staff, not a channel to the client, and nothing here is shown to the client automatically.",
         "parameters": [
           {
             "schema": {
@@ -3375,11 +3375,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           }
@@ -3532,11 +3532,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           }
@@ -3658,11 +3658,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           },
@@ -3829,11 +3829,11 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "The booking — one scheduled appointment occupying supplier time.",
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
               "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
             },
             "required": true,
-            "description": "The booking — one scheduled appointment occupying supplier time.",
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
             "name": "bookingId",
             "in": "path"
           },
@@ -4995,7 +4995,7 @@
       "get": {
         "tags": ["Orders"],
         "summary": "List orders for a client",
-        "description": "Every order belonging to one client, newest first, across all statuses — unlike the project-level list, no `status` is required. This is the call behind a customer's order history.",
+        "description": "Every order belonging to one client, newest first, across all statuses — unlike the project-level list, no `status` is required. This is the call behind a client's order history.",
         "parameters": [
           {
             "schema": {
@@ -9901,7 +9901,7 @@
       "post": {
         "tags": ["Availability"],
         "summary": "Find suppliers + suggested/open slots for a service, location and window",
-        "description": "The main \"when can this be booked\" call. Returns two parallel, slot-centric arrays: `timeSlots`, the engine's ranked suggestions with travel between jobs taken into account, and `openSlots`, every free interval at `interval` granularity with no ranking. Show `timeSlots` to customers and keep `openSlots` for a \"more times\" view; they overlap by design. Identify the place with `locationId`, or with both `lat` and `lng` for in-home and travel-zone discovery — one or the other is required. `durationMinutes` is honoured only for FLEXIBLE offerings and is otherwise ignored in favour of the offering's own duration.\n\nFailures come back inside a 200. The body carries `status` and an `errors` array, so an empty `timeSlots` with a non-empty `errors` means the search broke, not that nobody is free — check `errors` before telling a customer there is no availability.\n\nSetting `bookingType: \"recurring\"` changes what `timeSlots` contains: recurring time patterns rather than individual slots, so do not parse the two the same way. That branch adds three requirements, each a 400 and each guarding an input that used to return silence instead of an error — `rrule` is required, it must carry a bounded positive COUNT (e.g. \"FREQ=WEEKLY;BYDAY=TU;COUNT=3\"), and `lookAheadStartDate` must carry a numeric offset like \"+00:00\" rather than a \"Z\" suffix.",
+        "description": "The main \"when can this be booked\" call. Returns two parallel, slot-centric arrays: `timeSlots`, the engine's ranked suggestions with travel between jobs taken into account, and `openSlots`, every free interval at `interval` granularity with no ranking. Show `timeSlots` to clients and keep `openSlots` for a \"more times\" view; they overlap by design. Identify the place with `locationId`, or with both `lat` and `lng` for in-home and travel-zone discovery — one or the other is required. `durationMinutes` is honoured only for FLEXIBLE offerings and is otherwise ignored in favour of the offering's own duration.\n\nFailures come back inside a 200. The body carries `status` and an `errors` array, so an empty `timeSlots` with a non-empty `errors` means the search broke, not that nobody is free — check `errors` before telling a client there is no availability.\n\nSetting `bookingType: \"recurring\"` changes what `timeSlots` contains: recurring time patterns rather than individual slots, so do not parse the two the same way. That branch adds three requirements, each a 400 and each guarding an input that used to return silence instead of an error — `rrule` is required, it must carry a bounded positive COUNT (e.g. \"FREQ=WEEKLY;BYDAY=TU;COUNT=3\"), and `lookAheadStartDate` must carry a numeric offset like \"+00:00\" rather than a \"Z\" suffix.",
         "parameters": [
           {
             "schema": {
@@ -10144,7 +10144,7 @@
       "post": {
         "tags": ["Availability"],
         "summary": "Generate clustered time slots from suppliers + engine config",
-        "description": "Runs the clustering engine directly on suppliers and a config YOU supply. Nothing is read from the project — not the catalogue, not the supplier roster, not existing bookings — so this answers \"what would the engine do with these inputs\", not \"when is this bookable\". The supplier availability you pass is taken at face value, which means it will happily return slots for people who are already booked; never drive a booking flow from it. Use /availability/search, or /availability/suppliers for a supplier-centric view, for anything a customer sees.\n\nIt exists for tuning and diagnosis: `metrics` and `kpis` in the response let you compare configs against a fixed input set, and replaying a captured payload reproduces a result exactly. `config` is passed through to the engine largely unvalidated, so a malformed knob tends to surface as poor output or an entry in `errors` rather than a 400 — and as with the other availability routes, `errors` arrives inside a 200.",
+        "description": "Runs the clustering engine directly on suppliers and a config YOU supply. Nothing is read from the project — not the catalogue, not the supplier roster, not existing bookings — so this answers \"what would the engine do with these inputs\", not \"when is this bookable\". The supplier availability you pass is taken at face value, which means it will happily return slots for people who are already booked; never drive a booking flow from it. Use /availability/search, or /availability/suppliers for a supplier-centric view, for anything a client sees.\n\nIt exists for tuning and diagnosis: `metrics` and `kpis` in the response let you compare configs against a fixed input set, and replaying a captured payload reproduces a result exactly. `config` is passed through to the engine largely unvalidated, so a malformed knob tends to surface as poor output or an entry in `errors` rather than a 400 — and as with the other availability routes, `errors` arrives inside a 200.",
         "parameters": [
           {
             "schema": {
@@ -12196,7 +12196,7 @@
       "post": {
         "tags": ["Suggestions"],
         "summary": "Reschedule a suggested slot to a new time (server-validated), refreshing its slate",
-        "description": "Moves ONE slot of a proposed slate to a time the customer picked, before anything is booked. This is the \"actually, can we do Thursday instead\" step of a multi-session proposal — it does not touch bookings, which have their own reschedule route. The new time is validated against the supplier's real availability rather than trusted, and on success the parent slate's aggregates are recomputed and the whole updated slate is returned, so re-render from this response instead of patching the one slot locally.\n\nNearly everything that goes wrong is a 409, and the four causes need different handling — branch on the `code`, never on the status alone. The time may be held or booked on the supplier's calendar, in which case the body names the blocking reservation or booking. The supplier may simply not work then, though the time is valid and in the future. You may have lost a race to a concurrent hold, which returns SLOT_NO_LONGER_FREE and is worth one retry at a different time. Or the suggestion itself may have expired — and that response carries a freshly computed set of suggestions with it, so re-render those rather than starting a new availability search. A past or malformed `bookingStartUtc` is a 400.",
+        "description": "Moves ONE slot of a proposed slate to a time the client picked, before anything is booked. This is the \"actually, can we do Thursday instead\" step of a multi-session proposal — it does not touch bookings, which have their own reschedule route. The new time is validated against the supplier's real availability rather than trusted, and on success the parent slate's aggregates are recomputed and the whole updated slate is returned, so re-render from this response instead of patching the one slot locally.\n\nNearly everything that goes wrong is a 409, and the four causes need different handling — branch on the `code`, never on the status alone. The time may be held or booked on the supplier's calendar, in which case the body names the blocking reservation or booking. The supplier may simply not work then, though the time is valid and in the future. You may have lost a race to a concurrent hold, which returns SLOT_NO_LONGER_FREE and is worth one retry at a different time. Or the suggestion itself may have expired — and that response carries a freshly computed set of suggestions with it, so re-render those rather than starting a new availability search. A past or malformed `bookingStartUtc` is a 400.",
         "parameters": [
           {
             "schema": {
@@ -13037,7 +13037,7 @@
       "post": {
         "tags": ["Holds"],
         "summary": "Hold supplier time during checkout — a single session, or a whole package slate",
-        "description": "Claims supplier time so nobody else can book it while your customer pays. Provide exactly one of: intervals (explicit supplier time — this is the form that works for a SINGLE session, with no package and no slate), slateId (hold every slot of a persisted package slate), or slotIds (cherry-pick slots of a slate). Every interval is claimed in ONE transaction, so a hold is all-or-nothing — you never end up holding 3 sessions of a 5-session package. Expiry is LAZY: nothing runs at heldUntil, the hold simply stops blocking, so convert before then. To HEARTBEAT a checkout page, re-post the same intervals AND the reservationId you were given (with the same heldBy): that EXTENDS the existing hold — heldUntil moves out, the same reservationId comes back, and no second hold is minted. Omitting reservationId always mints a NEW hold. Returns 409 with code SLOT_HELD/SLOT_BOOKED — naming the blocking reservationId or bookingId — when the time is already claimed, or RESERVATION_NOT_FOUND / RESERVATION_NOT_HELD / RESERVATION_FORBIDDEN when the reservationId you asked to extend is unknown, no longer held, or not yours.",
+        "description": "Claims supplier time so nobody else can book it while your client pays. Provide exactly one of: intervals (explicit supplier time — this is the form that works for a SINGLE session, with no package and no slate), slateId (hold every slot of a persisted package slate), or slotIds (cherry-pick slots of a slate). Every interval is claimed in ONE transaction, so a hold is all-or-nothing — you never end up holding 3 sessions of a 5-session package. Expiry is LAZY: nothing runs at heldUntil, the hold simply stops blocking, so convert before then. To HEARTBEAT a checkout page, re-post the same intervals AND the reservationId you were given (with the same heldBy): that EXTENDS the existing hold — heldUntil moves out, the same reservationId comes back, and no second hold is minted. Omitting reservationId always mints a NEW hold. Returns 409 with code SLOT_HELD/SLOT_BOOKED — naming the blocking reservationId or bookingId — when the time is already claimed, or RESERVATION_NOT_FOUND / RESERVATION_NOT_HELD / RESERVATION_FORBIDDEN when the reservationId you asked to extend is unknown, no longer held, or not yours.",
         "parameters": [
           {
             "schema": {
@@ -13713,7 +13713,7 @@
       "post": {
         "tags": ["Holds"],
         "summary": "Release a hold (HELD → RELEASED) — idempotent",
-        "description": "Frees the supplier time immediately: call this when the customer abandons checkout instead of waiting for lazy expiry. Idempotent and never an error — an already-released hold returns RELEASED, an already-converted hold returns CONVERTED (it is booked and cannot be released), and an unknown reservationId returns NOT_FOUND. All three are terminal states, not failures.",
+        "description": "Frees the supplier time immediately: call this when the client abandons checkout instead of waiting for lazy expiry. Idempotent and never an error — an already-released hold returns RELEASED, an already-converted hold returns CONVERTED (it is booked and cannot be released), and an unknown reservationId returns NOT_FOUND. All three are terminal states, not failures.",
         "parameters": [
           {
             "schema": {
@@ -14110,7 +14110,7 @@
       "post": {
         "tags": ["Clients"],
         "summary": "Onboard the authenticated client to a project",
-        "description": "Idempotently registers the signed-in end user as a CLIENT of the project: ensures a ProjectUsers membership, creates a Stripe customer on the project's connected account (when Stripe is configured), and writes the ClientProfile. Requires both an API key (`x-api-key`) and a client user JWT (`Authorization: Bearer`). Returns 201 on first onboarding, 200 if the client was already onboarded.",
+        "description": "Idempotently registers the signed-in end user as a CLIENT of the project: ensures a ProjectUsers membership, creates Stripe's own Customer object on the project's connected account (when Stripe is configured, stored as stripeCustomerId), and writes the ClientProfile. Requires both an API key (`x-api-key`) and a client user JWT (`Authorization: Bearer`). Returns 201 on first onboarding, 200 if the client was already onboarded.",
         "parameters": [
           {
             "schema": {
@@ -14341,7 +14341,7 @@
       "post": {
         "tags": ["Clients"],
         "summary": "Add a service address to the caller's client profile",
-        "description": "Saves a service address for the signed-in client. Requires both the API key and the client user JWT, and the caller must already be onboarded — POST /clients/me first, or this is a 404.\n\nThe address id is derived from the address content, so this is an upsert, not an append: posting the same address twice returns the same id and leaves one record, while changing so much as a street number creates a second. The first address a client saves silently becomes their default; later ones do not displace it, so use the default route to move it rather than expecting the newest to win.\n\nThis matters beyond delivery: the default address is the last-resort source of the pricing region for an order that pins no reservation, location or explicit address. A client with no saved address resolves to no region at all and is priced at the offering's DEFAULT rule, in the DEFAULT rule's currency — which is how a customer abroad ends up quoted in the wrong currency and rejected. Save the address before the first order.",
+        "description": "Saves a service address for the signed-in client. Requires both the API key and the client user JWT, and the caller must already be onboarded — POST /clients/me first, or this is a 404.\n\nThe address id is derived from the address content, so this is an upsert, not an append: posting the same address twice returns the same id and leaves one record, while changing so much as a street number creates a second. The first address a client saves silently becomes their default; later ones do not displace it, so use the default route to move it rather than expecting the newest to win.\n\nThis matters beyond delivery: the default address is the last-resort source of the pricing region for an order that pins no reservation, location or explicit address. A client with no saved address resolves to no region at all and is priced at the offering's DEFAULT rule, in the DEFAULT rule's currency — which is how a client abroad ends up quoted in the wrong currency and rejected. Save the address before the first order.",
         "parameters": [
           {
             "schema": {
@@ -14818,7 +14818,7 @@
                             "SCHEDULED_SUBSCRIPTION",
                             "FLEXIBLE_SUBSCRIPTION"
                           ],
-                          "description": "How the service is sold. SINGLE_BOOKING is one appointment at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
+                          "description": "How the service is sold. SINGLE_BOOKING is one booking at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
                         },
                         "paymentOptions": {
                           "type": "array",
@@ -15154,7 +15154,7 @@
       "get": {
         "tags": ["Services"],
         "summary": "List services for a project",
-        "description": "The project catalogue, sorted by name within each status. Unlike most list endpoints this one is not paginated: a project holds few enough services to return in one response, so `nextCursor` is always null and there is no `limit`. All three statuses are included unless you filter — pass `status=LIVE` for anything customer-facing, or DRAFT services that were never meant to be public will appear in your storefront. Soft-deleted services are never returned.",
+        "description": "The project catalogue, sorted by name within each status. Unlike most list endpoints this one is not paginated: a project holds few enough services to return in one response, so `nextCursor` is always null and there is no `limit`. All three statuses are included unless you filter — pass `status=LIVE` for anything client-facing, or DRAFT services that were never meant to be public will appear in your storefront. Soft-deleted services are never returned.",
         "parameters": [
           {
             "schema": {
@@ -16190,7 +16190,7 @@
                               "SCHEDULED_SUBSCRIPTION",
                               "FLEXIBLE_SUBSCRIPTION"
                             ],
-                            "description": "How the service is sold. SINGLE_BOOKING is one appointment at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
+                            "description": "How the service is sold. SINGLE_BOOKING is one booking at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
                           },
                           "paymentOptions": {
                             "type": "array",
@@ -16398,7 +16398,7 @@
                       "SCHEDULED_SUBSCRIPTION",
                       "FLEXIBLE_SUBSCRIPTION"
                     ],
-                    "description": "How the service is sold. SINGLE_BOOKING is one appointment at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
+                    "description": "How the service is sold. SINGLE_BOOKING is one booking at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
                   },
                   "paymentOptions": {
                     "type": "array",
@@ -16535,7 +16535,7 @@
                             "SCHEDULED_SUBSCRIPTION",
                             "FLEXIBLE_SUBSCRIPTION"
                           ],
-                          "description": "How the service is sold. SINGLE_BOOKING is one appointment at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
+                          "description": "How the service is sold. SINGLE_BOOKING is one booking at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
                         },
                         "paymentOptions": {
                           "type": "array",
@@ -16885,7 +16885,7 @@
                             "SCHEDULED_SUBSCRIPTION",
                             "FLEXIBLE_SUBSCRIPTION"
                           ],
-                          "description": "How the service is sold. SINGLE_BOOKING is one appointment at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
+                          "description": "How the service is sold. SINGLE_BOOKING is one booking at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
                         },
                         "paymentOptions": {
                           "type": "array",
@@ -17145,7 +17145,7 @@
                             "SCHEDULED_SUBSCRIPTION",
                             "FLEXIBLE_SUBSCRIPTION"
                           ],
-                          "description": "How the service is sold. SINGLE_BOOKING is one appointment at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
+                          "description": "How the service is sold. SINGLE_BOOKING is one booking at a time; PACKAGE sells prepaid credits drawn down by later bookings; the SCHEDULED_* and FLEXIBLE_* variants add recurrence and subscription billing. This drives which order item skuType applies."
                         },
                         "paymentOptions": {
                           "type": "array",
@@ -19722,7 +19722,7 @@
       },
       "get": {
         "tags": ["ServicePackages"],
-        "description": "The bundles buyable for one specific offering, ordered by status and then by credit count ascending — so the cheapest bundle leads and a price ladder renders without client-side sorting. Pass `status=ACTIVE` for the purchasable set; DRAFT and ARCHIVED bundles are included otherwise. Not paginated: `nextCursor` is always null, since a single offering's bundle list is small and bounded. Use the service-scoped list instead when the customer has not yet chosen an offering. Unlike that route, an unknown `offeringId` here returns an empty list rather than 404, so an empty `data` does not prove the id was right.",
+        "description": "The bundles buyable for one specific offering, ordered by status and then by credit count ascending — so the cheapest bundle leads and a price ladder renders without client-side sorting. Pass `status=ACTIVE` for the purchasable set; DRAFT and ARCHIVED bundles are included otherwise. Not paginated: `nextCursor` is always null, since a single offering's bundle list is small and bounded. Use the service-scoped list instead when the client has not yet chosen an offering. Unlike that route, an unknown `offeringId` here returns an empty list rather than 404, so an empty `data` does not prove the id was right.",
         "summary": "List packages for an offering (storefront)",
         "parameters": [
           {
@@ -19824,7 +19824,7 @@
       "get": {
         "tags": ["ServicePackages"],
         "summary": "List every package for a service (storefront discovery)",
-        "description": "Returns every package under the service, across all of its offerings — the call a storefront makes before the customer has chosen an option. Pass ?status=ACTIVE for only the purchasable bundles. Each package carries its offeringId, so the client can join it against the offerings list it already holds.",
+        "description": "Returns every package under the service, across all of its offerings — the call a storefront makes before the client has chosen an option. Pass ?status=ACTIVE for only the purchasable bundles. Each package carries its offeringId, so the client can join it against the offerings list it already holds.",
         "parameters": [
           {
             "schema": {
@@ -20002,7 +20002,7 @@
       "put": {
         "tags": ["ServicePackages"],
         "summary": "Update a package",
-        "description": "A partial update: only the fields you send change. Editing `pricing` or `creditCount` affects future purchases ONLY — every order item already placed snapshots the package at purchase time, so repricing never disturbs credits a customer has already bought and never retro-bills them. `pricing` is revalidated in full against the hierarchy rules, so send the complete rule set including its DEFAULT, not just the region you are changing. Neither the offering nor the service can be reassigned here; build a new package instead. Status is set through POST /packages/{packageId}/status, not here.",
+        "description": "A partial update: only the fields you send change. Editing `pricing` or `creditCount` affects future purchases ONLY — every order item already placed snapshots the package at purchase time, so repricing never disturbs credits a client has already bought and never retro-bills them. `pricing` is revalidated in full against the hierarchy rules, so send the complete rule set including its DEFAULT, not just the region you are changing. Neither the offering nor the service can be reassigned here; build a new package instead. Status is set through POST /packages/{packageId}/status, not here.",
         "parameters": [
           {
             "schema": {
@@ -20190,7 +20190,7 @@
       "post": {
         "tags": ["ServicePackages"],
         "summary": "Change package status (rewrites the storefront sort key)",
-        "description": "Moves the bundle between DRAFT, ACTIVE and ARCHIVED. Any status can follow any other — unlike services, there is no transition table, so a bundle can be pulled and reinstated freely. ARCHIVED is the correct way to retire a bundle: it drops out of the storefront and blocks new orders, while credits customers already bought stay bookable, which deleting the offering underneath would not achieve. Status is encoded in the storefront index key and rewritten here in the same write, so a status-filtered list reflects the change immediately rather than lagging.",
+        "description": "Moves the bundle between DRAFT, ACTIVE and ARCHIVED. Any status can follow any other — unlike services, there is no transition table, so a bundle can be pulled and reinstated freely. ARCHIVED is the correct way to retire a bundle: it drops out of the storefront and blocks new orders, while credits clients already bought stay bookable, which deleting the offering underneath would not achieve. Status is encoded in the storefront index key and rewritten here in the same write, so a status-filtered list reflects the change immediately rather than lagging.",
         "parameters": [
           {
             "schema": {
