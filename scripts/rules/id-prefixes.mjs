@@ -21,6 +21,22 @@
  * Both mechanisms independently hid real wrong-prefix examples (`svc_...`,
  * `prv_…`) from the rule. See task-6-report.md, fix round 1, for the full
  * before/after finding list.
+ *
+ * Fix round 2 (review Critical): ID_RE still can't see
+ * `"clientId": "clt_dolphin_web"` — there's a second underscore inside the
+ * body, and no position in that string is a word/non-word boundary (`_` is
+ * a word char throughout), so `\b`/lookaround can never close there.
+ * Widening ID_RE's body class to allow embedded underscores would also
+ * match ordinary snake_case prose as ids (`get_user_profile`,
+ * `content_type_header`, …) — exactly the unbounded false-positive growth
+ * NOT_IDS exists to avoid, so ID_RE itself was deliberately left alone.
+ *
+ * Instead, `check()` below runs a second, narrower pass keyed on a
+ * different signal: the FIELD name. A line shaped `"somethingId": "value"`
+ * asserts by construction that `value` is an id — there is no
+ * snake_case-prose ambiguity to guard against, so its prefix can be
+ * checked directly regardless of body shape (embedded underscores,
+ * truncation, case, all at once). See task-6-report.md, fix round 2.
  */
 
 /** A prefixed id: lowercase prefix, underscore, then one of two body shapes:
@@ -69,6 +85,44 @@ const THIRD_PARTY_PREFIXES = new Set([
   'pm',   // Stripe PaymentMethod id (pm_1SxYz...)
 ]);
 
+/** A JSON-ish `"somethingId": "value"` line — the field name is captured so
+ *  NON_ID_FIELDS can be checked, the value so its prefix can be. Requires
+ *  quotes around both, so it never fires on unquoted prose like the round-1
+ *  fixture's `providerId: "prv_123"` (no quotes on the field name there). */
+const FIELD_ID_RE = /"([A-Za-z]*[Ii]d)"\s*:\s*"([^"]*)"/g;
+
+/** The leading prefix segment of a field's value, if it has one. Values with
+ *  no `_` at all (a bare UUID, a dash-joined slug) aren't in this rule's
+ *  scope — there's no prefix segment to hold an opinion about. */
+const VALUE_PREFIX_RE = /^([a-z]{2,8})_/;
+
+/**
+ * *Id fields whose value is a caller-supplied opaque string, not a
+ * MarketBox-minted id — so there is no prefix to validate against
+ * contract.idPrefixes. Excluded by field name (not by value, unlike
+ * NOT_IDS) because that's the precise thing that makes them not-an-id.
+ *
+ * Confirmed against mb-core source, not assumed:
+ *  - `feeId` — packages/types/src/service/service.zod.ts: "Stable
+ *    identifier for this fee, unique within the business model."
+ *  - `ruleId` / `priceRuleId` — packages/types/src/service/service.types.ts:
+ *    "Stable id, unique within the offering." The sibling `feeId` doc
+ *    comment there says explicitly: "Caller-supplied, like PriceRule.ruleId."
+ *    Neither has a `generate...Id`/typeid in packages/db/src/id.ts.
+ */
+const NON_ID_FIELDS = new Set(['feeId', 'ruleId', 'priceRuleId']);
+
+/** Placeholder values are not wrong prefixes — nothing to check. */
+function isPlaceholder(value) {
+  return (
+    value === '' ||
+    value === '...' ||
+    value === '…' ||
+    value.startsWith('<') ||
+    /^[A-Z0-9_]+$/.test(value) // e.g. "PROJECT_ID", "YOUR_API_KEY"
+  );
+}
+
 export default {
   name: 'id-prefixes',
   check(page, { contract }) {
@@ -76,16 +130,42 @@ export default {
     const findings = [];
 
     for (const { n, text } of page.lines) {
+      // Values ID_RE already flagged on this line — checkFieldAnchoredIds
+      // must not re-report them, since a field's value is also a substring
+      // ID_RE scans independently.
+      const reported = new Set();
+
       for (const [match, prefix] of text.matchAll(ID_RE)) {
         if (NOT_IDS.has(match)) continue;
         if (THIRD_PARTY_PREFIXES.has(prefix)) continue;
         if (known.has(prefix)) continue;
 
+        reported.add(match);
         findings.push({
           rule: 'id-prefixes',
           path: page.path,
           line: n,
           message: `\`${prefix}_\` is not a MarketBox id prefix (in \`${match}\`)`,
+        });
+      }
+
+      for (const [, field, value] of text.matchAll(FIELD_ID_RE)) {
+        if (NON_ID_FIELDS.has(field)) continue;
+        if (isPlaceholder(value)) continue;
+        if (reported.has(value)) continue;
+
+        const bodyMatch = VALUE_PREFIX_RE.exec(value);
+        if (!bodyMatch) continue;
+        const prefix = bodyMatch[1];
+        if (THIRD_PARTY_PREFIXES.has(prefix)) continue;
+        if (known.has(prefix)) continue;
+
+        reported.add(value);
+        findings.push({
+          rule: 'id-prefixes',
+          path: page.path,
+          line: n,
+          message: `\`${prefix}_\` is not a MarketBox id prefix (in \`"${field}": "${value}"\`)`,
         });
       }
     }
