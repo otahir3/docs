@@ -15,7 +15,7 @@ in the MarketBox dashboard. Each key has:
 - A **friendly name** — human-readable label.
 - A **project scope** — the projects this key can act on.
   - `["*"]` means "every project the owner can access".
-  - `["proj_acme", "proj_other"]` restricts the key to those projects.
+  - `["prj_01h2xcejqtfzcjxkvc4ay3pnh3"]` restricts the key to that project.
 
 Treat the key like a password. Anyone who has it can act on the projects in
 its scope. Rotate or revoke from the dashboard at any time.
@@ -46,18 +46,38 @@ console.log(await res.json());
 
 </CodeGroup>
 
-Then try a real call. List offerings for one of the projects in your scope:
+Then try a real call. List the services in one of the projects in your scope:
 
 <CodeGroup>
 
 ```bash curl
-curl "$MARKETBOX_API_URL/v1/projects/MARKETBOX_PROJECT_ID/offerings" \
+curl "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/services" \
   -H "x-api-key: $MARKETBOX_API_KEY"
 ```
 
 ```ts TypeScript
 const res = await fetch(
-  `${process.env.MARKETBOX_API_URL}/v1/projects/${projectId}/offerings`,
+  `${process.env.MARKETBOX_API_URL}/v1/projects/${projectId}/services`,
+  { headers: { 'x-api-key': process.env.MARKETBOX_API_KEY! } },
+);
+const { data, nextCursor } = await res.json();
+```
+
+</CodeGroup>
+
+Then list the offerings on one of those services — an offering is a
+bookable variant of a service, with its own duration and price:
+
+<CodeGroup>
+
+```bash curl
+curl "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/services/$SERVICE_ID/offerings" \
+  -H "x-api-key: $MARKETBOX_API_KEY"
+```
+
+```ts TypeScript
+const res = await fetch(
+  `${process.env.MARKETBOX_API_URL}/v1/projects/${projectId}/services/${serviceId}/offerings`,
   { headers: { 'x-api-key': process.env.MARKETBOX_API_KEY! } },
 );
 const { data, nextCursor } = await res.json();
@@ -71,10 +91,16 @@ The response is:
 {
   "data": [
     {
-      "offeringId": "off_...",
-      "serviceId": "svc_...",
-      "name": "60-minute consultation",
-      "price": { "amount": 12000, "currency": "USD" },
+      "offeringId": "off_01h2xcejqtfzcjxkvc4ay3pnh3",
+      "serviceId": "srv_01h2xcejqtfzcjxkvc4ay3pnh3",
+      "name": { "en": "60-minute private lesson" },
+      "pricing": [
+        {
+          "ruleId": "r_9f2c1b04",
+          "scope": "DEFAULT",
+          "price": { "amount": 12000, "currency": "USD" }
+        }
+      ],
       "duration": { "type": "FIXED", "minutes": 60 },
       "attributeValues": [],
       "status": "ACTIVE"
@@ -86,16 +112,17 @@ The response is:
 
 ## 3. Create a booking
 
-Once you have an `offeringId`, you can create a booking. The body carries
-explicit UTC timestamps plus an IANA timezone — MarketBox derives the local
-date and times for you (see [Timezones](/concepts/timezones)).
+Once you have a `serviceId` and `offeringId`, you can create a booking. The
+body carries explicit UTC timestamps plus an IANA timezone — MarketBox
+derives the local date and times for you (see
+[Timezones](/concepts/timezones)).
 
 ```bash
-curl -X POST "$MARKETBOX_API_URL/v1/projects/MARKETBOX_PROJECT_ID/bookings" \
+curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/bookings" \
   -H "x-api-key: $MARKETBOX_API_KEY" \
   -H "content-type: application/json" \
   -d '{
-    "providerId": "prv_123",
+    "providerId": "sup_01h2xcejqtfzcjxkvc4ay3pnh3",
     "clientId":   "cli_456",
     "bookingStartUtc": "2026-06-01T17:00:00.000Z",
     "bookingEndUtc":   "2026-06-01T18:00:00.000Z",
@@ -103,8 +130,8 @@ curl -X POST "$MARKETBOX_API_URL/v1/projects/MARKETBOX_PROJECT_ID/bookings" \
     "capacity": 1,
     "services": [
       {
-        "serviceId":  "svc_...",
-        "offeringId": "off_...",
+        "serviceId":  "srv_01h2xcejqtfzcjxkvc4ay3pnh3",
+        "offeringId": "off_01h2xcejqtfzcjxkvc4ay3pnh3",
         "businessModelType": "SERVICE",
         "quantity": 1
       }
@@ -116,6 +143,14 @@ curl -X POST "$MARKETBOX_API_URL/v1/projects/MARKETBOX_PROJECT_ID/bookings" \
 You get back the created booking under `data`, plus the unique `bookingId`
 you'll use for follow-on actions like rescheduling or changing status.
 
+<Note>
+This shape is illustrative, not copy-paste-complete: a real booking also
+requires `locationType` (`PHYSICAL`, `VIRTUAL`, or `TRAVEL_ZONE`) and each
+service line needs an `orderId`/`orderItemId` from an order you create
+first. See [Create a single booking](/guides/create-a-single-booking) for
+the complete, runnable flow.
+</Note>
+
 ## 4. Handle errors
 
 Every error response has the same envelope:
@@ -125,7 +160,7 @@ Every error response has the same envelope:
   "code": "NOT_FOUND",
   "message": "Booking not found",
   "statusCode": 404,
-  "requestId": "req_..."
+  "requestId": "3f7c1a9e-5b2d-4e8a-9f01-2c6d8b4a7e13"
 }
 ```
 

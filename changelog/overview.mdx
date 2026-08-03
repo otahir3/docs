@@ -20,7 +20,7 @@ Packages are now discoverable and plannable in one call each — and the weekly 
 
 **What this means for you**
 
-- If you were listing **business models** and rendering each row as a package, stop. `FLEXIBLE_PACKAGE` is a business model — a flag meaning "this service *can* be sold as packages" — not a sellable bundle, and it carries no `creditCount` and no `pricing`. The bundles are what the new package list returns.
+- If you were listing **business models** and rendering each row as a package, stop. `PACKAGE` is a business model — a flag meaning "this service *can* be sold as packages" — not a sellable bundle, and it carries no `creditCount` and no `pricing`. The bundles are what the new package list returns.
 - If you hardcoded a dense weekday `rrule` (e.g. `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR`) purely to squeeze a multi-session package under the 31-day cap, you can drop the workaround and send the cadence you actually sell.
 - Purely additive: no existing route, schema, or DTO changed shape. Every request valid before this release is still valid.
 

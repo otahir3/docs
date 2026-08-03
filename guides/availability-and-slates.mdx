@@ -17,9 +17,9 @@ haven't.
 
 ## The availability engine
 
-Four endpoints sit under `/v1/projects/{projectId}/availability`, all
-authenticated with `x-api-key`. They're layers of the same clustering engine,
-from lowest to highest level:
+Four endpoints make up the availability engine, all authenticated with the
+`x-api-key` header (see the table below for exact paths). They're layers of
+the same clustering engine, from lowest to highest level:
 
 | Endpoint | Use it when |
 | --- | --- |
@@ -149,7 +149,7 @@ pattern. Omitting `COUNT` (or giving `COUNT=0`) fails validation:
   "code": "VALIDATION_ERROR",
   "message": "rrule: 'rrule' must include a bounded COUNT (e.g. 'FREQ=WEEKLY;BYDAY=MO;COUNT=8')",
   "statusCode": 400,
-  "requestId": "req_2hY3..."
+  "requestId": "4b8e2f1a-7c9d-4a56-b3e0-8d5f1c9a4e67"
 }
 ```
 
@@ -174,7 +174,7 @@ offset and silently wrong results — the API rejects it outright instead:
   "code": "VALIDATION_ERROR",
   "message": "lookAheadStartDate: 'lookAheadStartDate' must carry a numeric timezone offset (e.g. '2026-07-01T00:00:00-04:00'), not a 'Z' suffix",
   "statusCode": 400,
-  "requestId": "req_2hY3..."
+  "requestId": "a6d3f9e8-2b5c-4d17-9e04-6a8c3f1b5d92"
 }
 ```
 
@@ -208,7 +208,7 @@ Because nothing is bookable, this comes back as a `422` in the standard
   "code": "NO_COMPLETE_SLATE",
   "message": "package cadence requires 134-day availability window for 20 sessions, which exceeds the 120-day maximum",
   "statusCode": 422,
-  "requestId": "req_2hY3..."
+  "requestId": "1f5b8d3a-4e9c-4a72-b6d1-3f0a8c5e2b46"
 }
 ```
 

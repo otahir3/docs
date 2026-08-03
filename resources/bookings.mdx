@@ -17,8 +17,8 @@ PENDING ─┬─► CONFIRMED ──► COMPLETED
 
 You move a booking through these states with
 `POST /v1/projects/{projectId}/bookings/{bookingId}/status`. Not every
-transition is allowed — see [Errors](/concepts/errors) for
-`INVALID_STATUS_TRANSITION`.
+transition is allowed — a disallowed one returns `400 BAD_REQUEST`. See
+[Errors](/concepts/errors).
 
 A booking is **soft-deleted** with
 `DELETE /v1/projects/{projectId}/bookings/{bookingId}`. Soft-deleted
@@ -103,7 +103,7 @@ Three list endpoints — all paginated, all returning `BookingDto`:
 | Endpoint                                                     | Scope                                    |
 | ------------------------------------------------------------ | ---------------------------------------- |
 | `GET /v1/projects/{projectId}/bookings`                      | All bookings in a project.               |
-| `GET /v1/projects/{projectId}/providers/{providerId}/bookings` | Bookings assigned to one provider.       |
+| `GET /v1/projects/{projectId}/suppliers/{supplierId}/bookings` | Bookings assigned to one provider.       |
 | `GET /v1/projects/{projectId}/clients/{clientId}/bookings`   | Bookings owned by one client.            |
 
 All three accept the same query params: `startDate`, `endDate`,
@@ -150,7 +150,7 @@ and a live playground for every endpoint:
 - `PATCH /v1/projects/{projectId}/bookings/{bookingId}`
 - `POST /v1/projects/{projectId}/bookings/{bookingId}/status`
 - `DELETE /v1/projects/{projectId}/bookings/{bookingId}`
-- `GET  /v1/projects/{projectId}/providers/{providerId}/bookings`
+- `GET  /v1/projects/{projectId}/suppliers/{supplierId}/bookings`
 - `GET  /v1/projects/{projectId}/clients/{clientId}/bookings`
 - `POST /v1/projects/{projectId}/bookings/{bookingId}/participants`
 - `GET  /v1/projects/{projectId}/bookings/{bookingId}/participants`

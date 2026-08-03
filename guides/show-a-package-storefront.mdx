@@ -16,8 +16,7 @@ assumes the [BFF pattern](/guides/booking-flow-auth#the-bff-pattern) and an
 API key already set up.
 
 <Note>
-Every request path in this guide is
-`{MARKETBOX_API_URL}/v1/projects/{MARKETBOX_PROJECT_ID}/...`, with the `x-api-key` header
+Every request in this guide is authenticated with the `x-api-key` header,
 attached server-side by your BFF — never in the browser.
 </Note>
 
@@ -138,7 +137,7 @@ yet).
 
 <Warning>
 **Don't list business models and render them as packages.** The
-`FLEXIBLE_PACKAGE` **business model** returned by
+`PACKAGE` **business model** returned by
 `GET /services/{serviceId}/business-models` is only a flag on the service
 meaning "this service *can* be sold as packages." It is **not** a sellable
 bundle, and it carries **no `creditCount` and no `pricing`** — those fields

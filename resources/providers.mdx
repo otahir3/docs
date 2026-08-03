@@ -59,7 +59,7 @@ shapes:
 | ---------------------------------------------- | ---------------- |
 | `locationRefs[]`                               | Locations table  |
 | `physicalLocationIdsInsideTravelZone[]`        | Locations table  |
-| `travelZoneRef` with `PROVIDER_TRAVEL_ZONE`    | TravelZones table |
+| `travelZoneRef` (tags the schedule's own travel zone) | TravelZones table |
 
 Locations are **deduped by `locationId`**. References that don't
 resolve (deleted location, missing travel zone) are skipped silently
@@ -81,7 +81,7 @@ A provider with no active schedules will have `locations: []`.
 ## Listing providers
 
 ```
-GET /v1/projects/{projectId}/providers
+GET /v1/projects/{projectId}/suppliers
 ```
 
 | Param     | Default     | Notes                                              |
@@ -105,11 +105,11 @@ their services, skills, and locations — in a single round trip.
 To list bookings assigned to one provider, use the bookings endpoint:
 
 ```
-GET /v1/projects/{projectId}/providers/{providerId}/bookings
+GET /v1/projects/{projectId}/suppliers/{supplierId}/bookings
 ```
 
 See [Bookings](/resources/bookings).
 
 ## Endpoint index
 
-- `GET /v1/projects/{projectId}/providers`
+- `GET /v1/projects/{projectId}/suppliers`

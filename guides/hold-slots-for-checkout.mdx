@@ -11,7 +11,7 @@ engine actually respects.
 
 A hold works on **any** supplier time: one session, a cherry-picked subset
 of a package slate, or a whole 8-session slate. Holding a single session
-needs no package, no slate, and no `FLEXIBLE_PACKAGE` business model —
+needs no package, no slate, and no `PACKAGE` business model —
 `POST /holds` with an explicit `intervals` array is all it takes. Convert
 is one endpoint for both shapes: it reads the order item you name and
 decides from its `skuType` whether it is booking one single session or N
@@ -24,8 +24,7 @@ charge, convert from the webhook. For the guard that makes any of this
 mean anything, see [Concurrency](/concepts/concurrency).
 
 <Note>
-Every request path in this guide is
-`{MARKETBOX_API_URL}/v1/projects/{MARKETBOX_PROJECT_ID}/...`, with the `x-api-key` header
+Every request in this guide is authenticated with the `x-api-key` header,
 attached server-side by your BFF — never in the browser. A hold names
 supplier time and hands back a `reservationId` that can book that time;
 it does not belong in a client bundle.

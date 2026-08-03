@@ -55,9 +55,10 @@ Stripe's hosted onboarding.
 Connecting is not enough on its own — Stripe must have **charges enabled** on the
 account. With Standard Connect the business completes Stripe's own onboarding
 (business profile, and identity details such as a tax ID) until Stripe activates
-charges. Until then, creating a PaymentIntent returns
-`409 PROJECT_NOT_CHARGE_READY`. The business owner completes this in their own
-Stripe dashboard; the platform cannot fill it in for them.
+charges. Until then, creating a PaymentIntent returns `409 CONFLICT` (the
+project has no Stripe account connected, or isn't yet cleared to take
+charges). The business owner completes this in their own Stripe dashboard;
+the platform cannot fill it in for them.
 </Warning>
 </Step>
 
@@ -387,7 +388,7 @@ The two fields to look at:
 ```json
 {
   "data": {
-    "clientId": "clt_dolphin_web",
+    "clientId": "cli_dolphin_web",
     "lastPaymentMethodId": "pm_1SxYz...",
     "lastPayment": {
       "type": "CARD",

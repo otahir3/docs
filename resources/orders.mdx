@@ -20,7 +20,7 @@ DRAFT ──► OPEN ──► PAID ──► COMPLETED
 
 Move an order through these states with
 `POST /v1/projects/{projectId}/orders/{orderId}/status`. Disallowed
-transitions return `400 INVALID_STATUS_TRANSITION`.
+transitions return `400 BAD_REQUEST`.
 
 `DELETE /v1/projects/{projectId}/orders/{orderId}` is a **soft-delete** —
 the order is hidden from lists but its data is retained.
@@ -52,7 +52,7 @@ enforces this at add-item time and at create-time:
   "code": "BAD_REQUEST",
   "message": "Item off_xxx currency EUR does not match order currency USD",
   "statusCode": 400,
-  "requestId": "req_..."
+  "requestId": "c8e4a1f6-3d9b-4c58-a207-9e5c1b7d4a68"
 }
 ```
 
@@ -82,7 +82,7 @@ or the `DEFAULT` rule; see [Regional pricing](/concepts/regional-pricing):
   "items": [
     {
       "skuType": "SINGLE_SESSION",
-      "serviceId":  "svc_...",
+      "serviceId":  "srv_...",
       "offeringId": "off_...",
       "quantity": 1
     }
