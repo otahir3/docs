@@ -1,0 +1,51 @@
+---
+title: Glossary
+description: MarketBox's vocabulary, and the words people search for instead.
+---
+
+The rest of this site uses one word per concept, consistently, because a
+reader — human or AI agent — needs to know whether two words mean the same
+thing or something different. But real people (and agents) search using
+whatever word they already know. This page is the landing spot for that:
+find the term you typed, and it points you at what MarketBox calls it and
+where that's documented.
+
+<Note>
+This page is exempt from the terminology check that runs on the rest of the
+site — it exists specifically to name the words the other pages avoid.
+</Note>
+
+| If you searched for... | MarketBox calls it | What it means | Documented at |
+| --- | --- | --- | --- |
+| provider | **supplier** | The person or resource delivering the service — a stylist, a doctor, a tutor, a meeting room. | [Suppliers](/resources/suppliers) |
+| staff, vendor | **supplier** | Same as above — MarketBox uses one word for every shape of "who fulfills the booking." | [Suppliers](/resources/suppliers) |
+| customer | **client** | The person the service is for. | [Onboard the client](/guides/booking-flow-auth#onboard-the-client) |
+| appointment | **booking** | One scheduled unit of service — a supplier, a client, a time window, and one or more service lines. | [Bookings](/resources/bookings) |
+| product | **service** | The sellable thing suppliers offer, catalogued per project. | [The booking engine model](/concepts/booking-engine-model) |
+| bundle, credit pack | **package** | A prepaid set of sessions, drawn down one booking at a time via an order item's `quantityRemaining`. | [Single vs package](/concepts/booking-engine-model#single-vs-package) |
+| lock, block | **hold** | A temporary claim on a supplier's time — reserved during checkout, then converted into real bookings or released. | [Hold slots during checkout](/guides/hold-slots-for-checkout) |
+| account, workspace, org | **project** | The tenant. Every resource, and every API key's scope, is bounded by one. | [Projects and scope](/concepts/projects-and-scope) |
+
+## Two words that need more than a row
+
+**Session** is not always wrong. When a package funds N individual visits,
+each one *is* correctly called a session — "session" is the right word for
+the individual bookings a package pays for. It's "session" as a synonym for
+a standalone appointment that's wrong; say **booking** for that. See
+[Single vs package](/concepts/booking-engine-model#single-vs-package).
+
+**End user** has a specific, narrower meaning: it's the human on the other
+end of a Cognito JWT in the end-user auth plane, not a general synonym for
+"client." Use it only when you're specifically discussing that auth flow.
+See [End-user authentication](/concepts/end-user-authentication).
+
+## Why this page exists
+
+Roughly half of this site's readers are AI agents, not people, and both
+kinds of reader arrive typing the word they already know — usually the
+generic SaaS word ("customer," "provider," "product") rather than
+MarketBox's specific one. Every other page in this site says exactly one
+of those words, on purpose: a reader who can't tell whether "provider" and
+"supplier" mean the same thing has no way to trust either one. This page
+is where the synonym you searched turns into the term you'll see
+everywhere else — so you land somewhere useful instead of nowhere.

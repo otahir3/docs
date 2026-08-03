@@ -4,7 +4,7 @@ description: Create, manage, and operate on bookings — the core scheduling pri
 ---
 
 A **booking** is the central scheduling primitive in MarketBox. It pins
-a `provider` and a `client` to a window of time, against one or more
+a `supplier` and a `client` to a window of time, against one or more
 service offerings, with optional notes and participants.
 
 ## The booking lifecycle
@@ -58,7 +58,7 @@ one round trip instead of four.
 `POST /v1/projects/{projectId}/bookings` creates a booking and its
 services in one transaction. The body carries:
 
-- **`providerId`** and **`clientId`** — who serves and who is served.
+- **`supplierId`** and **`clientId`** — who serves and who is served.
 - **`bookingStartUtc`**, **`bookingEndUtc`**, **`bookingTz`** — when.
   Local-time fields are derived. See [Timezones](/concepts/timezones).
 - **`capacity`** — how many participants this booking can hold (1 for
@@ -88,7 +88,7 @@ The server validates:
 core fields. The body may include any subset of:
 
 - `bookingStartUtc`, `bookingEndUtc`, `bookingTz`
-- `providerId`, `clientId`
+- `supplierId`, `clientId`
 - `capacity`
 
 You cannot send the four `bookingLocal*` fields — they're server-derived.
@@ -103,7 +103,7 @@ Three list endpoints — all paginated, all returning `BookingDto`:
 | Endpoint                                                     | Scope                                    |
 | ------------------------------------------------------------ | ---------------------------------------- |
 | `GET /v1/projects/{projectId}/bookings`                      | All bookings in a project.               |
-| `GET /v1/projects/{projectId}/suppliers/{supplierId}/bookings` | Bookings assigned to one provider.       |
+| `GET /v1/projects/{projectId}/suppliers/{supplierId}/bookings` | Bookings assigned to one supplier.       |
 | `GET /v1/projects/{projectId}/clients/{clientId}/bookings`   | Bookings owned by one client.            |
 
 All three accept the same query params: `startDate`, `endDate`,

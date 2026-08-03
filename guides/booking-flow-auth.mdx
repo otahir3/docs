@@ -215,8 +215,8 @@ authenticated sign-in. It is **idempotent**: `201` the first time, `200` on ever
 later call, so it's safe to call on every callback.
 
 On the first call it provisions the signed-in user as a **client** of the
-project — a project membership and a client profile, plus a payment-provider
-customer when the project has payments configured.
+project — a project membership and a client profile, plus a Stripe Connect
+`stripeCustomerId` on that profile when the project has payments configured.
 
 Call it immediately after the code exchange succeeds, before redirecting into
 your app:

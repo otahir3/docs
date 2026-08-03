@@ -67,7 +67,7 @@ has no location fields, and `PHYSICAL` resolves everything from the stored
 Omitting `address` on any of the three cases above fails validation with a
 `400` before the request does anything — there's no fallback that derives an
 address from `lat`/`lng` for you. Reverse-geocoding is your integration's
-responsibility (e.g. via a maps provider), not MarketBox's.
+responsibility (e.g. via a geocoding API), not MarketBox's.
 </Warning>
 
 ## How it threads through slates

@@ -35,7 +35,7 @@ The same shapes show up everywhere:
 - **Errors** are returned with a shared envelope. See
   [Errors](/concepts/errors).
 - **Times** are ISO 8601 strings in UTC, paired with an IANA timezone
-  identifier on resources that have a customer-facing local time.
+  identifier on resources that have a client-facing local time.
   See [Timezones](/concepts/timezones).
 - **Money** is `{ amount: integer, currency: 3-letter ISO }` — amounts
   are integers in the currency's **minor unit** (cents, pence, etc.).
@@ -59,8 +59,8 @@ Endpoints are grouped by tag in the sidebar:
     Claim a supplier's time during checkout — a single session or a whole
     package slate — then convert the hold into bookings.
   </Card>
-  <Card title="Providers" icon="user-tie" href="/resources/providers">
-    Read-only list of providers in a project, enriched with services and skills.
+  <Card title="Suppliers" icon="user-tie" href="/resources/suppliers">
+    Read-only list of suppliers in a project, enriched with services and skills.
   </Card>
 </CardGroup>
 

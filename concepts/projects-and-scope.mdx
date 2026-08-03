@@ -4,7 +4,7 @@ description: How the API is organized around projects, and how scope shapes what
 ---
 
 Every resource in the MarketBox API lives inside a **project**. Bookings,
-orders, offerings, and providers all carry a `projectId` and are listed,
+orders, offerings, and suppliers all carry a `projectId` and are listed,
 created, and modified through paths scoped to it — for example:
 
 ```
@@ -22,7 +22,7 @@ Even read-only endpoints take a `{projectId}`. This is intentional:
   `{projectId}` in the URL on every request, with no global fallback.
 - **Cardinality** — listing across all projects would scan unbounded
   amounts of data. Project-scoped listing keeps every query bounded.
-- **Multi-tenancy** — most MarketBox customers run multiple projects
+- **Multi-tenancy** — most businesses on MarketBox run multiple projects
   (per brand, per region, per environment). Forcing the `{projectId}`
   into the path keeps that explicit at every call site.
 

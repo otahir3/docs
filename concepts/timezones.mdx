@@ -1,6 +1,6 @@
 ---
 title: Timezones
-description: How MarketBox represents booking times in UTC and a customer-facing local timezone.
+description: How MarketBox represents booking times in UTC and a client-facing local timezone.
 ---
 
 Booking times in MarketBox are stored as **explicit UTC instants** plus
@@ -28,14 +28,14 @@ And four derived local fields that the server **computes for you**:
 
 ## Why both?
 
-UTC is the only sane storage format — but a customer thinks in
+UTC is the only sane storage format — but a client thinks in
 "Tuesday at 1pm in New York." Storing both:
 
 - Keeps the math correct across DST transitions, region changes, and
   multi-day bookings.
 - Lets list endpoints filter by UTC windows without expanding every row.
 - Lets the dashboard and your UI display the booking exactly as the
-  customer scheduled it, without re-deriving the timezone on every
+  client scheduled it, without re-deriving the timezone on every
   read.
 
 ## Server derives, you do not

@@ -51,7 +51,7 @@ don't gate booking on Stripe. Layer payment on afterward with
 
 <Note>
 **`POST /bookings` books immediately — there's no reservation window.** To
-reserve this supplier's time while the customer pays, hold it first:
+reserve this supplier's time while the client pays, hold it first:
 `POST /holds { intervals: [...] }`, then convert the hold into this same
 booking on payment success. A single session can be held on its own — no
 package, no slate. Each held interval takes the **same location fields as

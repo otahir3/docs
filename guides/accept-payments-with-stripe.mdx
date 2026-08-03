@@ -1,10 +1,10 @@
 ---
 title: Accept payments with Stripe
-description: Charge customers for orders in your booking flow using Stripe, from connecting a business's Stripe account to confirming a card with the Payment Element and finalizing the order.
+description: Charge clients for orders in your booking flow using Stripe, from connecting a business's Stripe account to confirming a card with the Payment Element and finalizing the order.
 ---
 
 This guide walks you through taking real payments in a custom booking flow. A
-customer books, you charge their card with Stripe, and the order is marked
+client books, you charge their card with Stripe, and the order is marked
 **paid** — all without card details ever touching your server.
 
 It builds on [Build a booking flow](/guides/booking-flow-auth): you already have
@@ -16,7 +16,7 @@ pattern, and can create orders. Here you add the payment step.
 MarketBox charges cards through **Stripe Connect** using **direct charges**: the
 charge is created on the **business's own connected Stripe account**, and the
 business is the merchant of record. Card data goes **straight from the
-customer's browser to Stripe** using Stripe's Payment Element, so your servers
+client's browser to Stripe** using Stripe's Payment Element, so your servers
 never see or store it (this keeps you at the lightest PCI compliance level,
 SAQ-A).
 
@@ -360,7 +360,7 @@ you can see both the money in and the credits drawn down.
 
 Once a card payment settles, MarketBox records a small snapshot of the card on
 the client's profile. It's there for one purpose: so you can show a returning
-customer something like *"You last paid with Visa ending 4242"* without building
+client something like *"You last paid with Visa ending 4242"* without building
 your own card store.
 
 Read it from the client profile. Onboarding is idempotent, so calling it again
@@ -417,7 +417,7 @@ Always guard before rendering.
 <Warning>
 **This is for display, not for deciding what to charge.** `lastPayment` is a
 derived, best-effort snapshot, and Stripe remains the source of truth for what
-cards a customer actually has. It is written from Stripe's `charge.succeeded`
+cards a client actually has. It is written from Stripe's `charge.succeeded`
 webhook, so it can lag a payment by a second or two, and in rare cases (a
 webhook that never lands and is recovered by reconciliation instead) it may not
 update at all until the client's next payment. Don't gate a checkout on it,
@@ -428,7 +428,7 @@ or chargeable.
 <Note>
 There is no public endpoint to charge a saved card. Every payment in a custom
 booking flow goes through the Payment Element (Steps 2–3) — which is what keeps
-you at SAQ-A. `lastPayment` tells you what the customer *used* last; it does not
+you at SAQ-A. `lastPayment` tells you what the client *used* last; it does not
 let you re-use it.
 </Note>
 

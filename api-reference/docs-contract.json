@@ -96,22 +96,22 @@
     {
       "banned": "provider",
       "use": "supplier",
-      "allowedIn": []
+      "allowedIn": ["AGENTS.md", "glossary.mdx"]
     },
     {
       "banned": "customer",
       "use": "client",
-      "allowedIn": []
+      "allowedIn": ["AGENTS.md", "glossary.mdx"]
     },
     {
       "banned": "vendor",
       "use": "supplier",
-      "allowedIn": []
+      "allowedIn": ["AGENTS.md", "glossary.mdx"]
     },
     {
       "banned": "appointment",
       "use": "booking",
-      "allowedIn": []
+      "allowedIn": ["AGENTS.md", "glossary.mdx"]
     }
   ]
 }

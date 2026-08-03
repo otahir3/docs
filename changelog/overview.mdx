@@ -11,7 +11,7 @@ Packages are now discoverable and plannable in one call each — and the weekly 
 
 **New**
 
-- **`GET /v1/projects/{projectId}/services/{serviceId}/packages`** — every package on a service, **across all of its offerings**. This is the call a storefront makes *before* the customer picks an option, when it holds a `serviceId` and no `offeringId` — previously there was no endpoint that could answer it. Pass `?status=ACTIVE` for just the purchasable bundles. Each package carries its `offeringId`, so you can join it against the offerings list you already hold. A real service that sells no packages is a `200` with `data: []`; an **unknown** `serviceId` is a `404`, so a typo can never masquerade as "no packages".
+- **`GET /v1/projects/{projectId}/services/{serviceId}/packages`** — every package on a service, **across all of its offerings**. This is the call a storefront makes *before* the client picks an option, when it holds a `serviceId` and no `offeringId` — previously there was no endpoint that could answer it. Pass `?status=ACTIVE` for just the purchasable bundles. Each package carries its `offeringId`, so you can join it against the offerings list you already hold. A real service that sells no packages is a `200` with `data: []`; an **unknown** `serviceId` is a `404`, so a typo can never masquerade as "no packages".
 - **`POST /v1/projects/{projectId}/availability/package-options`** — every ACTIVE package of a service, each planned against a supplier's real availability and carrying a ready-to-book `slateId`. Send a `serviceId` and a location (`locationId`, or `lat` + `lng` + `address`); `supplierId`, `timezone`, and `rrule` are optional. Cadence defaults to `FREQ=WEEKLY;COUNT={creditCount}`, derived **per package** from its own credit count. It replaces the client-side fan-out of one `package-slate` call per package, and it's cheaper than that loop — supplier bundles are read once per offering, not once per package.
 
 **Changed**
@@ -32,7 +32,7 @@ Walkthroughs: [Create a package booking with a slate](/guides/create-a-package-b
 
 ## Holds, the double-booking guard — and a breaking change to `POST /holds`
 
-Supplier time is now exclusive at the write layer, and you can **hold** it while a customer pays. A hold works on any supplier time — a single session (no package, no slate), a cherry-picked subset of a package slate, or a whole slate — and `POST /holds/{reservationId}/convert` turns it into confirmed bookings. Alongside it, every write that claims supplier time now passes through an occupancy guard, so two bookings can never overlap on the same supplier.
+Supplier time is now exclusive at the write layer, and you can **hold** it while a client pays. A hold works on any supplier time — a single session (no package, no slate), a cherry-picked subset of a package slate, or a whole slate — and `POST /holds/{reservationId}/convert` turns it into confirmed bookings. Alongside it, every write that claims supplier time now passes through an occupancy guard, so two bookings can never overlap on the same supplier.
 
 **Breaking**
 
@@ -85,7 +85,7 @@ An interval without `bookingTz` or `locationType` is now a `400 VALIDATION_ERROR
 
 **Why**
 
-Convert rebuilds the booking from the **reservation alone** — never by re-reading a slate that may have expired while the customer was paying. A hold that carried only a `locationId` could not say whether that id was a `Location` (`loc_…`) or a supplier travel zone (`stz_…`), so converting a mobile / in-home hold failed with `404 Location stz_… not found`, and a `TRAVEL_ZONE` booking's mandatory coordinates and address were never held at all. Travel-zone checkouts now work end to end.
+Convert rebuilds the booking from the **reservation alone** — never by re-reading a slate that may have expired while the client was paying. A hold that carried only a `locationId` could not say whether that id was a `Location` (`loc_…`) or a supplier travel zone (`stz_…`), so converting a mobile / in-home hold failed with `404 Location stz_… not found`, and a `TRAVEL_ZONE` booking's mandatory coordinates and address were never held at all. Travel-zone checkouts now work end to end.
 
 **New**
 
