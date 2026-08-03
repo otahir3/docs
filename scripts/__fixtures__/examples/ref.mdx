@@ -1,0 +1,41 @@
+---
+title: $ref examples
+---
+
+## Top-level $ref
+
+```bash
+curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/clients/me/addresses" \
+  -H "x-api-key: $MARKETBOX_API_KEY" \
+  -d '{
+    "addressOneLine": "100 Queen St W",
+    "streetNumber": "100",
+    "streetName": "Queen St W",
+    "city": "Toronto",
+    "country": "CA",
+    "zip": "M5H 2N2"
+  }'
+```
+
+## $ref nested inside an array item
+
+```bash
+curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/orders/$ORDER_ID/package-bookings" \
+  -H "x-api-key: $MARKETBOX_API_KEY" \
+  -d '{
+    "orderItemId": "oi_1",
+    "sessions": [
+      {
+        "supplierId": "sup_1",
+        "address": {
+          "addressOneLine": "100 Queen St W",
+          "streetNumber": "100",
+          "streetName": "Queen St W",
+          "city": "Toronto",
+          "state": "ON",
+          "zipCode": "M5H 2N2"
+        }
+      }
+    ]
+  }'
+```

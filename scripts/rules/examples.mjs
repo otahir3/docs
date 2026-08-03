@@ -38,14 +38,35 @@
  *     literal trailing path segments (including `{param}` placeholders,
  *     since the docs and the spec name path params identically) — an
  *     ambiguous or unmatched suffix is skipped, never guessed.
+ *  4. A `` ```json `` block whose immediately preceding prose paragraph
+ *     states an explicit `METHOD /path` in plain text (e.g. "created
+ *     directly with `POST /bookings` — the `address` sits alongside..."),
+ *     and that paragraph doesn't read like a description of a response
+ *     (no "response", "returns"/"returned", "envelope", "get(s) back",
+ *     "come(s) back"). "Immediately preceding paragraph" means the last
+ *     contiguous run of non-blank lines before the fence — the standard
+ *     single blank line most prose-then-fence pairs in this corpus have
+ *     between them (e.g. "...the request body:\n\n```json") does not
+ *     count as ending the paragraph, only a *second* blank line (or a
+ *     genuinely new paragraph starting after the first one) does. Like
+ *     signal 3, the path may be a relative suffix (`/bookings`) and is
+ *     resolved the same way, by unique trailing-segment match. This
+ *     signal is deliberately narrow — no heading-tracking, no inference
+ *     from a section title alone — because the false-positive risk of
+ *     guessing intent from prose is exactly what signal 3's "response"
+ *     exclusion exists to avoid, and two known-genuine request bodies in
+ *     this corpus (`booking-addresses.mdx`'s package-slate example,
+ *     `resources/availability.mdx`'s recurring-search example) have *no*
+ *     literal method+path in their preceding paragraph at all — they stay
+ *     unresolved rather than guessed at. See task-11b-report.md, "Fix
+ *     round 1", for the full accounting.
  *
  * Every other fenced block — including bare JSON bodies that are genuinely
- * requests but have no literal method+path anywhere nearby, e.g. the
- * `intervals` hold body under "Hold the travel-zone session" in
- * hold-slots-for-checkout.mdx — is silently skipped. That is deliberate:
- * see the brief's own instruction and the coverage numbers in
- * task-11b-report.md for how much of the corpus this leaves unchecked and
- * why that's an honest number rather than a shortfall to paper over.
+ * requests but have no literal method+path anywhere nearby — is silently
+ * skipped. That is deliberate: see the brief's own instruction and the
+ * coverage numbers in task-11b-report.md for how much of the corpus this
+ * leaves unchecked and why that's an honest number rather than a shortfall
+ * to paper over.
  *
  * ## Partial examples
  *
@@ -88,30 +109,63 @@ const FETCH_URL_RE = /`[^`]*\/v1\/[^`]*`/;
 const STRINGIFY_TOKEN = 'JSON.stringify(';
 const COMMENT_HEADER_RE = /^\s*\/\/\s*(POST|PUT|PATCH)\s+(\S+)/;
 const PARTIAL_RE = /\.\.\.|…/;
+// Method + path stated in plain prose, e.g. "created directly with `POST
+// /bookings` —" or "`POST /v1/projects/{projectId}/orders`. Optionally...".
+// Stops at whitespace/backtick/quote/paren so trailing prose punctuation
+// never becomes part of the path.
+const PROSE_METHOD_PATH_RE = /\b(POST|PUT|PATCH)\s+(\/[^\s`'")]+)/;
+const RESPONSE_INDICATOR_RE =
+  /\b(response|returns?|returned|envelope)\b|\b(?:get|gets|got)\s+back\b|\bcomes?\s+back\b/i;
 
 // ---------------------------------------------------------------------------
 // Fence extraction
 // ---------------------------------------------------------------------------
 
 /** Splits a page's lines into fenced code blocks: language tag, the line the
- *  opening fence is on, and the raw content lines (original line numbers are
+ *  opening fence is on, the raw content lines (original line numbers are
  *  reconstructed as contentStartLine + index while walking, not stored per
- *  line — every block is contiguous). */
+ *  line — every block is contiguous), and `precedingText` — the last
+ *  contiguous run of non-blank lines before the fence, joined with spaces.
+ *
+ *  "Contiguous" tolerates exactly the ordinary single blank line most
+ *  prose-then-fence pairs in this corpus have between them ("...the request
+ *  body:\n\n```json"): a blank line marks that the *current* paragraph has
+ *  ended, but `paragraph` isn't cleared until a *new* non-blank line starts
+ *  a fresh one — so it still holds the right paragraph's text when the
+ *  fence opens right after the blank line, rather than losing it to the gap.
+ *  A second consecutive blank line (a real paragraph break with nothing in
+ *  between) does correctly leave `paragraph` pointing at whatever came
+ *  before it, same as a heading or another block's trailing line would. */
 function extractFences(page) {
   const fences = [];
   let open = null;
+  let paragraph = [];
+  let betweenParagraphs = true;
   for (const { n, text } of page.lines) {
     const m = /^\s*```(\S*)/.exec(text);
     if (m) {
       if (!open) {
-        open = { lang: m[1] || '', startLine: n, lines: [] };
+        open = { lang: m[1] || '', startLine: n, lines: [], precedingText: paragraph.join(' ') };
       } else {
         fences.push(open);
         open = null;
       }
+      paragraph = [];
+      betweenParagraphs = true;
       continue;
     }
-    if (open) open.lines.push(text);
+    if (open) {
+      open.lines.push(text);
+      continue;
+    }
+    if (text.trim() === '') {
+      betweenParagraphs = true;
+    } else if (betweenParagraphs) {
+      paragraph = [text.trim()];
+      betweenParagraphs = false;
+    } else {
+      paragraph.push(text.trim());
+    }
   }
   return fences;
 }
@@ -481,6 +535,34 @@ function resolveBlock(fence, opIndex, spec, idPrefixes) {
             partial: PARTIAL_RE.test(bodyText),
           }
         : null;
+    }
+  }
+
+  // Signal 4: the prose paragraph immediately before a ```json block states
+  // an explicit "METHOD /path" and doesn't read like a response description.
+  if (
+    fence.lang === 'json' &&
+    fence.precedingText &&
+    !RESPONSE_INDICATOR_RE.test(fence.precedingText)
+  ) {
+    const proseMatch = PROSE_METHOD_PATH_RE.exec(fence.precedingText);
+    if (proseMatch) {
+      const method = proseMatch[1];
+      const rawPath = proseMatch[2];
+      const op = rawPath.startsWith('/v1/')
+        ? lookupByPath(opIndex, method, rawPath, idPrefixes)
+        : lookupBySuffix(spec, method, rawPath);
+      if (op) {
+        let root;
+        try {
+          ({ node: root } = parseValue(text, skipTrivia(text, 0)));
+        } catch {
+          return null;
+        }
+        return root.type === 'object'
+          ? { op, root, text, contentStartLine, partial: PARTIAL_RE.test(text) }
+          : null;
+      }
     }
   }
 

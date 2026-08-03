@@ -294,3 +294,107 @@ test('examples rule catches the original pre-fix quickstart booking defect', asy
   );
   assert.equal(byFile.length, 5, JSON.stringify(byFile, null, 2));
 });
+
+// Fix round 1 (task-11b-report.md): $ref resolution existed in the code
+// (resolveSchema follows schema.$ref against spec.components) but nothing
+// exercised it — not the tests, not a single block in the real corpus. An
+// unexercised branch in a validator is a liability: it will silently
+// degrade to passing everything the day a real $ref-based schema is
+// documented and nobody would notice. This spec mirrors the real
+// openapi.json's two $ref shapes: a requestBody schema that IS a $ref
+// (POST .../clients/me/addresses -> #/components/schemas/Address), and a
+// $ref nested inside an array item's property (sessions[].address on
+// POST .../package-bookings).
+const REF_SPEC = {
+  paths: {
+    '/v1/projects/{projectId}/clients/me/addresses': {
+      post: {
+        requestBody: {
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/Address' } },
+          },
+        },
+      },
+    },
+    '/v1/projects/{projectId}/orders/{orderId}/package-bookings': {
+      post: {
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  orderItemId: { type: 'string' },
+                  sessions: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        supplierId: { type: 'string' },
+                        address: { $ref: '#/components/schemas/Address' },
+                      },
+                      required: ['supplierId'],
+                    },
+                  },
+                },
+                required: ['orderItemId'],
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  components: {
+    schemas: {
+      Address: {
+        type: 'object',
+        properties: {
+          addressOneLine: { type: 'string' },
+          streetNumber: { type: 'string' },
+          streetName: { type: 'string' },
+          city: { type: 'string' },
+          state: { type: 'string' },
+          country: { type: 'string' },
+          zipCode: { type: 'string' },
+          unitNumber: { type: 'string' },
+        },
+        required: [
+          'addressOneLine',
+          'streetNumber',
+          'streetName',
+          'city',
+          'state',
+          'country',
+          'zipCode',
+        ],
+      },
+    },
+  },
+};
+
+test('examples rule resolves $ref, including one nested inside an array item', async () => {
+  const findings = await runRules(
+    join(import.meta.dirname, '__fixtures__', 'examples'),
+    CONTRACT,
+    REF_SPEC,
+    [examples],
+  );
+
+  const byFile = findings.filter((f) => f.path === 'ref.mdx');
+  assert.equal(byFile.length, 4, JSON.stringify(byFile, null, 2));
+
+  // Top-level $ref (the whole requestBody schema is `{ $ref: ... }`):
+  // "zip" is unknown (the real field is zipCode), and both "state" and
+  // "zipCode" are missing.
+  assert.ok(byFile.some((f) => /`zip`/.test(f.message) && /is not a property of/.test(f.message)));
+  assert.ok(byFile.some((f) => /requires `state`/.test(f.message)));
+  assert.ok(byFile.some((f) => /requires `zipCode`/.test(f.message)));
+
+  // $ref nested inside sessions[0].address: missing `country`, and the
+  // label must show the full nested path, proving the $ref was resolved
+  // *at that nesting depth*, not just at the schema root.
+  const nested = byFile.find((f) => /requires `country`/.test(f.message));
+  assert.ok(nested);
+  assert.match(nested.message, /body\.sessions\[0\]\.address/);
+});
