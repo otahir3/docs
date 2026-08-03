@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import { walkDocs } from './lib/mdx.mjs';
 import { runRules } from './check-docs.mjs';
 import hosts from './rules/hosts.mjs';
+import idPrefixes from './rules/id-prefixes.mjs';
 
 test('walkDocs strips frontmatter and keeps original line numbers', async () => {
   const pages = [];
@@ -40,4 +41,17 @@ test('hosts rule flags every non-allowlisted host', async () => {
   assert.equal(findings.length, 2);
   assert.deepEqual(findings.map((f) => f.line), [5, 7]);
   assert.match(findings[0].message, /api\.marketbox\.io/);
+});
+
+test('id-prefixes rule flags unknown prefixes only', async () => {
+  const findings = await runRules(
+    join(import.meta.dirname, '__fixtures__', 'id-prefixes'),
+    CONTRACT,
+    { paths: {} },
+    [idPrefixes],
+  );
+
+  const flagged = findings.map((f) => f.message.match(/`([a-z]+)_`/)[1]).sort();
+  assert.deepEqual(flagged, ['prv', 'proj', 'svc'].sort());
+  assert.deepEqual(findings.map((f) => f.line).sort((a, b) => a - b), [5, 7, 7]);
 });
