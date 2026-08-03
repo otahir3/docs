@@ -54,7 +54,7 @@ async function* listAllBookings(projectId: string) {
 ```bash bash
 cursor=""
 while :; do
-  resp=$(curl -s "$MARKETBOX_API_URL/v1/projects/$PROJECT_ID/bookings?limit=200${cursor:+&cursor=$cursor}" \
+  resp=$(curl -s "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/bookings?limit=200${cursor:+&cursor=$cursor}" \
     -H "x-api-key: $MARKETBOX_API_KEY")
   echo "$resp" | jq '.data[]'
   cursor=$(echo "$resp" | jq -r '.nextCursor // empty')

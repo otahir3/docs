@@ -179,9 +179,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'Missing bearer token' }, { status: 401 });
   }
 
-  const projectId = process.env.PROJECT_ID!;
+  const projectId = process.env.MARKETBOX_PROJECT_ID!;
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${projectId}/clients/me/credits`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${projectId}/clients/me/credits`,
     {
       headers: {
         'x-api-key': process.env.MARKETBOX_API_KEY!, // server-only — never in browser
@@ -267,7 +267,7 @@ They are per-environment, not per-application.
 | `tokenUrl` | `NEXT_PUBLIC_OIDC_TOKEN_URL` | Yes |
 | `logoutUrl` | `NEXT_PUBLIC_OIDC_LOGOUT_URL` | Yes |
 | `scopes` | `NEXT_PUBLIC_OAUTH_SCOPES` | Yes |
-| `apiBaseUrl` | `API_BASE_URL` | **No** (BFF-only) |
+| `apiBaseUrl` | `MARKETBOX_API_URL` | **No** (BFF-only) |
 | `clientId` (per-app) | `NEXT_PUBLIC_OIDC_CLIENT_ID` | Yes |
 
 ### Endpoints used in this guide
@@ -289,7 +289,7 @@ They are per-environment, not per-application.
 ### Security checklist
 
 <Check>`MARKETBOX_API_KEY` is in a server-only env var — no `NEXT_PUBLIC_` prefix.</Check>
-<Check>`API_BASE_URL` (for BFF use) is server-only — the browser never sees it.</Check>
+<Check>`MARKETBOX_API_URL` (for BFF use) is server-only — the browser never sees it.</Check>
 <Check>Callback and logout URLs are allow-listed in the Application settings.</Check>
 <Check>The BFF validates that the incoming `Authorization` header starts with `Bearer ` before forwarding it.</Check>
 <Check>The one-time API key was copied at creation time and stored in a secrets manager — never committed to source control.</Check>

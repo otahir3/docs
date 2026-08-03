@@ -97,8 +97,8 @@ NEXT_PUBLIC_STRIPE_ACCOUNT_ID=acct_...              # the business's connected a
 
 # Server-only (unchanged from the booking-flow guide)
 MARKETBOX_API_KEY=...
-API_BASE_URL=...
-PROJECT_ID=prj_...
+MARKETBOX_API_URL=...
+MARKETBOX_PROJECT_ID=prj_...
 ```
 
 Initialize Stripe.js once, binding the platform key to the connected account:
@@ -148,7 +148,7 @@ export async function POST(request: Request) {
   const { orderId } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/orders/${orderId}/payment-intent`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/orders/${orderId}/payment-intent`,
     {
       method: 'POST',
       headers: {
@@ -294,7 +294,7 @@ export async function GET(
 ) {
   const { orderId } = await ctx.params;
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/orders/${orderId}`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/orders/${orderId}`,
     { headers: { 'x-api-key': process.env.MARKETBOX_API_KEY! } },
   );
   const body = await res.json().catch(() => ({}));
@@ -369,7 +369,7 @@ for an already-onboarded client simply returns their current profile with a
 ```ts
 // Requires BOTH an API key and the signed-in client's JWT.
 const res = await fetch(
-  `${API_BASE_URL}/v1/projects/${PROJECT_ID}/clients/me`,
+  `${MARKETBOX_API_URL}/v1/projects/${MARKETBOX_PROJECT_ID}/clients/me`,
   {
     method: 'POST',
     headers: {
@@ -449,7 +449,7 @@ let you re-use it.
 | MarketBox platform publishable key | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes (public) |
 | Business's connected account id | `NEXT_PUBLIC_STRIPE_ACCOUNT_ID` | Yes (public) |
 | API key | `MARKETBOX_API_KEY` | **No** (server-only) |
-| API base URL | `API_BASE_URL` | **No** (BFF-only) |
+| API base URL | `MARKETBOX_API_URL` | **No** (BFF-only) |
 
 ### Errors and edge cases
 

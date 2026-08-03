@@ -256,7 +256,7 @@ function transcribeSlot(slot: PackageSlot) {
 
 const sessions = primarySlate.slots.map(transcribeSlot);
 
-await fetch(`${API_BASE_URL}/v1/projects/${PROJECT_ID}/orders/${orderId}/package-bookings`, {
+await fetch(`${MARKETBOX_API_URL}/v1/projects/${MARKETBOX_PROJECT_ID}/orders/${orderId}/package-bookings`, {
   method: 'POST',
   headers: { 'x-api-key': MARKETBOX_API_KEY, 'content-type': 'application/json' },
   body: JSON.stringify({
@@ -338,8 +338,8 @@ convert. See [Concurrency](/concepts/concurrency).
 | Value | Env var | Browser? |
 | --- | --- | --- |
 | API key | `MARKETBOX_API_KEY` | **No** (server-only) |
-| API base URL | `API_BASE_URL` | **No** (BFF-only) |
-| Project id | `PROJECT_ID` | **No** (BFF-only) |
+| API base URL | `MARKETBOX_API_URL` | **No** (BFF-only) |
+| Project id | `MARKETBOX_PROJECT_ID` | **No** (BFF-only) |
 
 ### Errors and edge cases
 

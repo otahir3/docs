@@ -153,7 +153,7 @@ export async function POST(request: Request) {
   const { cursor } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/availability/suppliers`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/availability/suppliers`,
     {
       method: 'POST',
       headers: {
@@ -260,7 +260,7 @@ the slot gives you everything the booking's timing needs:
 
 ```ts
 // supplierId from the card; slot from the day column; timezone from the page.
-await fetch(`${API_BASE_URL}/v1/projects/${PROJECT_ID}/bookings`, {
+await fetch(`${MARKETBOX_API_URL}/v1/projects/${MARKETBOX_PROJECT_ID}/bookings`, {
   method: 'POST',
   headers: { 'x-api-key': MARKETBOX_API_KEY, 'content-type': 'application/json' },
   body: JSON.stringify({
@@ -354,8 +354,8 @@ the location or the window, or check the service is offered there via
 | Value | Env var | Browser? |
 | --- | --- | --- |
 | API key | `MARKETBOX_API_KEY` | **No** (server-only) |
-| API base URL | `API_BASE_URL` | **No** (BFF-only) |
-| Project id | `PROJECT_ID` | **No** (BFF-only) |
+| API base URL | `MARKETBOX_API_URL` | **No** (BFF-only) |
+| Project id | `MARKETBOX_PROJECT_ID` | **No** (BFF-only) |
 
 ### Errors and edge cases
 

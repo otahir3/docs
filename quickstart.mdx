@@ -51,7 +51,7 @@ Then try a real call. List offerings for one of the projects in your scope:
 <CodeGroup>
 
 ```bash curl
-curl "$MARKETBOX_API_URL/v1/projects/PROJECT_ID/offerings" \
+curl "$MARKETBOX_API_URL/v1/projects/MARKETBOX_PROJECT_ID/offerings" \
   -H "x-api-key: $MARKETBOX_API_KEY"
 ```
 
@@ -91,7 +91,7 @@ explicit UTC timestamps plus an IANA timezone — MarketBox derives the local
 date and times for you (see [Timezones](/concepts/timezones)).
 
 ```bash
-curl -X POST "$MARKETBOX_API_URL/v1/projects/PROJECT_ID/bookings" \
+curl -X POST "$MARKETBOX_API_URL/v1/projects/MARKETBOX_PROJECT_ID/bookings" \
   -H "x-api-key: $MARKETBOX_API_KEY" \
   -H "content-type: application/json" \
   -d '{

@@ -9,6 +9,7 @@ import idPrefixes from './rules/id-prefixes.mjs';
 import paths from './rules/paths.mjs';
 import errorCodes from './rules/error-codes.mjs';
 import terminology from './rules/terminology.mjs';
+import envVars from './rules/env-vars.mjs';
 
 test('walkDocs strips frontmatter and keeps original line numbers', async () => {
   const pages = [];
@@ -133,4 +134,24 @@ test('terminology rule flags banned JSON keys inside fenced blocks, but not thir
   assert.equal(findings.length, 1);
   assert.equal(findings[0].line, 6);
   assert.match(findings[0].message, /providerId/);
+});
+
+// Fix round 1 (task-10-report.md): MARKETBOX_API_URL and API_BASE_URL (same
+// for MARKETBOX_PROJECT_ID / PROJECT_ID) were both live in the docs at once,
+// meaning two internally-consistent pages could disagree with each other.
+// This rule flags any known-wrong alias by name; it must not flag the
+// canonical names themselves, nor unrelated real env vars that happen to
+// share a token (MARKETBOX_API_KEY, STRIPE_SECRET_KEY, NEXT_PUBLIC_*).
+test('env-vars rule flags known aliases only, never the canonical names', async () => {
+  const findings = await runRules(
+    join(import.meta.dirname, '__fixtures__', 'env-vars'),
+    CONTRACT,
+    { paths: {} },
+    [envVars],
+  );
+
+  assert.equal(findings.length, 4);
+  assert.deepEqual(findings.map((f) => f.line).sort((a, b) => a - b), [5, 5, 7, 7]);
+  const flagged = findings.map((f) => f.message.match(/`([A-Z_]+)`/)[1]).sort();
+  assert.deepEqual(flagged, ['API_BASE_URL', 'API_BASE_URL', 'PROJECT_ID', 'PROJECT_ID'].sort());
 });

@@ -1,0 +1,10 @@
+---
+title: Bad env vars
+---
+
+Set `API_BASE_URL` and `PROJECT_ID` in your server environment.
+
+Then read them: `process.env.API_BASE_URL` and `process.env.PROJECT_ID`.
+
+These are fine: `MARKETBOX_API_URL`, `MARKETBOX_PROJECT_ID`, `MARKETBOX_API_KEY`,
+`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_OIDC_CLIENT_ID`.

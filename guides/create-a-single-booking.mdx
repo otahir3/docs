@@ -85,7 +85,7 @@ export async function POST(request: Request) {
   const { clientId } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/orders`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/orders`,
     {
       method: 'POST',
       headers: {
@@ -178,7 +178,7 @@ export async function GET(
   const { orderId } = await ctx.params;
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/orders/${orderId}/aggregate`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/orders/${orderId}/aggregate`,
     { headers: { 'x-api-key': process.env.MARKETBOX_API_KEY! } },
   );
 
@@ -206,7 +206,7 @@ export async function POST(request: Request) {
   const { clientId, orderId, orderItemId } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/bookings`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/bookings`,
     {
       method: 'POST',
       headers: {
@@ -316,8 +316,8 @@ for you on the single-booking path.
 | Value | Env var | Browser? |
 | --- | --- | --- |
 | API key | `MARKETBOX_API_KEY` | **No** (server-only) |
-| API base URL | `API_BASE_URL` | **No** (BFF-only) |
-| Project id | `PROJECT_ID` | **No** (BFF-only) |
+| API base URL | `MARKETBOX_API_URL` | **No** (BFF-only) |
+| Project id | `MARKETBOX_PROJECT_ID` | **No** (BFF-only) |
 
 ### Errors and edge cases
 
