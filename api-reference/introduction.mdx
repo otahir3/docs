@@ -3,26 +3,21 @@ title: API reference
 description: Every endpoint, schema, and example for the MarketBox public API.
 ---
 
+import BaseUrl from '/snippets/base-url.mdx';
+
 The MarketBox API is a RESTful, JSON-over-HTTPS surface. This reference
 section is **auto-generated from the OpenAPI specification** that the
 API serves at `/v1/openapi.json` — every endpoint listed here is a
 direct projection of what the running service accepts and returns.
 
-## Base URLs
+## Base URL
 
-| Environment | Base URL                                |
-| ----------- | --------------------------------------- |
-| Production  | `https://api.marketbox.io`              |
-| Staging     | `https://api.staging.marketbox.io`      |
-
-Choose the environment in the playground dropdown on each endpoint
-page below.
+<BaseUrl />
 
 ## Authentication
 
 Every endpoint under `/v1` requires an `x-api-key` header. The
-playground accepts your key in the authorization slot — paste a
-**staging** key when testing here, never a production key.
+playground accepts your key in the authorization slot.
 
 See [Authentication](/concepts/authentication) for the full model.
 
@@ -76,7 +71,7 @@ client, importing into Postman, or writing your own playground — pull
 it straight from the running service:
 
 ```bash
-curl https://api.marketbox.io/v1/openapi.json
+curl "$MARKETBOX_API_URL/v1/openapi.json"
 ```
 
 The same document is bundled with this site and can be fetched at

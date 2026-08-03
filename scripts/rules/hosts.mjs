@@ -38,6 +38,8 @@ const ALWAYS_ALLOWED = new Set([
   'localhost', // CONTRIBUTING.md / README.md local-dev instructions ("mint dev")
   'mintlify.com', // README.md — the docs framework this site is built on
   'bitbucket.org', // README.md — link to the mb-core source repo
+  'mb-core.vercel.app', // dev dashboard — production app.gomarketbox.com isn't live yet
+  'example.com', // RFC 2606 reserved placeholder host, used for made-up example values
 ]);
 
 const URL_RE = /https?:\/\/([A-Za-z0-9.-]+)/g;

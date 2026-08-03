@@ -46,9 +46,10 @@ sequenceDiagram
 
 <Steps>
 <Step title="The business connects its Stripe account">
-Before you can charge, a project admin connects the business's Stripe account in
-the [MarketBox dashboard](https://app.marketbox.io), under **Payments**. This is
-a one-time action per business, done through Stripe's hosted onboarding.
+Before you can charge, a project admin connects the business's Stripe account on
+the project's [**Payments** settings page](https://mb-core.vercel.app/dashboard/project/{projectId}/settings/payments/)
+in the MarketBox dashboard. This is a one-time action per business, done through
+Stripe's hosted onboarding.
 
 <Warning>
 Connecting is not enough on its own — Stripe must have **charges enabled** on the
@@ -96,7 +97,7 @@ NEXT_PUBLIC_STRIPE_ACCOUNT_ID=acct_...              # the business's connected a
 
 # Server-only (unchanged from the booking-flow guide)
 MARKETBOX_API_KEY=...
-API_BASE_URL=https://api.marketbox.io
+API_BASE_URL=...
 PROJECT_ID=prj_...
 ```
 

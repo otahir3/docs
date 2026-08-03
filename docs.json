@@ -95,16 +95,10 @@
     "dark": "/logo/dark.svg"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Status",
-        "href": "https://status.marketbox.io"
-      }
-    ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://app.marketbox.io"
+      "href": "https://mb-core.vercel.app/dashboard"
     }
   },
   "contextual": {

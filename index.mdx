@@ -42,7 +42,7 @@ dashboard, exposed as a stable, versioned HTTP surface.
 
 ## Conventions at a glance
 
-- **Base URL**: `https://api.marketbox.io`
+- **Base URL**: read from `$MARKETBOX_API_URL` — see [Base URL](/api-reference/introduction#base-url)
 - **Versioning**: every resource path is prefixed with `/v1`.
 - **Auth**: API key in the `x-api-key` header. See [Authentication](/concepts/authentication).
 - **Pagination**: opaque cursor + `limit`. See [Pagination](/concepts/pagination).

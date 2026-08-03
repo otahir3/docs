@@ -13,8 +13,8 @@ first — it explains the two-plane model this guide builds on.
 
 ## Prerequisites: create an Application
 
-In the [MarketBox dashboard](https://app.marketbox.io), a project admin opens
-**API Access** and creates an **Application**. An Application is the container
+In the project's [**API Access** page](https://mb-core.vercel.app/dashboard/project/{projectId}/api-access/)
+in the MarketBox dashboard, a project admin creates an **Application**. An Application is the container
 for one integration (for example, your booking website): it groups the OAuth
 client your users sign in through and the API key your backend calls with.
 
@@ -48,7 +48,7 @@ panel of the API Access page.
 | `tokenUrl` | OAuth token endpoint |
 | `logoutUrl` | OAuth logout endpoint |
 | `scopes` | Space-separated scopes (`openid email profile`) |
-| `apiBaseUrl` | Base URL for the API (`https://api.marketbox.io`) |
+| `apiBaseUrl` | Base URL for the API — the same value as `$MARKETBOX_API_URL` |
 
 <Note>
 These are standard OIDC values. MarketBox lists the endpoints explicitly rather
@@ -68,9 +68,9 @@ exchange for tokens.
 <Step title="Allow-list your redirect URLs">
 In the dashboard, on your Application's settings, add:
 
-- **Callback URL:** `https://your-domain.com/auth/callback` (the page that
-  handles the code exchange)
-- **Logout URL:** `https://your-domain.com` (where the user lands after
+- **Callback URL:** `https://example.com/auth/callback` (the page that
+  handles the code exchange, replacing `example.com` with your own domain)
+- **Logout URL:** `https://example.com` (where the user lands after
   sign-out)
 
 For local development also add `http://localhost:4000/auth/callback` and

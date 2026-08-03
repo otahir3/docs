@@ -3,12 +3,14 @@ title: Quickstart
 description: Mint an API key, make your first call, and walk through creating a booking.
 ---
 
+import BaseUrl from '/snippets/base-url.mdx';
+
 This guide gets you from zero to a working call against the MarketBox API.
 
 ## 1. Mint an API key
 
-API keys are minted from the [MarketBox dashboard](https://app.marketbox.io).
-Each key has:
+API keys are minted from a project's [**API Access** page](https://mb-core.vercel.app/dashboard/project/{projectId}/api-access/)
+in the MarketBox dashboard. Each key has:
 
 - A **friendly name** — human-readable label.
 - A **project scope** — the projects this key can act on.
@@ -25,6 +27,8 @@ secrets manager.
 
 ## 2. Make your first call
 
+<BaseUrl />
+
 Every request needs the key in the `x-api-key` header. Health is the
 simplest endpoint to verify connectivity — it's unauthenticated and lives
 outside `/v1`.
@@ -32,11 +36,11 @@ outside `/v1`.
 <CodeGroup>
 
 ```bash curl
-curl https://api.marketbox.io/health
+curl "$MARKETBOX_API_URL/health"
 ```
 
 ```ts TypeScript
-const res = await fetch('https://api.marketbox.io/health');
+const res = await fetch(`${process.env.MARKETBOX_API_URL}/health`);
 console.log(await res.json());
 ```
 
@@ -47,13 +51,13 @@ Then try a real call. List offerings for one of the projects in your scope:
 <CodeGroup>
 
 ```bash curl
-curl https://api.marketbox.io/v1/projects/PROJECT_ID/offerings \
+curl "$MARKETBOX_API_URL/v1/projects/PROJECT_ID/offerings" \
   -H "x-api-key: $MARKETBOX_API_KEY"
 ```
 
 ```ts TypeScript
 const res = await fetch(
-  `https://api.marketbox.io/v1/projects/${projectId}/offerings`,
+  `${process.env.MARKETBOX_API_URL}/v1/projects/${projectId}/offerings`,
   { headers: { 'x-api-key': process.env.MARKETBOX_API_KEY! } },
 );
 const { data, nextCursor } = await res.json();
@@ -87,7 +91,7 @@ explicit UTC timestamps plus an IANA timezone — MarketBox derives the local
 date and times for you (see [Timezones](/concepts/timezones)).
 
 ```bash
-curl -X POST https://api.marketbox.io/v1/projects/PROJECT_ID/bookings \
+curl -X POST "$MARKETBOX_API_URL/v1/projects/PROJECT_ID/bookings" \
   -H "x-api-key: $MARKETBOX_API_KEY" \
   -H "content-type: application/json" \
   -d '{
