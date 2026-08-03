@@ -1,0 +1,30 @@
+---
+title: Quickstart (pre-fix)
+---
+
+This reproduces the original quickstart booking body, before it was fixed:
+`providerId` instead of `supplierId`, `businessModelType: "SERVICE"` (not a
+real value), and no `locationType`, `orderId`, or `orderItemId`.
+
+```bash
+curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/bookings" \
+  -H "x-api-key: $MARKETBOX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{
+    "providerId": "prv_01h2xcejqtfzcjxkvc4ay3pnh3",
+    "clientId":   "cli_456",
+    "bookingStartUtc": "2026-06-01T17:00:00.000Z",
+    "bookingEndUtc":   "2026-06-01T18:00:00.000Z",
+    "bookingTz":       "America/New_York",
+    "capacity": 1,
+    "services": [
+      {
+        "serviceId":  "srv_01h2xcejqtfzcjxkvc4ay3pnh3",
+        "offeringId": "off_01h2xcejqtfzcjxkvc4ay3pnh3",
+        "businessModelType": "SERVICE",
+        "quantity": 1
+      }
+    ],
+    "notes": []
+  }'
+```

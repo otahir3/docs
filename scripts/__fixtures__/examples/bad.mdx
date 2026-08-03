@@ -1,0 +1,90 @@
+---
+title: Bad examples
+---
+
+## Unknown field
+
+```bash
+curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/bookings" \
+  -H "x-api-key: $MARKETBOX_API_KEY" \
+  -d '{
+    "clientId": "cli_456",
+    "bookingStartUtc": "2026-06-01T17:00:00.000Z",
+    "bookingEndUtc": "2026-06-01T18:00:00.000Z",
+    "bookingTz": "America/New_York",
+    "locationType": "VIRTUAL",
+    "providerId": "sup_123",
+    "services": [
+      {
+        "serviceId": "srv_1",
+        "offeringId": "off_1",
+        "businessModelType": "SINGLE_BOOKING",
+        "orderId": "ord_1",
+        "orderItemId": "oi_1"
+      }
+    ]
+  }'
+```
+
+## Missing required field
+
+```bash
+curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/bookings" \
+  -H "x-api-key: $MARKETBOX_API_KEY" \
+  -d '{
+    "clientId": "cli_456",
+    "bookingStartUtc": "2026-06-01T17:00:00.000Z",
+    "bookingEndUtc": "2026-06-01T18:00:00.000Z",
+    "locationType": "VIRTUAL",
+    "services": [
+      {
+        "serviceId": "srv_1",
+        "offeringId": "off_1",
+        "businessModelType": "SINGLE_BOOKING",
+        "orderId": "ord_1",
+        "orderItemId": "oi_1"
+      }
+    ]
+  }'
+```
+
+## Invalid enum
+
+```bash
+curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/bookings" \
+  -H "x-api-key: $MARKETBOX_API_KEY" \
+  -d '{
+    "clientId": "cli_456",
+    "bookingStartUtc": "2026-06-01T17:00:00.000Z",
+    "bookingEndUtc": "2026-06-01T18:00:00.000Z",
+    "bookingTz": "America/New_York",
+    "locationType": "MOON",
+    "services": [
+      {
+        "serviceId": "srv_1",
+        "offeringId": "off_1",
+        "businessModelType": "SINGLE_BOOKING",
+        "orderId": "ord_1",
+        "orderItemId": "oi_1"
+      }
+    ]
+  }'
+```
+
+## Correctly skipped — a response, not a request
+
+No curl/fetch/comment-header signal names an operation here, so this block
+must not be validated even though it has the same shape defect (`providerId`)
+as the first block above — flagging a response body would be a false
+positive.
+
+The response is:
+
+```json
+{
+  "data": {
+    "bookingId": "bk_01h2xc",
+    "providerId": "sup_should_not_be_flagged"
+  }
+}
+```

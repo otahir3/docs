@@ -18,24 +18,15 @@
  * are real, the matcher just couldn't see past the interpolation. `$` is now
  * part of the match, and normalise() treats `${...}` and a `$SCREAMING_CASE`
  * shell variable the same as any other placeholder segment.
+ *
+ * The normaliser itself now lives in lib/path-normalise.mjs — task 11b's
+ * examples.mjs needs the exact same path-shape collapsing to resolve a
+ * curl/fetch URL against openapi.json, and duplicating it risked the two
+ * copies drifting apart on the next fix round.
  */
-const PATH_RE = /\/v1\/[A-Za-z0-9{}_\-/.$]*/g;
+import { normalisePath as normalise } from '../lib/path-normalise.mjs';
 
-function normalise(path, idPrefixes) {
-  return path
-    .replace(/\/+$/, '')
-    .split('/')
-    .map((seg) => {
-      if (seg === '') return seg;
-      if (/^\{.+\}$/.test(seg)) return '{}';
-      if (/^\$\{.+\}$/.test(seg)) return '{}'; // TS template literal: ${projectId}
-      if (/^\$?[A-Z][A-Z0-9_]*$/.test(seg)) return '{}'; // PROJECT_ID or $PROJECT_ID
-      const [prefix] = seg.split('_');
-      if (seg.includes('_') && idPrefixes.has(prefix)) return '{}';
-      return seg;
-    })
-    .join('/');
-}
+const PATH_RE = /\/v1\/[A-Za-z0-9{}_\-/.$]*/g;
 
 /**
  * Real, live paths that are never in spec.paths because they are outside the

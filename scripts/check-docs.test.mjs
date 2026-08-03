@@ -10,6 +10,7 @@ import paths from './rules/paths.mjs';
 import errorCodes from './rules/error-codes.mjs';
 import terminology from './rules/terminology.mjs';
 import envVars from './rules/env-vars.mjs';
+import examples from './rules/examples.mjs';
 
 test('walkDocs strips frontmatter and keeps original line numbers', async () => {
   const pages = [];
@@ -154,4 +155,142 @@ test('env-vars rule flags known aliases only, never the canonical names', async 
   assert.deepEqual(findings.map((f) => f.line).sort((a, b) => a - b), [5, 5, 7, 7]);
   const flagged = findings.map((f) => f.message.match(/`([A-Z_]+)`/)[1]).sort();
   assert.deepEqual(flagged, ['API_BASE_URL', 'API_BASE_URL', 'PROJECT_ID', 'PROJECT_ID'].sort());
+});
+
+// Task 11b: examples validates a request-body JSON example against the
+// openapi.json schema of the operation it targets. This spec is a trimmed
+// stand-in for the real POST /bookings schema — just enough surface (a
+// top-level enum, a required array, a nested required array with its own
+// enum) to exercise all three finding types without pulling in the whole
+// real spec.
+const EXAMPLES_SPEC = {
+  paths: {
+    '/v1/projects/{projectId}/bookings': {
+      post: {
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  supplierId: { type: 'string' },
+                  clientId: { type: 'string' },
+                  bookingStartUtc: { type: 'string' },
+                  bookingEndUtc: { type: 'string' },
+                  bookingTz: { type: 'string' },
+                  locationType: { type: 'string', enum: ['PHYSICAL', 'VIRTUAL', 'TRAVEL_ZONE'] },
+                  capacity: { type: 'integer' },
+                  notes: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        scope: { type: 'string', enum: ['BOOKING', 'BOOKING_SERVICE'] },
+                        noteText: { type: 'string' },
+                      },
+                      required: ['scope', 'noteText'],
+                    },
+                  },
+                  services: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        serviceId: { type: 'string' },
+                        offeringId: { type: 'string' },
+                        businessModelType: { type: 'string', enum: ['SINGLE_BOOKING', 'PACKAGE'] },
+                        quantity: { type: 'integer' },
+                        orderId: { type: 'string' },
+                        orderItemId: { type: 'string' },
+                      },
+                      required: ['serviceId', 'offeringId', 'businessModelType', 'orderId', 'orderItemId'],
+                    },
+                  },
+                },
+                required: [
+                  'clientId',
+                  'bookingStartUtc',
+                  'bookingEndUtc',
+                  'bookingTz',
+                  'locationType',
+                  'services',
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+test('examples rule flags unknown fields, missing required fields, and invalid enum values — and skips an unresolvable block', async () => {
+  const findings = await runRules(
+    join(import.meta.dirname, '__fixtures__', 'examples'),
+    CONTRACT,
+    EXAMPLES_SPEC,
+    [examples],
+  );
+
+  const byFile = findings.filter((f) => f.path === 'bad.mdx');
+  assert.equal(byFile.length, 3, JSON.stringify(byFile, null, 2));
+
+  const unknown = byFile.find((f) => /is not a property of/.test(f.message));
+  assert.ok(unknown);
+  assert.match(unknown.message, /`providerId`/);
+
+  const missing = byFile.find((f) => /requires `bookingTz`/.test(f.message));
+  assert.ok(missing);
+
+  const badEnum = byFile.find((f) => /`MOON`/.test(f.message));
+  assert.ok(badEnum);
+  assert.match(badEnum.message, /locationType/);
+
+  // The "response, not a request" block below the three bad ones also
+  // contains a `providerId` key, but carries no curl/fetch/comment-header
+  // signal naming an operation — it must not be flagged. This is the
+  // "correctly-skipped block" case: silence here is the rule working, not a
+  // gap in it.
+  assert.equal(
+    findings.filter((f) => /sup_should_not_be_flagged|response, not a request/.test(f.message)).length,
+    0,
+  );
+});
+
+// Proves the rule would have caught the real defect that motivated it: the
+// pre-fix quickstart booking body sent `providerId` (unknown — the field is
+// `supplierId`), `businessModelType: "SERVICE"` (not a real enum value), and
+// omitted `locationType`, `orderId`, and `orderItemId`. Six other rules
+// passed this body; this one must not.
+test('examples rule catches the original pre-fix quickstart booking defect', async () => {
+  const findings = await runRules(
+    join(import.meta.dirname, '__fixtures__', 'examples'),
+    CONTRACT,
+    EXAMPLES_SPEC,
+    [examples],
+  );
+
+  const byFile = findings.filter((f) => f.path === 'quickstart-defect.mdx');
+
+  assert.ok(
+    byFile.some((f) => /`providerId`/.test(f.message) && /is not a property of/.test(f.message)),
+    'expected an unknown-field finding for providerId',
+  );
+  assert.ok(
+    byFile.some((f) => /requires `locationType`/.test(f.message)),
+    'expected a missing-required finding for locationType',
+  );
+  assert.ok(
+    byFile.some((f) => /requires `orderId`/.test(f.message)),
+    'expected a missing-required finding for orderId',
+  );
+  assert.ok(
+    byFile.some((f) => /requires `orderItemId`/.test(f.message)),
+    'expected a missing-required finding for orderItemId',
+  );
+  assert.ok(
+    byFile.some((f) => /`SERVICE`/.test(f.message) && /businessModelType/.test(f.message)),
+    'expected an invalid-enum finding for businessModelType: "SERVICE"',
+  );
+  assert.equal(byFile.length, 5, JSON.stringify(byFile, null, 2));
 });

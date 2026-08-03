@@ -17,7 +17,15 @@ export async function runRules(root, contract, spec, rules) {
 }
 
 async function loadRules() {
-  const names = ['hosts', 'id-prefixes', 'paths', 'error-codes', 'terminology', 'env-vars'];
+  const names = [
+    'hosts',
+    'id-prefixes',
+    'paths',
+    'error-codes',
+    'terminology',
+    'env-vars',
+    'examples',
+  ];
   const mods = await Promise.all(
     names.map((n) => import(`./rules/${n}.mjs`).catch(() => null)),
   );
