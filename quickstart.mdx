@@ -112,28 +112,84 @@ The response is:
 
 ## 3. Create a booking
 
-Once you have a `serviceId` and `offeringId`, you can create a booking. The
-body carries explicit UTC timestamps plus an IANA timezone — MarketBox
-derives the local date and times for you (see
-[Timezones](/concepts/timezones)).
+A booking always draws down a **funded order item** — you can't create one
+without an order first. Once you have a `serviceId` and `offeringId`,
+create an order with one `SINGLE_SESSION` item for it:
+
+```bash
+curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/orders" \
+  -H "x-api-key: $MARKETBOX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{
+    "clientId": "cli_456",
+    "currency": "USD",
+    "items": [
+      {
+        "skuType": "SINGLE_SESSION",
+        "serviceId":  "srv_01h2xcejqtfzcjxkvc4ay3pnh3",
+        "offeringId": "off_01h2xcejqtfzcjxkvc4ay3pnh3",
+        "quantity": 1
+      }
+    ]
+  }'
+```
+
+The order is nested under `data.order`, and its item(s) under `data.items[]`
+— note the created order is `DRAFT` and unpaid, but that's enough to book
+against (see [Accept payments with Stripe](/guides/accept-payments-with-stripe)
+to charge for it later):
+
+```json
+{
+  "data": {
+    "order": {
+      "orderId": "ord_01h2xcejqtfzcjxkvc4ay3pnh3",
+      "status": "DRAFT",
+      "total": { "amount": 12000, "currency": "USD" }
+    },
+    "items": [
+      {
+        "orderItemId": "oi_01h2xcejqtfzcjxkvc4ay3pnh3",
+        "skuType": "SINGLE_SESSION",
+        "quantity": 1,
+        "quantityRemaining": 1,
+        "unitPrice": { "amount": 12000, "currency": "USD" }
+      }
+    ]
+  }
+}
+```
+
+Now create the booking. Each service line references the `orderId` and
+`orderItemId` from the order you just created — this is what ties the
+schedule entry back to what paid for it. The body also carries explicit UTC
+timestamps plus an IANA timezone — MarketBox derives the local date and
+times for you (see [Timezones](/concepts/timezones)). This example uses
+`locationType: "VIRTUAL"`, which needs no other location fields; `PHYSICAL`
+and `TRAVEL_ZONE` bookings need more — see
+[Create a single booking](/guides/create-a-single-booking) for the full
+table of required fields per `locationType`.
 
 ```bash
 curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/bookings" \
   -H "x-api-key: $MARKETBOX_API_KEY" \
   -H "content-type: application/json" \
   -d '{
-    "providerId": "sup_01h2xcejqtfzcjxkvc4ay3pnh3",
+    "supplierId": "sup_01h2xcejqtfzcjxkvc4ay3pnh3",
     "clientId":   "cli_456",
     "bookingStartUtc": "2026-06-01T17:00:00.000Z",
     "bookingEndUtc":   "2026-06-01T18:00:00.000Z",
     "bookingTz":       "America/New_York",
+    "locationType":    "VIRTUAL",
     "capacity": 1,
     "services": [
       {
         "serviceId":  "srv_01h2xcejqtfzcjxkvc4ay3pnh3",
         "offeringId": "off_01h2xcejqtfzcjxkvc4ay3pnh3",
-        "businessModelType": "SERVICE",
-        "quantity": 1
+        "businessModelType": "SINGLE_BOOKING",
+        "quantity": 1,
+        "orderId":     "ord_01h2xcejqtfzcjxkvc4ay3pnh3",
+        "orderItemId": "oi_01h2xcejqtfzcjxkvc4ay3pnh3"
       }
     ],
     "notes": []
@@ -142,14 +198,6 @@ curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/bookings" \
 
 You get back the created booking under `data`, plus the unique `bookingId`
 you'll use for follow-on actions like rescheduling or changing status.
-
-<Note>
-This shape is illustrative, not copy-paste-complete: a real booking also
-requires `locationType` (`PHYSICAL`, `VIRTUAL`, or `TRAVEL_ZONE`) and each
-service line needs an `orderId`/`orderItemId` from an order you create
-first. See [Create a single booking](/guides/create-a-single-booking) for
-the complete, runnable flow.
-</Note>
 
 ## 4. Handle errors
 
