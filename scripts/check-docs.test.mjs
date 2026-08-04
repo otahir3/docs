@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { walkDocs } from './lib/mdx.mjs';
-import { runRules } from './check-docs.mjs';
+import { runRules, loadRuleModules } from './check-docs.mjs';
 import hosts from './rules/hosts.mjs';
 import idPrefixes from './rules/id-prefixes.mjs';
 import paths from './rules/paths.mjs';
@@ -397,4 +397,54 @@ test('examples rule resolves $ref, including one nested inside an array item', a
   const nested = byFile.find((f) => /requires `country`/.test(f.message));
   assert.ok(nested);
   assert.match(nested.message, /body\.sessions\[0\]\.address/);
+});
+
+// The bug this covers: `loadRules()` used to swallow a failed rule import
+// with `.catch(() => null)` and `filter(Boolean)` it out of the list, so a
+// renamed/typo'd/broken rule file silently disabled that rule forever while
+// `npm run check` kept printing "docs check passed". `loadRuleModules` takes
+// an injected importer so this is exercisable with fake modules — no real
+// files need to be broken to prove the failure path is loud.
+test('loadRuleModules throws, naming the rule, when an import fails', async () => {
+  const boom = new Error('Cannot find module');
+  const importRule = async (name) => {
+    if (name === 'terminology') throw boom;
+    return { default: { name, check: () => [] } };
+  };
+
+  await assert.rejects(
+    () => loadRuleModules(['hosts', 'terminology', 'paths'], importRule),
+    (err) => {
+      assert.match(err.message, /terminology/);
+      assert.doesNotMatch(err.message, /hosts/);
+      assert.doesNotMatch(err.message, /paths/);
+      return true;
+    },
+  );
+});
+
+test('loadRuleModules throws when a loaded module does not export { name, check }', async () => {
+  const importRule = async (name) => {
+    if (name === 'examples') return { default: { name } }; // missing `check`
+    return { default: { name, check: () => [] } };
+  };
+
+  await assert.rejects(
+    () => loadRuleModules(['hosts', 'examples'], importRule),
+    (err) => {
+      assert.match(err.message, /examples/);
+      assert.match(err.message, /name, check/);
+      return true;
+    },
+  );
+});
+
+test('loadRuleModules returns every rule when all imports succeed', async () => {
+  const names = ['hosts', 'id-prefixes', 'paths'];
+  const importRule = async (name) => ({ default: { name, check: () => [] } });
+
+  const rules = await loadRuleModules(names, importRule);
+
+  assert.equal(rules.length, names.length);
+  assert.deepEqual(rules.map((r) => r.name), names);
 });
