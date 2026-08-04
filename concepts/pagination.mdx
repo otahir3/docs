@@ -37,7 +37,7 @@ Both are optional. Omitting `cursor` returns the first page.
 async function* listAllBookings(projectId: string) {
   let cursor: string | undefined;
   do {
-    const url = new URL(`/v1/projects/${projectId}/bookings`, 'https://api.marketbox.io');
+    const url = new URL(`/v1/projects/${projectId}/bookings`, process.env.MARKETBOX_API_URL);
     url.searchParams.set('limit', '200');
     if (cursor) url.searchParams.set('cursor', cursor);
 
@@ -54,7 +54,7 @@ async function* listAllBookings(projectId: string) {
 ```bash bash
 cursor=""
 while :; do
-  resp=$(curl -s "https://api.marketbox.io/v1/projects/$PROJECT_ID/bookings?limit=200${cursor:+&cursor=$cursor}" \
+  resp=$(curl -s "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/bookings?limit=200${cursor:+&cursor=$cursor}" \
     -H "x-api-key: $MARKETBOX_API_KEY")
   echo "$resp" | jq '.data[]'
   cursor=$(echo "$resp" | jq -r '.nextCursor // empty')

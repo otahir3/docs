@@ -12,7 +12,7 @@ Every error response from the MarketBox API uses the same envelope.
   "code": "NOT_FOUND",
   "message": "Booking not found",
   "statusCode": 404,
-  "requestId": "req_2hY3..."
+  "requestId": "3f7c1a9e-5b2d-4e8a-9f01-2c6d8b4a7e13"
 }
 ```
 
@@ -41,7 +41,7 @@ route) adds `conflicts[]` and `hint`:
   "code": "SLOT_HELD",
   "message": "Supplier time is not available: HOLD resv_01kv8p2… (2026-07-15T14:00:00Z–15:00:00Z)",
   "statusCode": 409,
-  "requestId": "req_2hY3...",
+  "requestId": "9d4b6f21-8a3c-4f7e-b1d5-6e2a9c0f4b87",
   "conflicts": [
     {
       "claimType": "HOLD",
@@ -68,7 +68,7 @@ A **hold-lifecycle** failure (`409`, see the table below) is the plain envelope:
   "code": "HOLD_EXPIRED",
   "message": "Reservation resv_01kv8p2… expired at 2026-07-15T13:35:00.000Z",
   "statusCode": 409,
-  "requestId": "req_2hY3..."
+  "requestId": "5a1e8c34-2f6b-4d9a-8c17-3b5e7a1d9f42"
 }
 ```
 
@@ -88,16 +88,12 @@ A **hold-lifecycle** failure (`409`, see the table below) is the plain envelope:
 | `code`                                  | Status | Notes                                                                                   |
 | --------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
 | `VALIDATION_ERROR`                      | 400    | Request body or query failed schema validation. `message` names the field.              |
-| `INVALID_CURSOR`                        | 400    | The `cursor` query parameter is unparseable. Start a fresh iteration.                   |
-| `INVALID_STATUS_TRANSITION`             | 400    | The status change isn't allowed from the resource's current state.                      |
-| `CURRENCY_MISMATCH`                     | 400    | An order item's currency doesn't match the order's currency.                            |
-| `OFFERING_NOT_BOOKABLE`                 | 400    | The targeted offering is not `ACTIVE` — it can't be added to a new booking or order.    |
+| `BAD_REQUEST`                           | 400    | Generic client-input failure covering several situations: an illegal status transition (e.g. can't go from `CANCELLED` back to `CONFIRMED`), a mismatched currency between an order and an item you're adding to it, an offering that isn't `ACTIVE`, an unparseable pagination `cursor`, and other malformed input. `message` names the specific problem. |
 | `UNAUTHORIZED`                          | 401    | API key is missing or revoked.                                                          |
 | `FORBIDDEN`                             | 403    | API key cannot access this project.                                                     |
 | `NOT_FOUND`                             | 404    | Resource doesn't exist or has been soft-deleted.                                        |
 | `VERSION_CONFLICT`                      | 409    | Concurrent modification — re-read the resource and try again.                           |
-| `CAPACITY_EXCEEDED`                     | 409    | A booking is full; another participant can't be registered.                             |
-| `PARTICIPANT_ALREADY_REGISTERED`        | 409    | The client is already a participant on this booking.                                    |
+| `CONFLICT`                              | 409    | Generic write conflict covering situations like a booking that's already at capacity, or a client that's already registered as a participant on it. `message` names the specific problem. |
 | `SLOT_BOOKED`                           | 409    | The supplier's time is already taken by a confirmed booking. `conflicts[]` names the `bookingId`. Not retryable — search availability again. |
 | `SLOT_HELD`                             | 409    | The supplier's time is claimed by a live hold — often **your own**. `conflicts[]` names the `reservationId`; convert it instead of booking directly. See [Hold slots during checkout](/guides/hold-slots-for-checkout#handling-a-held-slot). |
 | `OCCUPANCY_CONTENTION`                  | 409    | Too many concurrent writes on one supplier's day; the internal retry gave up. **Retryable** — resend after a short backoff. |
@@ -148,7 +144,7 @@ For schema validation failures, `message` names the offending field:
   "code": "VALIDATION_ERROR",
   "message": "bookingEndUtc must be strictly after bookingStartUtc",
   "statusCode": 400,
-  "requestId": "req_..."
+  "requestId": "7c3f0a5d-9b2e-4a68-9d14-5f8c2b6e0a91"
 }
 ```
 

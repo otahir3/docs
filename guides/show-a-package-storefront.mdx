@@ -3,7 +3,7 @@ title: Show a package storefront
 description: List a service's packages and render them as ready-to-book plans — one call for the catalog, one for the plans, no fan-out.
 ---
 
-This guide covers **package discovery** — the screen a customer sees before
+This guide covers **package discovery** — the screen a client sees before
 they've picked anything: every package a service sells, each already priced
 and matched against real supplier availability. It's the step that comes
 *before* [Create a package booking](/guides/create-a-package-booking), which
@@ -16,8 +16,7 @@ assumes the [BFF pattern](/guides/booking-flow-auth#the-bff-pattern) and an
 API key already set up.
 
 <Note>
-Every request path in this guide is
-`{API_BASE_URL}/v1/projects/{PROJECT_ID}/...`, with the `x-api-key` header
+Every request in this guide is authenticated with the `x-api-key` header,
 attached server-side by your BFF — never in the browser.
 </Note>
 
@@ -32,7 +31,7 @@ A package storefront is two calls, always in this order:
    same `serviceId` plus a location and plans **every** ACTIVE package in one
    call — no client-side loop over packages. Each entry comes back with a
    `status` and, when it's bookable, a ready-to-use `slateId`.
-3. **Book the one the customer picks.** Hand that entry's `slateId` (and its
+3. **Book the one the client picks.** Hand that entry's `slateId` (and its
    `package.packageId`) to the order + booking flow in
    [Create a package booking](/guides/create-a-package-booking).
 
@@ -45,11 +44,11 @@ sequenceDiagram
     BFF->>MB: GET .../services/{serviceId}/packages?status=ACTIVE
     MB-->>BFF: { data: [{ packageId, offeringId, creditCount, pricing }] }
     BFF-->>B: Render plan cards (name, credits, price)
-    B->>BFF: Customer opens the storefront tab
+    B->>BFF: Client opens the storefront tab
     BFF->>MB: POST .../availability/package-options { serviceId, location }
     MB-->>BFF: { data: [{ package, status, slateId, primarySlate }] }
     BFF-->>B: Mark OK entries bookable; surface reason on the rest
-    B->>BFF: Customer picks a plan
+    B->>BFF: Client picks a plan
     Note over BFF,MB: Continue with Create a package booking (order → package-bookings)
 ```
 
@@ -57,7 +56,7 @@ sequenceDiagram
 <Step title="List the packages">
 List every package on the service with
 `GET /services/{serviceId}/packages?status=ACTIVE`. This spans **all of the
-service's offerings**, so you can call it before the customer has chosen an
+service's offerings**, so you can call it before the client has chosen an
 option, and each package carries its `offeringId` so you can join it against
 the offerings list you already hold.
 
@@ -69,7 +68,7 @@ export async function GET(request: Request) {
   const serviceId = new URL(request.url).searchParams.get('serviceId')!;
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/services/${serviceId}/packages?status=ACTIVE`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/services/${serviceId}/packages?status=ACTIVE`,
     {
       headers: {
         'x-api-key': process.env.MARKETBOX_API_KEY!, // server-only
@@ -119,7 +118,7 @@ The standard list envelope, one entry per bundle (abridged to one package):
 offering) carries a `DEFAULT` rule plus zero or more regional overrides
 (`COUNTRY` / `STATE` / `POSTAL`) — a rule set with no `DEFAULT` is invalid,
 so it's always there. The storefront's job is to pick **one** entry to
-*display*, based on where you already know (or guess) the customer is
+*display*, based on where you already know (or guess) the client is
 booking from; the order-create call later must pass a matching region
 source (`reservationId`, `locationId`, or `address`) so the **server**
 resolves that same rule. Show the `COUNTRY/CA` price and then create the
@@ -132,13 +131,13 @@ rule and how to keep display and order-create in agreement.
 Join each package's `offeringId` against the offerings you already hold to
 build the card label — e.g. `pkg.offeringId` → `offering.name` gives you
 "10-Session Pack · Beginner 30 minutes · $450 CAD" from `name`, the joined
-offering name, and the entry of `pricing[]` matching the customer's known or
+offering name, and the entry of `pricing[]` matching the client's known or
 selected region (falling back to the `DEFAULT` entry when you don't know it
 yet).
 
 <Warning>
 **Don't list business models and render them as packages.** The
-`FLEXIBLE_PACKAGE` **business model** returned by
+`PACKAGE` **business model** returned by
 `GET /services/{serviceId}/business-models` is only a flag on the service
 meaning "this service *can* be sold as packages." It is **not** a sellable
 bundle, and it carries **no `creditCount` and no `pricing`** — those fields
@@ -171,7 +170,7 @@ export async function POST(request: Request) {
   const { serviceId } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/availability/package-options`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/availability/package-options`,
     {
       method: 'POST',
       headers: {
@@ -276,7 +275,7 @@ however many packages sit on that offering, not once per package.
 </Step>
 
 <Step title="Book one">
-Once the customer picks a card, you already have everything the booking flow
+Once the client picks a card, you already have everything the booking flow
 needs: `package.packageId` and `slateId` from the chosen entry. Skip
 straight to order creation — no need to rebuild a slate, since
 `package-options` already built one.
@@ -307,8 +306,8 @@ two values.
 | Value | Env var | Browser? |
 | --- | --- | --- |
 | API key | `MARKETBOX_API_KEY` | **No** (server-only) |
-| API base URL | `API_BASE_URL` | **No** (BFF-only) |
-| Project id | `PROJECT_ID` | **No** (BFF-only) |
+| API base URL | `MARKETBOX_API_URL` | **No** (BFF-only) |
+| Project id | `MARKETBOX_PROJECT_ID` | **No** (BFF-only) |
 
 ### Errors and edge cases
 

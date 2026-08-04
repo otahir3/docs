@@ -15,20 +15,19 @@ section. This guide also assumes the [BFF pattern](/guides/booking-flow-auth#the
 and an API key already set up.
 
 <Note>
-Every request path in this guide is
-`{API_BASE_URL}/v1/projects/{PROJECT_ID}/...`, with the `x-api-key` header
+Every request in this guide is authenticated with the `x-api-key` header,
 attached server-side by your BFF — never in the browser.
 </Note>
 
 <Note>
-**Prerequisite: the service needs an active `FLEXIBLE_PACKAGE` business
+**Prerequisite: the service needs an active `PACKAGE` business
 model.** Package creation (`POST /services/{serviceId}/offerings/{offeringId}/packages`)
 fails with `400` if the parent service doesn't have one enabled. Business
 models are set at the **service** level, not per-offering, so enabling it
 makes packages creatable across every offering on that service.
 
 Every booking created from a package — including via holds → convert — is
-stamped `businessModelType: "FLEXIBLE_PACKAGE"` with `packageOrderItemId`
+stamped `businessModelType: "PACKAGE"` with `packageOrderItemId`
 set, never `SINGLE_BOOKING`. Keep that in mind for reporting/analytics that
 segment bookings by business model.
 </Note>
@@ -39,7 +38,7 @@ A package booking is four calls, always in this order:
 
 1. **Find the package.** `GET /services/{serviceId}/packages?status=ACTIVE`
    lists every sellable bundle on the service, across all of its offerings —
-   the call a storefront makes before the customer has picked an option. It
+   the call a storefront makes before the client has picked an option. It
    gives you the `packageId` every later step needs.
 2. **Build the slate.** `POST /availability/package-slate` with the
    `packageId`, a location, and an `rrule` (recurrence pattern) returns a
@@ -84,7 +83,7 @@ A **package** is a sellable bundle — a name, a `creditCount`, and `pricing`.
 List every one on a service with
 `GET /services/{serviceId}/packages?status=ACTIVE`. This is the discovery
 call: it spans **all of the service's offerings**, so you can make it before
-the customer has chosen an option, and each package carries its `offeringId`
+the client has chosen an option, and each package carries its `offeringId`
 so you can join it against the offerings list you already hold.
 
 ```ts
@@ -95,7 +94,7 @@ export async function GET(request: Request) {
   const serviceId = new URL(request.url).searchParams.get('serviceId')!;
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/services/${serviceId}/packages?status=ACTIVE`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/services/${serviceId}/packages?status=ACTIVE`,
     {
       headers: {
         'x-api-key': process.env.MARKETBOX_API_KEY!, // server-only
@@ -151,7 +150,7 @@ service's packages):
 
 <Note>
 **Don't list business models and render them as packages.** The
-`FLEXIBLE_PACKAGE` **business model** is only a flag on the service meaning
+`PACKAGE` **business model** is only a flag on the service meaning
 "this service *can* be sold as packages." It is **not** a sellable bundle,
 and it carries **no `creditCount` and no `pricing`** — those fields live on
 the packages this endpoint returns. Reading the business-models list and
@@ -166,7 +165,7 @@ hide the tab, don't branch on a status code. An **unknown** `serviceId` is a
 `404`, so a typo can never masquerade as "this service sells no packages."
 </Note>
 
-Take the `packageId` of the bundle the customer picks into the next step.
+Take the `packageId` of the bundle the client picks into the next step.
 </Step>
 
 <Step title="Build the slate">
@@ -183,7 +182,7 @@ export async function POST(request: Request) {
   const { packageId } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/availability/package-slate`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/availability/package-slate`,
     {
       method: 'POST',
       headers: {
@@ -295,7 +294,7 @@ export async function POST(request: Request) {
   const { clientId, packageId } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/orders`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/orders`,
     {
       method: 'POST',
       headers: {
@@ -412,7 +411,7 @@ export async function POST(
   const { orderItemId, slateId } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/orders/${orderId}/package-bookings`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/orders/${orderId}/package-bookings`,
     {
       method: 'POST',
       headers: {
@@ -487,7 +486,7 @@ control:
   individual sessions, and copy each slot **verbatim** (don't re-derive
   locations).
 - **Hold, then convert.** Reserve the slate's supplier time while the
-  customer pays, then convert the hold into confirmed bookings on payment
+  client pays, then convert the hold into confirmed bookings on payment
   success — the pattern you want for a timed checkout. `POST /holds
   { slateId }` → `POST /holds/{reservationId}/convert`. Full walkthrough in
   [Hold slots during checkout](/guides/hold-slots-for-checkout).
@@ -523,8 +522,8 @@ will not consume your own hold and returns `409 SLOT_HELD` naming the
 | Value | Env var | Browser? |
 | --- | --- | --- |
 | API key | `MARKETBOX_API_KEY` | **No** (server-only) |
-| API base URL | `API_BASE_URL` | **No** (BFF-only) |
-| Project id | `PROJECT_ID` | **No** (BFF-only) |
+| API base URL | `MARKETBOX_API_URL` | **No** (BFF-only) |
+| Project id | `MARKETBOX_PROJECT_ID` | **No** (BFF-only) |
 
 ### Errors and edge cases
 

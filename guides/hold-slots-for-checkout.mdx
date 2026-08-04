@@ -1,17 +1,17 @@
 ---
 title: Hold slots during checkout
-description: Reserve a supplier's time while a customer pays — hold a single session or a whole package slate, then convert the hold into bookings.
+description: Reserve a supplier's time while a client pays — hold a single session or a whole package slate, then convert the hold into bookings.
 ---
 
 A **hold** is a claim on a supplier's time. It blocks that time for
 everyone else — nobody can book it, hold it, or even see it as available —
 until you either convert the hold into real bookings or it lapses. It is
-what turns "the customer is on the payment page" into a state the booking
+what turns "the client is on the payment page" into a state the booking
 engine actually respects.
 
 A hold works on **any** supplier time: one session, a cherry-picked subset
 of a package slate, or a whole 8-session slate. Holding a single session
-needs no package, no slate, and no `FLEXIBLE_PACKAGE` business model —
+needs no package, no slate, and no `PACKAGE` business model —
 `POST /holds` with an explicit `intervals` array is all it takes. Convert
 is one endpoint for both shapes: it reads the order item you name and
 decides from its `skuType` whether it is booking one single session or N
@@ -24,8 +24,7 @@ charge, convert from the webhook. For the guard that makes any of this
 mean anything, see [Concurrency](/concepts/concurrency).
 
 <Note>
-Every request path in this guide is
-`{API_BASE_URL}/v1/projects/{PROJECT_ID}/...`, with the `x-api-key` header
+Every request in this guide is authenticated with the `x-api-key` header,
 attached server-side by your BFF — never in the browser. A hold names
 supplier time and hands back a `reservationId` that can book that time;
 it does not belong in a client bundle.
@@ -52,7 +51,7 @@ A checkout with a hold is three calls, always in this order:
    `reservationId` and a `heldUntil`.
 2. **Create the order and take payment.** An order with a
    `SINGLE_SESSION` item (for a one-session hold) or a `PACKAGE` item (for
-   a multi-session hold) is what funds the bookings. Charge the customer
+   a multi-session hold) is what funds the bookings. Charge the client
    however you already do. Pass this hold's `reservationId` on the
    order-create call — it's the preferred region source, so the order
    prices off the exact location the hold (and the eventual bookings)
@@ -62,7 +61,7 @@ A checkout with a hold is three calls, always in this order:
    idempotent on the `reservationId`, so a webhook that fires twice replays
    the same bookings instead of double-booking.
 
-If the customer abandons, `POST /holds/{reservationId}/release` frees the
+If the client abandons, `POST /holds/{reservationId}/release` frees the
 time immediately.
 
 ```mermaid
@@ -94,7 +93,7 @@ Every interval carries the **same location contract as a booking** —
 which of `locationId` / `latitude` / `longitude` / `address` must come with
 it. That isn't ceremony: convert rebuilds the booking from the
 **reservation alone** (never by re-reading a slate that may have expired
-while your customer was paying), so whatever the booking will need, the
+while your client was paying), so whatever the booking will need, the
 hold has to be holding already.
 
 | `locationType` | Required alongside it | Must be omitted / null |
@@ -119,7 +118,7 @@ export async function POST(request: Request) {
     await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/holds`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/holds`,
     {
       method: 'POST',
       headers: {
@@ -220,7 +219,7 @@ export async function POST(request: Request) {
   const { slateId, checkoutSessionId } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/holds`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/holds`,
     {
       method: 'POST',
       headers: {
@@ -280,7 +279,7 @@ slate rather than retrying.
 </Note>
 </Step>
 
-<Step title="Keep the hold alive while the customer pays">
+<Step title="Keep the hold alive while the client pays">
 Expiry is **lazy**. Nothing runs at `heldUntil` — no sweeper, no webhook,
 no status change. The hold simply stops blocking anyone at that instant,
 and the time is up for grabs again. A hold read after its `heldUntil` may
@@ -315,7 +314,7 @@ export async function POST(request: Request) {
   // same heldBy, plus the reservationId. The server EXTENDS that reservation
   // instead of minting a second hold.
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/holds`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/holds`,
     {
       method: 'POST',
       headers: {
@@ -396,7 +395,7 @@ export async function POST(request: Request) {
     await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/holds/${reservationId}/convert`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/holds/${reservationId}/convert`,
     {
       method: 'POST',
       headers: {
@@ -461,7 +460,7 @@ again and convert the new reservation; if someone took it, you'll see
 </Note>
 </Step>
 
-<Step title="Release, if the customer abandons">
+<Step title="Release, if the client abandons">
 Don't wait for lazy expiry when you already know the checkout is dead —
 release, and the supplier's time is bookable again immediately.
 
@@ -473,7 +472,7 @@ export async function POST(request: Request) {
   const { reservationId } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/holds/${reservationId}/release`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/holds/${reservationId}/release`,
     {
       method: 'POST',
       headers: { 'x-api-key': process.env.MARKETBOX_API_KEY! }, // server-only
@@ -548,7 +547,7 @@ The `201` echoes every one of those fields back on `intervals[0]` — if
 convert in Step 3 will fail. Check the echo, don't assume.
 </Step>
 
-<Step title="Create the order and charge the customer">
+<Step title="Create the order and charge the client">
 Nothing travel-zone-specific here: an order with one `SINGLE_SESSION` item
 for the service and offering being sold, plus this hold's `reservationId`,
 then your usual Stripe flow. The address you sent to `/holds` is the
@@ -645,7 +644,7 @@ The body hands you everything you need. Take
   don't retry the booking call. Call
   `POST /holds/{reservationId}/convert` with your `orderId` and
   `orderItemId` instead. That is the booking.
-- **It's not yours** (another customer is mid-checkout) → the time is
+- **It's not yours** (another client is mid-checkout) → the time is
   genuinely taken for now. `heldUntil` tells you when it lapses. Offer a
   different slot; don't spin on the same one.
 
@@ -696,7 +695,7 @@ except `OCCUPANCY_CONTENTION` is worth retrying unchanged.
 | `409` | `HOLD_EXPIRED` | You converted after `heldUntil`. Expiry is lazy — the hold simply stopped blocking. | Hold again and convert the new `reservationId`. If someone took the time meanwhile you'll get `SLOT_BOOKED` instead. |
 | `409` | `RESERVATION_NOT_FOUND` / `RESERVATION_NOT_HELD` | Unknown `reservationId`, or one that was released. | Terminal — start a fresh hold. (An already-`CONVERTED` reservation is **not** an error: it replays its stored result. That's what makes the webhook safe.) |
 | `409` | `RESERVATION_FORBIDDEN` | `heldBy` doesn't match the hold's owner. | Send the same `heldBy` you held with. |
-| `409` | `SLOT_HELD` / `SLOT_BOOKED` | Someone else claimed the time while your customer was paying (only possible after your hold lapsed). | The time is gone. Refund or re-book onto a fresh slot. |
+| `409` | `SLOT_HELD` / `SLOT_BOOKED` | Someone else claimed the time while your client was paying (only possible after your hold lapsed). | The time is gone. Refund or re-book onto a fresh slot. |
 | `409` | `OCCUPANCY_CONTENTION` | Row contention on the supplier's day. | **Retryable** — convert is idempotent, so resending is safe. |
 | `422` | `PACKAGE_SLATE_TOO_LARGE_FOR_ATOMIC` | More than 15 sessions with `atomicity: "all_or_nothing"`. | Use `atomicity: "best_effort"` (needs `suggestionConfig.allowPartialPackages`) or hold a smaller slate. |
 
@@ -725,8 +724,8 @@ first: nine times in ten the interval is missing the field the booking needs.
 | Value | Env var | Browser? |
 | --- | --- | --- |
 | API key | `MARKETBOX_API_KEY` | **No** (server-only) |
-| API base URL | `API_BASE_URL` | **No** (BFF-only) |
-| Project id | `PROJECT_ID` | **No** (BFF-only) |
+| API base URL | `MARKETBOX_API_URL` | **No** (BFF-only) |
+| Project id | `MARKETBOX_PROJECT_ID` | **No** (BFF-only) |
 
 ### Interval fields (the `intervals` form)
 

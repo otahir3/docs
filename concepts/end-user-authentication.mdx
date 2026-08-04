@@ -38,12 +38,12 @@ entire client data.
 
 ```
 Browser                Your backend (BFF)          MarketBox API
-  |   GET /bff/credits   |                               |
-  |  + Bearer <jwt>  --> |                               |
-  |                      |  GET /v1/projects/.../credits |
-  |                      |  x-api-key: <secret>     --> |
-  |                      |  Authorization: Bearer <jwt>  |
-  |  <-- 200 { data }    |  <-- 200 { data }             |
+  |   GET /bff/credits   |                                                    |
+  |  + Bearer <jwt>  --> |                                                    |
+  |                      |  GET /v1/projects/{projectId}/clients/me/credits   |
+  |                      |  x-api-key: <secret>                        -->   |
+  |                      |  Authorization: Bearer <jwt>                      |
+  |  <-- 200 { data }    |  <-- 200 { data }                                 |
 ```
 
 This shape is the **backend-for-frontend (BFF)** pattern: a thin server you own

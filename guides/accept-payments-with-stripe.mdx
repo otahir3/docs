@@ -1,10 +1,10 @@
 ---
 title: Accept payments with Stripe
-description: Charge customers for orders in your booking flow using Stripe, from connecting a business's Stripe account to confirming a card with the Payment Element and finalizing the order.
+description: Charge clients for orders in your booking flow using Stripe, from connecting a business's Stripe account to confirming a card with the Payment Element and finalizing the order.
 ---
 
 This guide walks you through taking real payments in a custom booking flow. A
-customer books, you charge their card with Stripe, and the order is marked
+client books, you charge their card with Stripe, and the order is marked
 **paid** — all without card details ever touching your server.
 
 It builds on [Build a booking flow](/guides/booking-flow-auth): you already have
@@ -16,7 +16,7 @@ pattern, and can create orders. Here you add the payment step.
 MarketBox charges cards through **Stripe Connect** using **direct charges**: the
 charge is created on the **business's own connected Stripe account**, and the
 business is the merchant of record. Card data goes **straight from the
-customer's browser to Stripe** using Stripe's Payment Element, so your servers
+client's browser to Stripe** using Stripe's Payment Element, so your servers
 never see or store it (this keeps you at the lightest PCI compliance level,
 SAQ-A).
 
@@ -46,17 +46,19 @@ sequenceDiagram
 
 <Steps>
 <Step title="The business connects its Stripe account">
-Before you can charge, a project admin connects the business's Stripe account in
-the [MarketBox dashboard](https://app.marketbox.io), under **Payments**. This is
-a one-time action per business, done through Stripe's hosted onboarding.
+Before you can charge, a project admin connects the business's Stripe account on
+the project's [**Payments** settings page](https://mb-core.vercel.app/dashboard/project/{projectId}/settings/payments/)
+in the MarketBox dashboard. This is a one-time action per business, done through
+Stripe's hosted onboarding.
 
 <Warning>
 Connecting is not enough on its own — Stripe must have **charges enabled** on the
 account. With Standard Connect the business completes Stripe's own onboarding
 (business profile, and identity details such as a tax ID) until Stripe activates
-charges. Until then, creating a PaymentIntent returns
-`409 PROJECT_NOT_CHARGE_READY`. The business owner completes this in their own
-Stripe dashboard; the platform cannot fill it in for them.
+charges. Until then, creating a PaymentIntent returns `409 CONFLICT` (the
+project has no Stripe account connected, or isn't yet cleared to take
+charges). The business owner completes this in their own Stripe dashboard;
+the platform cannot fill it in for them.
 </Warning>
 </Step>
 
@@ -96,8 +98,8 @@ NEXT_PUBLIC_STRIPE_ACCOUNT_ID=acct_...              # the business's connected a
 
 # Server-only (unchanged from the booking-flow guide)
 MARKETBOX_API_KEY=...
-API_BASE_URL=https://api.marketbox.io
-PROJECT_ID=prj_...
+MARKETBOX_API_URL=...
+MARKETBOX_PROJECT_ID=prj_...
 ```
 
 Initialize Stripe.js once, binding the platform key to the connected account:
@@ -147,7 +149,7 @@ export async function POST(request: Request) {
   const { orderId } = await request.json();
 
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/orders/${orderId}/payment-intent`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/orders/${orderId}/payment-intent`,
     {
       method: 'POST',
       headers: {
@@ -293,7 +295,7 @@ export async function GET(
 ) {
   const { orderId } = await ctx.params;
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${process.env.PROJECT_ID}/orders/${orderId}`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${process.env.MARKETBOX_PROJECT_ID}/orders/${orderId}`,
     { headers: { 'x-api-key': process.env.MARKETBOX_API_KEY! } },
   );
   const body = await res.json().catch(() => ({}));
@@ -358,7 +360,7 @@ you can see both the money in and the credits drawn down.
 
 Once a card payment settles, MarketBox records a small snapshot of the card on
 the client's profile. It's there for one purpose: so you can show a returning
-customer something like *"You last paid with Visa ending 4242"* without building
+client something like *"You last paid with Visa ending 4242"* without building
 your own card store.
 
 Read it from the client profile. Onboarding is idempotent, so calling it again
@@ -368,7 +370,7 @@ for an already-onboarded client simply returns their current profile with a
 ```ts
 // Requires BOTH an API key and the signed-in client's JWT.
 const res = await fetch(
-  `${API_BASE_URL}/v1/projects/${PROJECT_ID}/clients/me`,
+  `${MARKETBOX_API_URL}/v1/projects/${MARKETBOX_PROJECT_ID}/clients/me`,
   {
     method: 'POST',
     headers: {
@@ -386,7 +388,7 @@ The two fields to look at:
 ```json
 {
   "data": {
-    "clientId": "clt_dolphin_web",
+    "clientId": "cli_dolphin_web",
     "lastPaymentMethodId": "pm_1SxYz...",
     "lastPayment": {
       "type": "CARD",
@@ -415,7 +417,7 @@ Always guard before rendering.
 <Warning>
 **This is for display, not for deciding what to charge.** `lastPayment` is a
 derived, best-effort snapshot, and Stripe remains the source of truth for what
-cards a customer actually has. It is written from Stripe's `charge.succeeded`
+cards a client actually has. It is written from Stripe's `charge.succeeded`
 webhook, so it can lag a payment by a second or two, and in rare cases (a
 webhook that never lands and is recovered by reconciliation instead) it may not
 update at all until the client's next payment. Don't gate a checkout on it,
@@ -426,7 +428,7 @@ or chargeable.
 <Note>
 There is no public endpoint to charge a saved card. Every payment in a custom
 booking flow goes through the Payment Element (Steps 2–3) — which is what keeps
-you at SAQ-A. `lastPayment` tells you what the customer *used* last; it does not
+you at SAQ-A. `lastPayment` tells you what the client *used* last; it does not
 let you re-use it.
 </Note>
 
@@ -448,7 +450,7 @@ let you re-use it.
 | MarketBox platform publishable key | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes (public) |
 | Business's connected account id | `NEXT_PUBLIC_STRIPE_ACCOUNT_ID` | Yes (public) |
 | API key | `MARKETBOX_API_KEY` | **No** (server-only) |
-| API base URL | `API_BASE_URL` | **No** (BFF-only) |
+| API base URL | `MARKETBOX_API_URL` | **No** (BFF-only) |
 
 ### Errors and edge cases
 

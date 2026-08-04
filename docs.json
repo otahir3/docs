@@ -9,6 +9,9 @@
     "dark": "#0087EE"
   },
   "favicon": "/favicon.svg",
+  "redirects": [
+    { "source": "/resources/providers", "destination": "/resources/suppliers" }
+  ],
   "navigation": {
     "tabs": [
       {
@@ -18,7 +21,8 @@
             "group": "Getting started",
             "pages": [
               "index",
-              "quickstart"
+              "quickstart",
+              "glossary"
             ]
           },
           {
@@ -56,7 +60,7 @@
             "pages": [
               "resources/bookings",
               "resources/orders",
-              "resources/providers",
+              "resources/suppliers",
               "resources/availability"
             ]
           }
@@ -95,16 +99,10 @@
     "dark": "/logo/dark.svg"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Status",
-        "href": "https://status.marketbox.io"
-      }
-    ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://app.marketbox.io"
+      "href": "https://mb-core.vercel.app/dashboard"
     }
   },
   "contextual": {

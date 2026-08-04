@@ -1,11 +1,11 @@
 ---
 title: Availability
-description: Find when and where providers can fulfill a service — suggested slots, open slots, and recurring patterns.
+description: Find when and where suppliers can fulfill a service — suggested slots, open slots, and recurring patterns.
 ---
 
 **Availability** is the public face of the MarketBox clustering engine.
 Given a service, a location, and a window of time, it returns the slots
-a provider can realistically be booked into — accounting for existing
+a supplier can realistically be booked into — accounting for existing
 bookings, schedules, and travel time between jobs.
 
 There are two endpoints, both project-scoped and authenticated with the
@@ -13,8 +13,8 @@ There are two endpoints, both project-scoped and authenticated with the
 
 | Endpoint                                              | Use it when                                                            |
 | ---------------------------------------------------- | --------------------------------------------------------------------- |
-| `POST .../availability/search`                       | You have a service + offering + location and want the API to find providers and slots from project data. |
-| `POST .../availability/time-slots`                   | You already have providers + their bookings and want to run the engine directly, passing everything in the body. |
+| `POST .../availability/search`                       | You have a service + offering + location and want the API to find suppliers and slots from project data. |
+| `POST .../availability/time-slots`                   | You already have suppliers + their bookings and want to run the engine directly, passing everything in the body. |
 
 <Note>
   Both endpoints are authenticated with the `x-api-key` header, not
@@ -28,7 +28,7 @@ POST /v1/projects/{projectId}/availability/search
 ```
 
 You pass a service, an offering, and a discovery location; the API
-resolves matching providers from project data and returns suggested
+resolves matching suppliers from project data and returns suggested
 slots, open slots, and (for recurring requests) recurrence patterns.
 
 **Required:** `serviceId`, `offeringId`, and **either** `locationId`
@@ -55,15 +55,15 @@ The response envelope:
 {
   "status": "success",
   "timeSlots": [
-    { "providerId": "prv_…", "timeSlotDateAndTime": "2026-06-23T10:00:00+00:00", "travelType": "TO-NEXT-BOOKING", "travelTimeMins": 8 }
+    { "supplierId": "sup_…", "timeSlotDateAndTime": "2026-06-23T10:00:00+00:00", "travelType": "TO-NEXT-BOOKING", "travelTimeMins": 8 }
   ],
-  "openSlots": [ { "providerId": "prv_…", "start": "…", "end": "…" } ],
+  "openSlots": [ { "supplierId": "sup_…", "start": "…", "end": "…" } ],
   "timezone": "UTC",
   "errors": []
 }
 ```
 
-No matching providers returns the same envelope with empty
+No matching suppliers returns the same envelope with empty
 `timeSlots` / `openSlots` and `errors: []`.
 
 ## Recurring search
@@ -92,7 +92,7 @@ Recurring requests have two strict requirements — each returns a
 
 ```json
 {
-  "serviceId": "svc_…",
+  "serviceId": "srv_…",
   "offeringId": "off_…",
   "lat": 45.4215,
   "lng": -75.6972,
@@ -111,29 +111,29 @@ Recurring requests have two strict requirements — each returns a
 POST /v1/projects/{projectId}/availability/time-slots
 ```
 
-The lower-level endpoint. Instead of resolving providers from project
+The lower-level endpoint. Instead of resolving suppliers from project
 data, you pass them in: their availability, existing bookings, and an
 engine config. Use it when you already hold the scheduling state and
 just want the engine's clustering + travel-time logic.
 
-The body is `{ config, providers[] }`:
+The body is `{ config, suppliers[] }`:
 
 - **`config`** — engine settings: `targetGeoLocation`,
   `targetServiceDurationMins`, `lookAheadStartDate` / `lookAheadEndDate`,
   `distanceUnit`, `sortBy`, `timezone`, and so on.
-- **`providers[]`** — each with `providerId`, `maxTravelTimeMins`,
+- **`suppliers[]`** — each with `supplierId`, `maxTravelTimeMins`,
   `bufferTimeMins`, an `availability[]` array (each with an `rrule`),
   `bookings[]`, and `blockedTime[]`.
 
-Omitting `providers` is a `400`. The response adds `metrics` and `kpis`
+Omitting `suppliers` is a `400`. The response adds `metrics` and `kpis`
 to the slot list:
 
 ```json
 {
   "status": "success",
-  "timeSlots": [ { "providerId": "prov-1", "travelType": "TO-NEXT-BOOKING", "travelTimeMins": 8 } ],
+  "timeSlots": [ { "supplierId": "sup_…", "travelType": "TO-NEXT-BOOKING", "travelTimeMins": 8 } ],
   "errors": [],
-  "metrics": { "totalBookings": 1, "totalProviders": 1, "lookAheadDays": 5 },
+  "metrics": { "totalBookings": 1, "totalSuppliers": 1, "lookAheadDays": 5 },
   "kpis": { "requestOptimizationRatio": 0.42 }
 }
 ```
@@ -142,7 +142,7 @@ to the slot list:
 
 | Status | When                                                                 |
 | ------ | -------------------------------------------------------------------- |
-| `400`  | Missing location, missing `rrule` on a recurring request, recurring `lookAheadStartDate` using `Z`, recurring `rrule` without `COUNT`, or `time-slots` without `providers`. |
+| `400`  | Missing location, missing `rrule` on a recurring request, recurring `lookAheadStartDate` using `Z`, recurring `rrule` without `COUNT`, or `time-slots` without `suppliers`. |
 | `401`  | Missing or invalid API key.                                          |
 | `403`  | API key cannot access this project.                                  |
 

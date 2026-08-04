@@ -16,8 +16,8 @@ plane and when you need it.
 ## The header
 
 ```http
-GET /v1/projects/proj_acme/bookings HTTP/1.1
-Host: api.marketbox.io
+GET /v1/projects/prj_acme/bookings HTTP/1.1
+Host: $MARKETBOX_API_URL
 x-api-key: mb_live_********************************
 ```
 
@@ -48,10 +48,10 @@ call. There are three meaningful shapes:
 | Scope                              | Meaning                                                                  |
 | ---------------------------------- | ------------------------------------------------------------------------ |
 | `["*"]`                            | Wildcard — every project the owning user has access to.                  |
-| `["proj_acme", "proj_other"]`      | Restricted — only those two projects.                                    |
+| `["prj_01h2xcejqtfzcjxkvc4ay3pnh3"]` | Restricted — only that project.                                        |
 | `[]`                               | Kill switch — no access. Use to pause a key without deleting it.         |
 
-Mixing the wildcard with explicit ids (e.g. `["*", "proj_acme"]`) is
+Mixing the wildcard with an explicit id (e.g. `["*", "prj_01h2xcejqtfzcjxkvc4ay3pnh3"]`) is
 rejected at create time as malformed.
 
 The wildcard expands **only within the owning user's blast radius** — it

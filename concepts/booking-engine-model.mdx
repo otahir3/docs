@@ -136,7 +136,7 @@ in-between "reserved" state and no reservation window to manage.
 
 A **timed hold** is the in-between state. `POST /holds` claims a supplier's
 time — one session, a cherry-picked subset of a slate, or a whole slate —
-so nobody else can book it (or even see it as available) while your customer
+so nobody else can book it (or even see it as available) while your client
 pays. On payment success you convert the hold into real bookings with
 `POST /holds/{reservationId}/convert`; on abandonment you release it, or you
 simply let it lapse at `heldUntil`.

@@ -1,65 +1,65 @@
 ---
-title: Providers
+title: Suppliers
 description: The people or units that fulfill bookings in a project.
 ---
 
-A **provider** is the entity that fulfills a booking — typically a
+A **supplier** is the entity that fulfills a booking — typically a
 person, but conceptually any unit of capacity (a stylist, a doctor,
 a tutor, a meeting room).
 
-The public API exposes providers as a **read-only**, list-only surface.
-Provider management — creation, edits, soft-delete — lives in the
+The public API exposes suppliers as a **read-only**, list-only surface.
+Supplier management — creation, edits, soft-delete — lives in the
 MarketBox dashboard. The open API gives consumers what they need to
-build provider-aware UIs and to assign bookings.
+build supplier-aware UIs and to assign bookings.
 
 ## Anatomy
 
-A provider response combines two layers:
+A supplier response combines two layers:
 
-**Provider profile fields** (selected from the full provider record):
+**Supplier profile fields** (selected from the full supplier record):
 
 | Field            | Notes                                                       |
 | ---------------- | ----------------------------------------------------------- |
-| `providerId`     | Stable identifier.                                          |
+| `supplierId`     | Stable identifier.                                          |
 | `firstName`, `lastName` | Display name.                                        |
 | `email`, `phone` | Contact details.                                            |
 | `addressoneline`, `city`, `state`, `country`, `postalcode` | Address. |
 | `longitude`, `latitude` | Geolocation for mobile / travel-time logic.         |
 | `bio`            | Free-form bio text.                                         |
-| `maxTravelTime`  | For mobile providers — max travel time they'll accept.      |
-| `active`         | Whether the provider is taking bookings.                    |
+| `maxTravelTime`  | For mobile suppliers — max travel time they'll accept.      |
+| `active`         | Whether the supplier is taking bookings.                    |
 | `externalId`, `externalData` | Pass-through fields for your own ids/metadata.  |
 | `updatedAt`      | Last modification timestamp.                                |
 
-**Enriched mappings** — what the provider can do and where, joined
+**Enriched mappings** — what the supplier can do and where, joined
 against the project's catalog and schedules:
 
 | Field       | Shape                                                              |
 | ----------- | ------------------------------------------------------------------ |
 | `services`  | Array of `{ serviceId, name: { en, fr, ... } }`.                   |
 | `skills`    | Array of `{ skillId, name: { en, fr, ... } }`.                     |
-| `locations` | Array of location records the provider delivers services at. See [Locations](#locations). |
+| `locations` | Array of location records the supplier delivers services at. See [Locations](#locations). |
 
 Both `services` and `skills` carry **localized name maps**. If your
 project's services are named in multiple languages, the response
 contains all of them — pick the locale you want client-side.
 
-If a provider has a service or skill that no longer exists in the
+If a supplier has a service or skill that no longer exists in the
 catalog (deleted or never present), the `name` map will be empty
 rather than dropping the id.
 
 ## Locations
 
-The `locations[]` array is **derived from the provider's schedules** —
-not stored directly on the provider record. Each schedule attached to
-the provider contributes one or more locations via three reference
+The `locations[]` array is **derived from the supplier's schedules** —
+not stored directly on the supplier record. Each schedule attached to
+the supplier contributes one or more locations via three reference
 shapes:
 
 | Source on the schedule                         | Resolves against |
 | ---------------------------------------------- | ---------------- |
 | `locationRefs[]`                               | Locations table  |
 | `physicalLocationIdsInsideTravelZone[]`        | Locations table  |
-| `travelZoneRef` with `PROVIDER_TRAVEL_ZONE`    | TravelZones table |
+| `travelZoneRef` (tags the schedule's own travel zone) | TravelZones table |
 
 Locations are **deduped by `locationId`**. References that don't
 resolve (deleted location, missing travel zone) are skipped silently
@@ -69,19 +69,19 @@ Each location record:
 
 | Field            | Notes                                                       |
 | ---------------- | ----------------------------------------------------------- |
-| `locationId`     | Stable identifier. For travel zones, this is the `providerTravelZoneId`. |
+| `locationId`     | Stable identifier. For travel zones, this is the `supplierTravelZoneId`. |
 | `locationType`   | `PHYSICAL`, `VIRTUAL`, or `TRAVEL_ZONE`.                    |
 | `name`           | Display name.                                               |
 | `country`, `state`, `city`, `street`, `addressOneLine` | Address fields. Any may be `null`. |
 | `latitude`, `longitude` | Geolocation. May be `null`.                          |
 | `travelZoneType` | `CIRCULAR` or `DRAWN`. Only set on `TRAVEL_ZONE` locations. |
 
-A provider with no active schedules will have `locations: []`.
+A supplier with no active schedules will have `locations: []`.
 
-## Listing providers
+## Listing suppliers
 
 ```
-GET /v1/projects/{projectId}/providers
+GET /v1/projects/{projectId}/suppliers
 ```
 
 | Param     | Default     | Notes                                              |
@@ -89,27 +89,27 @@ GET /v1/projects/{projectId}/providers
 | `limit`   | 50          | Page size. Max 200.                                |
 | `cursor`  | —           | Pagination cursor. See [Pagination](/concepts/pagination). |
 
-Providers are returned in the project index's natural ordering (by
-name). The response includes the full enriched payload — providers,
+Suppliers are returned in the project index's natural ordering (by
+name). The response includes the full enriched payload — suppliers,
 their services, skills, and locations — in a single round trip.
 
 <Note>
   Each list response performs the service/skill name join and the
   schedule-to-locations resolution across the whole page. If you only
-  need provider ids and basic fields, you'll still get the joined
+  need supplier ids and basic fields, you'll still get the joined
   response — the API does not currently offer a "lite" projection.
 </Note>
 
-## Booking against a provider
+## Booking against a supplier
 
-To list bookings assigned to one provider, use the bookings endpoint:
+To list bookings assigned to one supplier, use the bookings endpoint:
 
 ```
-GET /v1/projects/{projectId}/providers/{providerId}/bookings
+GET /v1/projects/{projectId}/suppliers/{supplierId}/bookings
 ```
 
 See [Bookings](/resources/bookings).
 
 ## Endpoint index
 
-- `GET /v1/projects/{projectId}/providers`
+- `GET /v1/projects/{projectId}/suppliers`

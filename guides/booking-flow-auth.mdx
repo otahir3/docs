@@ -13,8 +13,8 @@ first — it explains the two-plane model this guide builds on.
 
 ## Prerequisites: create an Application
 
-In the [MarketBox dashboard](https://app.marketbox.io), a project admin opens
-**API Access** and creates an **Application**. An Application is the container
+In the project's [**API Access** page](https://mb-core.vercel.app/dashboard/project/{projectId}/api-access/)
+in the MarketBox dashboard, a project admin creates an **Application**. An Application is the container
 for one integration (for example, your booking website): it groups the OAuth
 client your users sign in through and the API key your backend calls with.
 
@@ -48,7 +48,7 @@ panel of the API Access page.
 | `tokenUrl` | OAuth token endpoint |
 | `logoutUrl` | OAuth logout endpoint |
 | `scopes` | Space-separated scopes (`openid email profile`) |
-| `apiBaseUrl` | Base URL for the API (`https://api.marketbox.io`) |
+| `apiBaseUrl` | Base URL for the API — the same value as `$MARKETBOX_API_URL` |
 
 <Note>
 These are standard OIDC values. MarketBox lists the endpoints explicitly rather
@@ -68,9 +68,9 @@ exchange for tokens.
 <Step title="Allow-list your redirect URLs">
 In the dashboard, on your Application's settings, add:
 
-- **Callback URL:** `https://your-domain.com/auth/callback` (the page that
-  handles the code exchange)
-- **Logout URL:** `https://your-domain.com` (where the user lands after
+- **Callback URL:** `https://example.com/auth/callback` (the page that
+  handles the code exchange, replacing `example.com` with your own domain)
+- **Logout URL:** `https://example.com` (where the user lands after
   sign-out)
 
 For local development also add `http://localhost:4000/auth/callback` and
@@ -179,9 +179,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'Missing bearer token' }, { status: 401 });
   }
 
-  const projectId = process.env.PROJECT_ID!;
+  const projectId = process.env.MARKETBOX_PROJECT_ID!;
   const res = await fetch(
-    `${process.env.API_BASE_URL}/v1/projects/${projectId}/clients/me/credits`,
+    `${process.env.MARKETBOX_API_URL}/v1/projects/${projectId}/clients/me/credits`,
     {
       headers: {
         'x-api-key': process.env.MARKETBOX_API_KEY!, // server-only — never in browser
@@ -215,8 +215,8 @@ authenticated sign-in. It is **idempotent**: `201` the first time, `200` on ever
 later call, so it's safe to call on every callback.
 
 On the first call it provisions the signed-in user as a **client** of the
-project — a project membership and a client profile, plus a payment-provider
-customer when the project has payments configured.
+project — a project membership and a client profile, plus a Stripe Connect
+`stripeCustomerId` on that profile when the project has payments configured.
 
 Call it immediately after the code exchange succeeds, before redirecting into
 your app:
@@ -267,7 +267,7 @@ They are per-environment, not per-application.
 | `tokenUrl` | `NEXT_PUBLIC_OIDC_TOKEN_URL` | Yes |
 | `logoutUrl` | `NEXT_PUBLIC_OIDC_LOGOUT_URL` | Yes |
 | `scopes` | `NEXT_PUBLIC_OAUTH_SCOPES` | Yes |
-| `apiBaseUrl` | `API_BASE_URL` | **No** (BFF-only) |
+| `apiBaseUrl` | `MARKETBOX_API_URL` | **No** (BFF-only) |
 | `clientId` (per-app) | `NEXT_PUBLIC_OIDC_CLIENT_ID` | Yes |
 
 ### Endpoints used in this guide
@@ -289,7 +289,7 @@ They are per-environment, not per-application.
 ### Security checklist
 
 <Check>`MARKETBOX_API_KEY` is in a server-only env var — no `NEXT_PUBLIC_` prefix.</Check>
-<Check>`API_BASE_URL` (for BFF use) is server-only — the browser never sees it.</Check>
+<Check>`MARKETBOX_API_URL` (for BFF use) is server-only — the browser never sees it.</Check>
 <Check>Callback and logout URLs are allow-listed in the Application settings.</Check>
 <Check>The BFF validates that the incoming `Authorization` header starts with `Bearer ` before forwarding it.</Check>
 <Check>The one-time API key was copied at creation time and stored in a secrets manager — never committed to source control.</Check>

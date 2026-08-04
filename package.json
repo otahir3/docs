@@ -1,0 +1,9 @@
+{
+  "name": "marketbox-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check-docs.mjs",
+    "test": "node --test \"scripts/**/*.test.mjs\""
+  }
+}
