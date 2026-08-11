@@ -1399,17 +1399,22 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 200,
-              "default": 50
+              "default": 50,
+              "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
+              "example": 50
             },
             "required": false,
+            "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
             "name": "limit",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page."
             },
             "required": false,
+            "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page.",
             "name": "cursor",
             "in": "query"
           }
@@ -2410,17 +2415,22 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 200,
-              "default": 50
+              "default": 50,
+              "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
+              "example": 50
             },
             "required": false,
+            "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
             "name": "limit",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page."
             },
             "required": false,
+            "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page.",
             "name": "cursor",
             "in": "query"
           }
@@ -2550,17 +2560,22 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 200,
-              "default": 50
+              "default": 50,
+              "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
+              "example": 50
             },
             "required": false,
+            "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
             "name": "limit",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page."
             },
             "required": false,
+            "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page.",
             "name": "cursor",
             "in": "query"
           }
@@ -4347,17 +4362,22 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 200,
-              "default": 50
+              "default": 50,
+              "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
+              "example": 50
             },
             "required": false,
+            "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
             "name": "limit",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page."
             },
             "required": false,
+            "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page.",
             "name": "cursor",
             "in": "query"
           }
@@ -5026,17 +5046,22 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 200,
-              "default": 50
+              "default": 50,
+              "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
+              "example": 50
             },
             "required": false,
+            "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
             "name": "limit",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page."
             },
             "required": false,
+            "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page.",
             "name": "cursor",
             "in": "query"
           }
@@ -6622,10 +6647,11 @@
                               "type": "string",
                               "enum": [
                                 "OK",
+                                "ALTERNATIVE_CADENCE",
                                 "NO_COMPLETE_SLATE",
                                 "NO_AVAILABILITY"
                               ],
-                              "description": "OK, NO_COMPLETE_SLATE, or NO_AVAILABILITY."
+                              "description": "OK, ALTERNATIVE_CADENCE, NO_COMPLETE_SLATE, or NO_AVAILABILITY. ALTERNATIVE_CADENCE is only reachable when this request opted in via cadenceFlexibility or guaranteeSlate — a request sending today’s body (neither set) never observes it."
                             },
                             "reason": {
                               "type": "string",
@@ -6774,6 +6800,42 @@
                                       "reservationStatus"
                                     ]
                                   }
+                                },
+                                "cadenceRrule": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                  "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                                },
+                                "matchesRequestedCadence": {
+                                  "type": "boolean",
+                                  "description": "True when cadenceRrule is the rrule you asked for.",
+                                  "example": false
+                                },
+                                "cadenceRelaxation": {
+                                  "type": "string",
+                                  "enum": [
+                                    "EXACT",
+                                    "INTERVAL_TIGHTENED",
+                                    "DAYS_ADDED",
+                                    "DAYS_SUBSTITUTED",
+                                    "ALL_WORKING_DAYS",
+                                    "DIRECT_FILL"
+                                  ],
+                                  "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                                },
+                                "cadenceDistance": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "example": 2
+                                },
+                                "sessionsPerWeek": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                  "example": 2
                                 }
                               },
                               "required": [
@@ -6922,6 +6984,42 @@
                                         "reservationStatus"
                                       ]
                                     }
+                                  },
+                                  "cadenceRrule": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                    "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                                  },
+                                  "matchesRequestedCadence": {
+                                    "type": "boolean",
+                                    "description": "True when cadenceRrule is the rrule you asked for.",
+                                    "example": false
+                                  },
+                                  "cadenceRelaxation": {
+                                    "type": "string",
+                                    "enum": [
+                                      "EXACT",
+                                      "INTERVAL_TIGHTENED",
+                                      "DAYS_ADDED",
+                                      "DAYS_SUBSTITUTED",
+                                      "ALL_WORKING_DAYS",
+                                      "DIRECT_FILL"
+                                    ],
+                                    "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                                  },
+                                  "cadenceDistance": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                    "example": 2
+                                  },
+                                  "sessionsPerWeek": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true,
+                                    "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                    "example": 2
                                   }
                                 },
                                 "required": [
@@ -7069,6 +7167,42 @@
                                       "reservationStatus"
                                     ]
                                   }
+                                },
+                                "cadenceRrule": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                  "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                                },
+                                "matchesRequestedCadence": {
+                                  "type": "boolean",
+                                  "description": "True when cadenceRrule is the rrule you asked for.",
+                                  "example": false
+                                },
+                                "cadenceRelaxation": {
+                                  "type": "string",
+                                  "enum": [
+                                    "EXACT",
+                                    "INTERVAL_TIGHTENED",
+                                    "DAYS_ADDED",
+                                    "DAYS_SUBSTITUTED",
+                                    "ALL_WORKING_DAYS",
+                                    "DIRECT_FILL"
+                                  ],
+                                  "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                                },
+                                "cadenceDistance": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "example": 2
+                                },
+                                "sessionsPerWeek": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                  "example": 2
                                 }
                               },
                               "required": [
@@ -7081,6 +7215,198 @@
                                 "totalTravelTimeMins",
                                 "slots"
                               ]
+                            },
+                            "cadenceAlternatives": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "slateId": {
+                                    "type": "string",
+                                    "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                    "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
+                                  },
+                                  "supplierId": {
+                                    "type": "string"
+                                  },
+                                  "completeness": {
+                                    "type": "string",
+                                    "enum": ["COMPLETE", "PARTIAL"]
+                                  },
+                                  "sessionsRequested": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true,
+                                    "description": "How many sessions were requested (the package's creditCount)."
+                                  },
+                                  "sessionsFilled": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "description": "How many of the requested sessions the plan could fill."
+                                  },
+                                  "startTimeConsistencyPercent": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  "totalTravelTimeMins": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "slots": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "slotId": {
+                                          "type": "string",
+                                          "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
+                                        },
+                                        "sessionIndex": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "exclusiveMinimum": true,
+                                          "description": "1-based index of this session within the slate."
+                                        },
+                                        "supplierId": {
+                                          "type": "string"
+                                        },
+                                        "serviceId": {
+                                          "type": "string"
+                                        },
+                                        "offeringId": {
+                                          "type": "string"
+                                        },
+                                        "bookingStartUtc": {
+                                          "type": "string",
+                                          "format": "date-time"
+                                        },
+                                        "bookingEndUtc": {
+                                          "type": "string",
+                                          "format": "date-time"
+                                        },
+                                        "bookingTz": {
+                                          "type": "string"
+                                        },
+                                        "locationType": {
+                                          "type": "string",
+                                          "enum": [
+                                            "PHYSICAL",
+                                            "VIRTUAL",
+                                            "TRAVEL_ZONE"
+                                          ]
+                                        },
+                                        "locationId": {
+                                          "type": "string",
+                                          "nullable": true
+                                        },
+                                        "latitude": {
+                                          "type": "number",
+                                          "nullable": true
+                                        },
+                                        "longitude": {
+                                          "type": "number",
+                                          "nullable": true
+                                        },
+                                        "address": {
+                                          "$ref": "#/components/schemas/Address"
+                                        },
+                                        "travelTimeMins": {
+                                          "type": "number",
+                                          "nullable": true,
+                                          "minimum": 0
+                                        },
+                                        "capacity": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "exclusiveMinimum": true
+                                        },
+                                        "reservationStatus": {
+                                          "type": "string",
+                                          "enum": [
+                                            "FREE",
+                                            "HELD",
+                                            "CONVERTED",
+                                            "RELEASED"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "slotId",
+                                        "sessionIndex",
+                                        "supplierId",
+                                        "serviceId",
+                                        "offeringId",
+                                        "bookingStartUtc",
+                                        "bookingEndUtc",
+                                        "bookingTz",
+                                        "locationType",
+                                        "locationId",
+                                        "latitude",
+                                        "longitude",
+                                        "address",
+                                        "travelTimeMins",
+                                        "capacity",
+                                        "reservationStatus"
+                                      ]
+                                    }
+                                  },
+                                  "cadenceRrule": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                    "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                                  },
+                                  "matchesRequestedCadence": {
+                                    "type": "boolean",
+                                    "description": "True when cadenceRrule is the rrule you asked for.",
+                                    "example": false
+                                  },
+                                  "cadenceRelaxation": {
+                                    "type": "string",
+                                    "enum": [
+                                      "EXACT",
+                                      "INTERVAL_TIGHTENED",
+                                      "DAYS_ADDED",
+                                      "DAYS_SUBSTITUTED",
+                                      "ALL_WORKING_DAYS",
+                                      "DIRECT_FILL"
+                                    ],
+                                    "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                                  },
+                                  "cadenceDistance": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                    "example": 2
+                                  },
+                                  "sessionsPerWeek": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true,
+                                    "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                    "example": 2
+                                  }
+                                },
+                                "required": [
+                                  "slateId",
+                                  "supplierId",
+                                  "completeness",
+                                  "sessionsRequested",
+                                  "sessionsFilled",
+                                  "startTimeConsistencyPercent",
+                                  "totalTravelTimeMins",
+                                  "slots"
+                                ]
+                              },
+                              "default": [],
+                              "description": "Complete N-session slates that fit the supplier’s real availability but do NOT follow the rrule you asked for — e.g. you requested weekly Fridays, no supplier has eight free Fridays, so this carries a Mon+Fri plan instead. Sorted closest-first by cadenceDistance. Always empty unless the request set cadenceFlexibility or guaranteeSlate. Each entry’s slateId is bookable exactly like primarySlate’s."
+                            },
+                            "requestedCadence": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "The rrule this request asked for, echoed back so you can diff it against each slate’s cadenceRrule.",
+                              "example": "FREQ=WEEKLY;BYDAY=FR;COUNT=8"
                             }
                           },
                           "required": [
@@ -7246,7 +7572,7 @@
       "get": {
         "tags": ["Suppliers"],
         "summary": "List suppliers for a project, enriched with services and skills; filter by service/skill/location",
-        "description": "The supplier directory, each row already carrying its resolved `services` and `skills`, so a \"who can do X, near Y\" page needs one call. Every filter is AND, both within a parameter and across parameters: `services=a,b` means a supplier offering BOTH, never either. The location filter is hierarchical and each level requires the one above — `state` without `country` is a 400, as is `city` without both. Use ISO codes: `country` as 3166-1 alpha-2, `state` as 3166-2 in either form (\"CA-ON\" or \"ON\").\n\nTwo behaviours to plan for. A page can hold fewer rows than `limit` while `nextCursor` is still set, because the store applies the limit before filtering — so stop when `nextCursor` is null, never when a page looks short. And a cursor is only valid against the filter set that produced it; changing any filter mid-walk gives undefined results, so restart the walk instead. Suppliers marked inactive are returned by the unfiltered and location-only queries but omitted once a `services` or `skills` filter is applied, so the same supplier can appear in one query and not another. Soft-deleted suppliers never appear.",
+        "description": "The supplier directory, each row already carrying its resolved `services` and `skills`, so a \"who can do X, near Y\" page needs one call. Every filter is AND, both within a parameter and across parameters: `services=a,b` means a supplier offering BOTH, never either. The location filter is hierarchical and each level requires the one above — `state` without `country` is a 400, as is `city` without both. Use ISO codes: `country` as 3166-1 alpha-2, `state` as 3166-2 in either form (\"CA-ON\" or \"ON\").\n\nOnly active suppliers are listed; inactive and soft-deleted ones never appear, on any combination of filters.\n\nTwo behaviours to plan for. A page holds `limit` rows whenever that many remain, on every combination of filters.\n\nThe location filter matches the regions a supplier SERVES — derived from the travel zones and physical locations on their active schedules — not the address on their profile. A mobile supplier based in Barrie whose travel zone covers Toronto matches `city=Toronto`, while a supplier with an address but no active schedule matches nothing, because they cannot be booked. Coverage resolves to both the locality and the wider municipality, so either name matches. Results are ordered by supplier id, not by name.\n\nA short page is possible but uncommon, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short. And a cursor is only valid against the filter set that produced it; changing any filter mid-walk gives undefined results, so restart the walk instead.",
         "parameters": [
           {
             "schema": {
@@ -7265,17 +7591,22 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 200,
-              "default": 50
+              "default": 50,
+              "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
+              "example": 50
             },
             "required": false,
+            "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
             "name": "limit",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page."
             },
             "required": false,
+            "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page.",
             "name": "cursor",
             "in": "query"
           },
@@ -9617,7 +9948,7 @@
       "post": {
         "tags": ["Reviews"],
         "summary": "Create a supplier review (1–5 star rating with optional comment)",
-        "description": "Records a rating against a supplier and folds it into that supplier's running average in the same atomic write, so the aggregate never disagrees with the rows behind it.\n\nTreat this as permanent. There is no update or delete route, so a review posted by mistake moves the supplier's average for good — validate on your side before calling. Nothing is deduplicated and no booking is required: the same reviewer can post repeatedly, and each submission counts again, so enforce \"one review per completed booking\" yourself if that is your intent. `reviewerId` is optional and stored as given; it is not authenticated or checked against the client who was served. `ratingStars` must be a whole number from 1 to 5, and `reviewText` is optional and capped at 5000 characters. The supplier must exist in this project, or 404.",
+        "description": "Records a rating against a supplier and folds it into that supplier's running average in the same atomic write, so the aggregate never disagrees with the rows behind it.\n\nTreat this as permanent. There is no update or delete route, so a review posted by mistake moves the supplier's average for good — validate on your side before calling. Nothing is deduplicated and no booking is required: the same reviewer can post repeatedly, and each submission counts again, so enforce \"one review per completed booking\" yourself if that is your intent. `reviewerId` is optional and stored as given; it is not authenticated or checked against the client who was served.\n\n`bookingId` is optional and links the review to a booking. Supplying it stops MarketBox's rating follow-up emails for that booking — omit it and the client keeps being nudged to rate a booking they have already reviewed. It is stored as given and is **not** validated: an id that does not exist, or belongs to another project or another client, is accepted and simply links to nothing. It does not deduplicate either — two reviews carrying the same `bookingId` both count.\n\n`ratingStars` must be a whole number from 1 to 5, and `reviewText` is optional and capped at 5000 characters. The supplier must exist in this project, or 404.",
         "parameters": [
           {
             "schema": {
@@ -9655,6 +9986,11 @@
                   },
                   "reviewerId": {
                     "type": "string"
+                  },
+                  "bookingId": {
+                    "type": "string",
+                    "description": "Optional booking this review is about. Supplying it links the review to that booking and stops the rating follow-up emails for it. Stored as given and not validated against the booking, and it does not deduplicate.",
+                    "example": "bkg_01kv60qge5eh59ap0gw0pqrrys"
                   }
                 },
                 "required": ["supplierId", "ratingStars"]
@@ -9689,6 +10025,9 @@
                           "type": "string"
                         },
                         "reviewerId": {
+                          "type": "string"
+                        },
+                        "bookingId": {
                           "type": "string"
                         },
                         "createdAt": {
@@ -9779,17 +10118,22 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 200,
-              "default": 50
+              "default": 50,
+              "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
+              "example": 50
             },
             "required": false,
+            "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
             "name": "limit",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page."
             },
             "required": false,
+            "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page.",
             "name": "cursor",
             "in": "query"
           },
@@ -9833,6 +10177,9 @@
                             "type": "string"
                           },
                           "reviewerId": {
+                            "type": "string"
+                          },
+                          "bookingId": {
                             "type": "string"
                           },
                           "createdAt": {
@@ -10814,7 +11161,7 @@
       "post": {
         "tags": ["Availability"],
         "summary": "Build a single-supplier N-session package slate (policy-driven), persisting suggestions",
-        "description": "Builds one or more \"slates\" — complete N-session plans for a package — from a single supplier's availability. Pass packageId (session count is derived from its creditCount), a location (locationId, or lat+lng+address for travel zones), a timezone, a lookAheadStartDate with a numeric offset, and an rrule with a bounded COUNT. When persist is true (default) the returned primarySlate.slateId can be booked directly via POST /orders/{orderId}/package-bookings with { slateId }. Returns 422 when nothing is bookable.",
+        "description": "Builds one or more \"slates\" — complete N-session plans for a package — from a single supplier's availability. Pass packageId (session count is derived from its creditCount), a location (locationId, or lat+lng+address for travel zones), a timezone, a lookAheadStartDate with a numeric offset, and an rrule with a bounded COUNT. When persist is true (default) the returned primarySlate.slateId can be booked directly via POST /orders/{orderId}/package-bookings with { slateId }. Returns 422 when nothing is bookable.\n\nThe rrule is your PREFERRED cadence, not a hard filter — set cadenceFlexibility to FALLBACK (or ALWAYS) to opt in to relaxation. When the supplier has no complete plan on the days you asked for, the response then carries cadenceAlternatives: complete slates at a denser, supplier-feasible cadence (you asked for weekly Fridays, we offer Mon+Fri over four weeks), sorted closest-first by cadenceDistance. Read the outcome from status, not from the HTTP code alone: NO_COMPLETE_SLATE is NO LONGER the only non-OK outcome. ALTERNATIVE_CADENCE is a SUCCESS — it means primarySlate is null but cadenceAlternatives is not empty, and every entry there is bookable in exactly the same way as primarySlate (same shape, same slateId, same POST /orders/{orderId}/package-bookings call). A caller who does not set cadenceFlexibility sees no change at all: it defaults to NONE, cadenceAlternatives comes back empty, and an unbookable request is still a 422.",
         "parameters": [
           {
             "schema": {
@@ -10939,7 +11286,7 @@
                   },
                   "rrule": {
                     "type": "string",
-                    "description": "Cadence for the sessions. MUST include a bounded, positive COUNT.",
+                    "description": "Your PREFERRED cadence for the sessions. MUST include a bounded, positive COUNT. When cadenceFlexibility is FALLBACK or ALWAYS and no supplier can meet this exactly, denser supplier-feasible cadences come back in cadenceAlternatives instead of a 422.",
                     "example": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=8"
                   },
                   "lookAheadDays": {
@@ -10965,6 +11312,48 @@
                       "required": ["startTime", "endTime"]
                     }
                   },
+                  "cadenceFlexibility": {
+                    "type": "string",
+                    "enum": ["NONE", "FALLBACK", "ALWAYS"],
+                    "default": "NONE",
+                    "description": "How hard to try when the supplier cannot meet your rrule exactly. NONE (default) is today’s behaviour: no cadence at the requested rrule means no slate. FALLBACK also returns cadenceAlternatives — complete slates at a DENSER, supplier-feasible cadence (you asked for weekly Fridays, we offer Mon+Fri) — but only when the requested cadence yields nothing. ALWAYS returns them alongside a successful primarySlate too, so you can show \"…or twice a week\".",
+                    "example": "FALLBACK"
+                  },
+                  "guaranteeSlate": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Try harder before giving up. When every relaxed cadence also fails, fall back to a direct fill: all N sessions picked straight from the supplier’s openings with no recurrence rule, one per day, at the most consistent start time available. This guarantees flexibility of CADENCE, not of capacity — a supplier without N open days still yields no complete plan, and an under-filled plan is surfaced (or not) by the project’s allowPartialPackages setting via `partial`, exactly as it is today. Implies cadenceFlexibility FALLBACK.",
+                    "example": true
+                  },
+                  "maxCadenceAlternatives": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10,
+                    "default": 3,
+                    "description": "Max entries in cadenceAlternatives. Ignored when cadenceFlexibility is NONE.",
+                    "example": 3
+                  },
+                  "allowWeekdaySubstitution": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether a relaxed cadence may DROP a requested weekday. Set false to keep every weekday you asked for and only ever add to them — use it when the requested day is non-negotiable (e.g. the client is only home on Fridays).",
+                    "example": true
+                  },
+                  "minGapDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 90,
+                    "description": "Minimum whole days between consecutive sessions in a relaxed or direct-fill slate. Use it to stop a dense fallback from stacking sessions on back-to-back days.",
+                    "example": 2
+                  },
+                  "maxSessionsPerWeek": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 14,
+                    "description": "Cap on sessions per Monday-anchored calendar week in a relaxed or direct-fill slate.",
+                    "example": 3
+                  },
                   "maxAlternates": {
                     "type": "integer",
                     "minimum": 0,
@@ -10986,7 +11375,7 @@
         },
         "responses": {
           "200": {
-            "description": "Primary slate (OK), or a usable partial slate",
+            "description": "Primary slate (OK), a usable partial slate, or — when cadenceFlexibility was set — bookable cadenceAlternatives (ALTERNATIVE_CADENCE)",
             "content": {
               "application/json": {
                 "schema": {
@@ -10994,8 +11383,13 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": ["OK", "NO_COMPLETE_SLATE", "NO_AVAILABILITY"],
-                      "description": "OK, NO_COMPLETE_SLATE, or NO_AVAILABILITY."
+                      "enum": [
+                        "OK",
+                        "ALTERNATIVE_CADENCE",
+                        "NO_COMPLETE_SLATE",
+                        "NO_AVAILABILITY"
+                      ],
+                      "description": "OK, ALTERNATIVE_CADENCE, NO_COMPLETE_SLATE, or NO_AVAILABILITY. ALTERNATIVE_CADENCE is only reachable when this request opted in via cadenceFlexibility or guaranteeSlate — a request sending today’s body (neither set) never observes it."
                     },
                     "reason": {
                       "type": "string",
@@ -11140,6 +11534,42 @@
                               "reservationStatus"
                             ]
                           }
+                        },
+                        "cadenceRrule": {
+                          "type": "string",
+                          "nullable": true,
+                          "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                          "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                        },
+                        "matchesRequestedCadence": {
+                          "type": "boolean",
+                          "description": "True when cadenceRrule is the rrule you asked for.",
+                          "example": false
+                        },
+                        "cadenceRelaxation": {
+                          "type": "string",
+                          "enum": [
+                            "EXACT",
+                            "INTERVAL_TIGHTENED",
+                            "DAYS_ADDED",
+                            "DAYS_SUBSTITUTED",
+                            "ALL_WORKING_DAYS",
+                            "DIRECT_FILL"
+                          ],
+                          "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                        },
+                        "cadenceDistance": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                          "example": 2
+                        },
+                        "sessionsPerWeek": {
+                          "type": "number",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                          "example": 2
                         }
                       },
                       "required": [
@@ -11284,6 +11714,42 @@
                                 "reservationStatus"
                               ]
                             }
+                          },
+                          "cadenceRrule": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                            "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                          },
+                          "matchesRequestedCadence": {
+                            "type": "boolean",
+                            "description": "True when cadenceRrule is the rrule you asked for.",
+                            "example": false
+                          },
+                          "cadenceRelaxation": {
+                            "type": "string",
+                            "enum": [
+                              "EXACT",
+                              "INTERVAL_TIGHTENED",
+                              "DAYS_ADDED",
+                              "DAYS_SUBSTITUTED",
+                              "ALL_WORKING_DAYS",
+                              "DIRECT_FILL"
+                            ],
+                            "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                          },
+                          "cadenceDistance": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                            "example": 2
+                          },
+                          "sessionsPerWeek": {
+                            "type": "number",
+                            "minimum": 0,
+                            "exclusiveMinimum": true,
+                            "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                            "example": 2
                           }
                         },
                         "required": [
@@ -11427,6 +11893,42 @@
                               "reservationStatus"
                             ]
                           }
+                        },
+                        "cadenceRrule": {
+                          "type": "string",
+                          "nullable": true,
+                          "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                          "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                        },
+                        "matchesRequestedCadence": {
+                          "type": "boolean",
+                          "description": "True when cadenceRrule is the rrule you asked for.",
+                          "example": false
+                        },
+                        "cadenceRelaxation": {
+                          "type": "string",
+                          "enum": [
+                            "EXACT",
+                            "INTERVAL_TIGHTENED",
+                            "DAYS_ADDED",
+                            "DAYS_SUBSTITUTED",
+                            "ALL_WORKING_DAYS",
+                            "DIRECT_FILL"
+                          ],
+                          "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                        },
+                        "cadenceDistance": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                          "example": 2
+                        },
+                        "sessionsPerWeek": {
+                          "type": "number",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                          "example": 2
                         }
                       },
                       "required": [
@@ -11439,6 +11941,194 @@
                         "totalTravelTimeMins",
                         "slots"
                       ]
+                    },
+                    "cadenceAlternatives": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "slateId": {
+                            "type": "string",
+                            "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                            "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
+                          },
+                          "supplierId": {
+                            "type": "string"
+                          },
+                          "completeness": {
+                            "type": "string",
+                            "enum": ["COMPLETE", "PARTIAL"]
+                          },
+                          "sessionsRequested": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true,
+                            "description": "How many sessions were requested (the package's creditCount)."
+                          },
+                          "sessionsFilled": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "How many of the requested sessions the plan could fill."
+                          },
+                          "startTimeConsistencyPercent": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "totalTravelTimeMins": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "slots": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "slotId": {
+                                  "type": "string",
+                                  "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
+                                },
+                                "sessionIndex": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "1-based index of this session within the slate."
+                                },
+                                "supplierId": {
+                                  "type": "string"
+                                },
+                                "serviceId": {
+                                  "type": "string"
+                                },
+                                "offeringId": {
+                                  "type": "string"
+                                },
+                                "bookingStartUtc": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "bookingEndUtc": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "bookingTz": {
+                                  "type": "string"
+                                },
+                                "locationType": {
+                                  "type": "string",
+                                  "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                                },
+                                "locationId": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "latitude": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "longitude": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "address": {
+                                  "$ref": "#/components/schemas/Address"
+                                },
+                                "travelTimeMins": {
+                                  "type": "number",
+                                  "nullable": true,
+                                  "minimum": 0
+                                },
+                                "capacity": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true
+                                },
+                                "reservationStatus": {
+                                  "type": "string",
+                                  "enum": [
+                                    "FREE",
+                                    "HELD",
+                                    "CONVERTED",
+                                    "RELEASED"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "slotId",
+                                "sessionIndex",
+                                "supplierId",
+                                "serviceId",
+                                "offeringId",
+                                "bookingStartUtc",
+                                "bookingEndUtc",
+                                "bookingTz",
+                                "locationType",
+                                "locationId",
+                                "latitude",
+                                "longitude",
+                                "address",
+                                "travelTimeMins",
+                                "capacity",
+                                "reservationStatus"
+                              ]
+                            }
+                          },
+                          "cadenceRrule": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                            "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                          },
+                          "matchesRequestedCadence": {
+                            "type": "boolean",
+                            "description": "True when cadenceRrule is the rrule you asked for.",
+                            "example": false
+                          },
+                          "cadenceRelaxation": {
+                            "type": "string",
+                            "enum": [
+                              "EXACT",
+                              "INTERVAL_TIGHTENED",
+                              "DAYS_ADDED",
+                              "DAYS_SUBSTITUTED",
+                              "ALL_WORKING_DAYS",
+                              "DIRECT_FILL"
+                            ],
+                            "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                          },
+                          "cadenceDistance": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                            "example": 2
+                          },
+                          "sessionsPerWeek": {
+                            "type": "number",
+                            "minimum": 0,
+                            "exclusiveMinimum": true,
+                            "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                            "example": 2
+                          }
+                        },
+                        "required": [
+                          "slateId",
+                          "supplierId",
+                          "completeness",
+                          "sessionsRequested",
+                          "sessionsFilled",
+                          "startTimeConsistencyPercent",
+                          "totalTravelTimeMins",
+                          "slots"
+                        ]
+                      },
+                      "default": [],
+                      "description": "Complete N-session slates that fit the supplier’s real availability but do NOT follow the rrule you asked for — e.g. you requested weekly Fridays, no supplier has eight free Fridays, so this carries a Mon+Fri plan instead. Sorted closest-first by cadenceDistance. Always empty unless the request set cadenceFlexibility or guaranteeSlate. Each entry’s slateId is bookable exactly like primarySlate’s."
+                    },
+                    "requestedCadence": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "The rrule this request asked for, echoed back so you can diff it against each slate’s cadenceRrule.",
+                      "example": "FREQ=WEEKLY;BYDAY=FR;COUNT=8"
                     }
                   },
                   "required": [
@@ -11485,7 +12175,7 @@
             }
           },
           "422": {
-            "description": "No complete or bookable slate (code: NO_COMPLETE_SLATE | NO_AVAILABILITY)",
+            "description": "No complete or bookable slate — no primarySlate, no partial, and no cadenceAlternatives (code: NO_COMPLETE_SLATE | NO_AVAILABILITY)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11501,7 +12191,7 @@
       "post": {
         "tags": ["Availability"],
         "summary": "List a service's packages, each with a ready-to-book slate",
-        "description": "Returns every ACTIVE package of a service, each with a complete N-session plan built from a supplier's real availability. The response entry carries a slateId that can be booked directly via POST /orders/{orderId}/package-bookings. Cadence defaults to FREQ=WEEKLY;COUNT={creditCount}, derived per package. Packages that cannot be planned come back with status NO_COMPLETE_SLATE or NO_AVAILABILITY and a reason — they do not fail the request.",
+        "description": "Returns every ACTIVE package of a service, each with a complete N-session plan built from a supplier's real availability. The response entry carries a slateId that can be booked directly via POST /orders/{orderId}/package-bookings. Cadence defaults to FREQ=WEEKLY;COUNT={creditCount}, derived per package. Packages that cannot be planned come back with status NO_COMPLETE_SLATE or NO_AVAILABILITY and a reason — they do not fail the request.\n\nThe rrule is the PREFERRED cadence, not a hard filter — set cadenceFlexibility to FALLBACK (or ALWAYS) and it applies to every package in the response. An entry that has no complete plan on the requested days then comes back with status ALTERNATIVE_CADENCE and a non-empty cadenceAlternatives: complete slates at a denser, supplier-feasible cadence, sorted closest-first by cadenceDistance. Read the outcome from each entry's status: NO_COMPLETE_SLATE is NO LONGER the only non-OK outcome, and ALTERNATIVE_CADENCE is a success — every cadenceAlternatives entry carries a slateId that is bookable in exactly the same way as primarySlate. A caller who does not set cadenceFlexibility sees no change at all: it defaults to NONE and cadenceAlternatives comes back empty.",
         "parameters": [
           {
             "schema": {
@@ -11641,6 +12331,48 @@
                       "required": ["startTime", "endTime"]
                     }
                   },
+                  "cadenceFlexibility": {
+                    "type": "string",
+                    "enum": ["NONE", "FALLBACK", "ALWAYS"],
+                    "default": "NONE",
+                    "description": "How hard to try when the supplier cannot meet your rrule exactly. NONE (default) is today’s behaviour: no cadence at the requested rrule means no slate. FALLBACK also returns cadenceAlternatives — complete slates at a DENSER, supplier-feasible cadence (you asked for weekly Fridays, we offer Mon+Fri) — but only when the requested cadence yields nothing. ALWAYS returns them alongside a successful primarySlate too, so you can show \"…or twice a week\".",
+                    "example": "FALLBACK"
+                  },
+                  "guaranteeSlate": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Try harder before giving up. When every relaxed cadence also fails, fall back to a direct fill: all N sessions picked straight from the supplier’s openings with no recurrence rule, one per day, at the most consistent start time available. This guarantees flexibility of CADENCE, not of capacity — a supplier without N open days still yields no complete plan, and an under-filled plan is surfaced (or not) by the project’s allowPartialPackages setting via `partial`, exactly as it is today. Implies cadenceFlexibility FALLBACK.",
+                    "example": true
+                  },
+                  "maxCadenceAlternatives": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10,
+                    "default": 3,
+                    "description": "Max entries in cadenceAlternatives. Ignored when cadenceFlexibility is NONE.",
+                    "example": 3
+                  },
+                  "allowWeekdaySubstitution": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether a relaxed cadence may DROP a requested weekday. Set false to keep every weekday you asked for and only ever add to them — use it when the requested day is non-negotiable (e.g. the client is only home on Fridays).",
+                    "example": true
+                  },
+                  "minGapDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 90,
+                    "description": "Minimum whole days between consecutive sessions in a relaxed or direct-fill slate. Use it to stop a dense fallback from stacking sessions on back-to-back days.",
+                    "example": 2
+                  },
+                  "maxSessionsPerWeek": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 14,
+                    "description": "Cap on sessions per Monday-anchored calendar week in a relaxed or direct-fill slate.",
+                    "example": 3
+                  },
                   "maxAlternates": {
                     "type": "integer",
                     "minimum": 0
@@ -11676,10 +12408,11 @@
                             "type": "string",
                             "enum": [
                               "OK",
+                              "ALTERNATIVE_CADENCE",
                               "NO_COMPLETE_SLATE",
                               "NO_AVAILABILITY"
                             ],
-                            "description": "OK, NO_COMPLETE_SLATE, or NO_AVAILABILITY — for THIS package."
+                            "description": "OK, ALTERNATIVE_CADENCE, NO_COMPLETE_SLATE, or NO_AVAILABILITY — for THIS package. ALTERNATIVE_CADENCE is only reachable when this request opted in via cadenceFlexibility or guaranteeSlate — a request sending today’s body (neither set) never observes it."
                           },
                           "reason": {
                             "type": "string",
@@ -11824,6 +12557,42 @@
                                     "reservationStatus"
                                   ]
                                 }
+                              },
+                              "cadenceRrule": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                              },
+                              "matchesRequestedCadence": {
+                                "type": "boolean",
+                                "description": "True when cadenceRrule is the rrule you asked for.",
+                                "example": false
+                              },
+                              "cadenceRelaxation": {
+                                "type": "string",
+                                "enum": [
+                                  "EXACT",
+                                  "INTERVAL_TIGHTENED",
+                                  "DAYS_ADDED",
+                                  "DAYS_SUBSTITUTED",
+                                  "ALL_WORKING_DAYS",
+                                  "DIRECT_FILL"
+                                ],
+                                "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                              },
+                              "cadenceDistance": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                "example": 2
+                              },
+                              "sessionsPerWeek": {
+                                "type": "number",
+                                "minimum": 0,
+                                "exclusiveMinimum": true,
+                                "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                "example": 2
                               }
                             },
                             "required": [
@@ -11971,6 +12740,42 @@
                                       "reservationStatus"
                                     ]
                                   }
+                                },
+                                "cadenceRrule": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                  "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                                },
+                                "matchesRequestedCadence": {
+                                  "type": "boolean",
+                                  "description": "True when cadenceRrule is the rrule you asked for.",
+                                  "example": false
+                                },
+                                "cadenceRelaxation": {
+                                  "type": "string",
+                                  "enum": [
+                                    "EXACT",
+                                    "INTERVAL_TIGHTENED",
+                                    "DAYS_ADDED",
+                                    "DAYS_SUBSTITUTED",
+                                    "ALL_WORKING_DAYS",
+                                    "DIRECT_FILL"
+                                  ],
+                                  "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                                },
+                                "cadenceDistance": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "example": 2
+                                },
+                                "sessionsPerWeek": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                  "example": 2
                                 }
                               },
                               "required": [
@@ -12118,6 +12923,42 @@
                                     "reservationStatus"
                                   ]
                                 }
+                              },
+                              "cadenceRrule": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                              },
+                              "matchesRequestedCadence": {
+                                "type": "boolean",
+                                "description": "True when cadenceRrule is the rrule you asked for.",
+                                "example": false
+                              },
+                              "cadenceRelaxation": {
+                                "type": "string",
+                                "enum": [
+                                  "EXACT",
+                                  "INTERVAL_TIGHTENED",
+                                  "DAYS_ADDED",
+                                  "DAYS_SUBSTITUTED",
+                                  "ALL_WORKING_DAYS",
+                                  "DIRECT_FILL"
+                                ],
+                                "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                              },
+                              "cadenceDistance": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                "example": 2
+                              },
+                              "sessionsPerWeek": {
+                                "type": "number",
+                                "minimum": 0,
+                                "exclusiveMinimum": true,
+                                "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                "example": 2
                               }
                             },
                             "required": [
@@ -12130,6 +12971,192 @@
                               "totalTravelTimeMins",
                               "slots"
                             ]
+                          },
+                          "cadenceAlternatives": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "slateId": {
+                                  "type": "string",
+                                  "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                  "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
+                                },
+                                "supplierId": {
+                                  "type": "string"
+                                },
+                                "completeness": {
+                                  "type": "string",
+                                  "enum": ["COMPLETE", "PARTIAL"]
+                                },
+                                "sessionsRequested": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "How many sessions were requested (the package's creditCount)."
+                                },
+                                "sessionsFilled": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "How many of the requested sessions the plan could fill."
+                                },
+                                "startTimeConsistencyPercent": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 100
+                                },
+                                "totalTravelTimeMins": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "slots": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "slotId": {
+                                        "type": "string",
+                                        "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
+                                      },
+                                      "sessionIndex": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true,
+                                        "description": "1-based index of this session within the slate."
+                                      },
+                                      "supplierId": {
+                                        "type": "string"
+                                      },
+                                      "serviceId": {
+                                        "type": "string"
+                                      },
+                                      "offeringId": {
+                                        "type": "string"
+                                      },
+                                      "bookingStartUtc": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      },
+                                      "bookingEndUtc": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      },
+                                      "bookingTz": {
+                                        "type": "string"
+                                      },
+                                      "locationType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "PHYSICAL",
+                                          "VIRTUAL",
+                                          "TRAVEL_ZONE"
+                                        ]
+                                      },
+                                      "locationId": {
+                                        "type": "string",
+                                        "nullable": true
+                                      },
+                                      "latitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                      },
+                                      "longitude": {
+                                        "type": "number",
+                                        "nullable": true
+                                      },
+                                      "address": {
+                                        "$ref": "#/components/schemas/Address"
+                                      },
+                                      "travelTimeMins": {
+                                        "type": "number",
+                                        "nullable": true,
+                                        "minimum": 0
+                                      },
+                                      "capacity": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "exclusiveMinimum": true
+                                      },
+                                      "reservationStatus": {
+                                        "type": "string",
+                                        "enum": [
+                                          "FREE",
+                                          "HELD",
+                                          "CONVERTED",
+                                          "RELEASED"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "slotId",
+                                      "sessionIndex",
+                                      "supplierId",
+                                      "serviceId",
+                                      "offeringId",
+                                      "bookingStartUtc",
+                                      "bookingEndUtc",
+                                      "bookingTz",
+                                      "locationType",
+                                      "locationId",
+                                      "latitude",
+                                      "longitude",
+                                      "address",
+                                      "travelTimeMins",
+                                      "capacity",
+                                      "reservationStatus"
+                                    ]
+                                  }
+                                },
+                                "cadenceRrule": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                  "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                                },
+                                "matchesRequestedCadence": {
+                                  "type": "boolean",
+                                  "description": "True when cadenceRrule is the rrule you asked for.",
+                                  "example": false
+                                },
+                                "cadenceRelaxation": {
+                                  "type": "string",
+                                  "enum": [
+                                    "EXACT",
+                                    "INTERVAL_TIGHTENED",
+                                    "DAYS_ADDED",
+                                    "DAYS_SUBSTITUTED",
+                                    "ALL_WORKING_DAYS",
+                                    "DIRECT_FILL"
+                                  ],
+                                  "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                                },
+                                "cadenceDistance": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "example": 2
+                                },
+                                "sessionsPerWeek": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                  "example": 2
+                                }
+                              },
+                              "required": [
+                                "slateId",
+                                "supplierId",
+                                "completeness",
+                                "sessionsRequested",
+                                "sessionsFilled",
+                                "startTimeConsistencyPercent",
+                                "totalTravelTimeMins",
+                                "slots"
+                              ]
+                            },
+                            "default": [],
+                            "description": "Complete slates for THIS package at a cadence other than the one requested. See PackageSlateResponse.cadenceAlternatives."
                           }
                         },
                         "required": [
@@ -12377,6 +13404,42 @@
                               "reservationStatus"
                             ]
                           }
+                        },
+                        "cadenceRrule": {
+                          "type": "string",
+                          "nullable": true,
+                          "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                          "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                        },
+                        "matchesRequestedCadence": {
+                          "type": "boolean",
+                          "description": "True when cadenceRrule is the rrule you asked for.",
+                          "example": false
+                        },
+                        "cadenceRelaxation": {
+                          "type": "string",
+                          "enum": [
+                            "EXACT",
+                            "INTERVAL_TIGHTENED",
+                            "DAYS_ADDED",
+                            "DAYS_SUBSTITUTED",
+                            "ALL_WORKING_DAYS",
+                            "DIRECT_FILL"
+                          ],
+                          "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                        },
+                        "cadenceDistance": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                          "example": 2
+                        },
+                        "sessionsPerWeek": {
+                          "type": "number",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                          "example": 2
                         }
                       },
                       "required": [
@@ -12460,10 +13523,11 @@
                               "type": "string",
                               "enum": [
                                 "OK",
+                                "ALTERNATIVE_CADENCE",
                                 "NO_COMPLETE_SLATE",
                                 "NO_AVAILABILITY"
                               ],
-                              "description": "OK, NO_COMPLETE_SLATE, or NO_AVAILABILITY."
+                              "description": "OK, ALTERNATIVE_CADENCE, NO_COMPLETE_SLATE, or NO_AVAILABILITY. ALTERNATIVE_CADENCE is only reachable when this request opted in via cadenceFlexibility or guaranteeSlate — a request sending today’s body (neither set) never observes it."
                             },
                             "reason": {
                               "type": "string",
@@ -12612,6 +13676,42 @@
                                       "reservationStatus"
                                     ]
                                   }
+                                },
+                                "cadenceRrule": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                  "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                                },
+                                "matchesRequestedCadence": {
+                                  "type": "boolean",
+                                  "description": "True when cadenceRrule is the rrule you asked for.",
+                                  "example": false
+                                },
+                                "cadenceRelaxation": {
+                                  "type": "string",
+                                  "enum": [
+                                    "EXACT",
+                                    "INTERVAL_TIGHTENED",
+                                    "DAYS_ADDED",
+                                    "DAYS_SUBSTITUTED",
+                                    "ALL_WORKING_DAYS",
+                                    "DIRECT_FILL"
+                                  ],
+                                  "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                                },
+                                "cadenceDistance": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "example": 2
+                                },
+                                "sessionsPerWeek": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                  "example": 2
                                 }
                               },
                               "required": [
@@ -12760,6 +13860,42 @@
                                         "reservationStatus"
                                       ]
                                     }
+                                  },
+                                  "cadenceRrule": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                    "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                                  },
+                                  "matchesRequestedCadence": {
+                                    "type": "boolean",
+                                    "description": "True when cadenceRrule is the rrule you asked for.",
+                                    "example": false
+                                  },
+                                  "cadenceRelaxation": {
+                                    "type": "string",
+                                    "enum": [
+                                      "EXACT",
+                                      "INTERVAL_TIGHTENED",
+                                      "DAYS_ADDED",
+                                      "DAYS_SUBSTITUTED",
+                                      "ALL_WORKING_DAYS",
+                                      "DIRECT_FILL"
+                                    ],
+                                    "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                                  },
+                                  "cadenceDistance": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                    "example": 2
+                                  },
+                                  "sessionsPerWeek": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true,
+                                    "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                    "example": 2
                                   }
                                 },
                                 "required": [
@@ -12907,6 +14043,42 @@
                                       "reservationStatus"
                                     ]
                                   }
+                                },
+                                "cadenceRrule": {
+                                  "type": "string",
+                                  "nullable": true,
+                                  "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                  "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                                },
+                                "matchesRequestedCadence": {
+                                  "type": "boolean",
+                                  "description": "True when cadenceRrule is the rrule you asked for.",
+                                  "example": false
+                                },
+                                "cadenceRelaxation": {
+                                  "type": "string",
+                                  "enum": [
+                                    "EXACT",
+                                    "INTERVAL_TIGHTENED",
+                                    "DAYS_ADDED",
+                                    "DAYS_SUBSTITUTED",
+                                    "ALL_WORKING_DAYS",
+                                    "DIRECT_FILL"
+                                  ],
+                                  "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                                },
+                                "cadenceDistance": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "example": 2
+                                },
+                                "sessionsPerWeek": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "exclusiveMinimum": true,
+                                  "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                  "example": 2
                                 }
                               },
                               "required": [
@@ -12919,6 +14091,198 @@
                                 "totalTravelTimeMins",
                                 "slots"
                               ]
+                            },
+                            "cadenceAlternatives": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "slateId": {
+                                    "type": "string",
+                                    "description": "Pass this to POST .../package-bookings to book the whole plan.",
+                                    "example": "slate_01kx16ejsqffc9rbgdcc591w2p"
+                                  },
+                                  "supplierId": {
+                                    "type": "string"
+                                  },
+                                  "completeness": {
+                                    "type": "string",
+                                    "enum": ["COMPLETE", "PARTIAL"]
+                                  },
+                                  "sessionsRequested": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true,
+                                    "description": "How many sessions were requested (the package's creditCount)."
+                                  },
+                                  "sessionsFilled": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "description": "How many of the requested sessions the plan could fill."
+                                  },
+                                  "startTimeConsistencyPercent": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  "totalTravelTimeMins": {
+                                    "type": "number",
+                                    "minimum": 0
+                                  },
+                                  "slots": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "slotId": {
+                                          "type": "string",
+                                          "description": "Id of one session; pass a subset of these as slotIds to cherry-pick."
+                                        },
+                                        "sessionIndex": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "exclusiveMinimum": true,
+                                          "description": "1-based index of this session within the slate."
+                                        },
+                                        "supplierId": {
+                                          "type": "string"
+                                        },
+                                        "serviceId": {
+                                          "type": "string"
+                                        },
+                                        "offeringId": {
+                                          "type": "string"
+                                        },
+                                        "bookingStartUtc": {
+                                          "type": "string",
+                                          "format": "date-time"
+                                        },
+                                        "bookingEndUtc": {
+                                          "type": "string",
+                                          "format": "date-time"
+                                        },
+                                        "bookingTz": {
+                                          "type": "string"
+                                        },
+                                        "locationType": {
+                                          "type": "string",
+                                          "enum": [
+                                            "PHYSICAL",
+                                            "VIRTUAL",
+                                            "TRAVEL_ZONE"
+                                          ]
+                                        },
+                                        "locationId": {
+                                          "type": "string",
+                                          "nullable": true
+                                        },
+                                        "latitude": {
+                                          "type": "number",
+                                          "nullable": true
+                                        },
+                                        "longitude": {
+                                          "type": "number",
+                                          "nullable": true
+                                        },
+                                        "address": {
+                                          "$ref": "#/components/schemas/Address"
+                                        },
+                                        "travelTimeMins": {
+                                          "type": "number",
+                                          "nullable": true,
+                                          "minimum": 0
+                                        },
+                                        "capacity": {
+                                          "type": "integer",
+                                          "minimum": 0,
+                                          "exclusiveMinimum": true
+                                        },
+                                        "reservationStatus": {
+                                          "type": "string",
+                                          "enum": [
+                                            "FREE",
+                                            "HELD",
+                                            "CONVERTED",
+                                            "RELEASED"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "slotId",
+                                        "sessionIndex",
+                                        "supplierId",
+                                        "serviceId",
+                                        "offeringId",
+                                        "bookingStartUtc",
+                                        "bookingEndUtc",
+                                        "bookingTz",
+                                        "locationType",
+                                        "locationId",
+                                        "latitude",
+                                        "longitude",
+                                        "address",
+                                        "travelTimeMins",
+                                        "capacity",
+                                        "reservationStatus"
+                                      ]
+                                    }
+                                  },
+                                  "cadenceRrule": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "description": "The recurrence rule this slate’s sessions actually follow. Null for a direct fill (no recurrence rule at all). This is PROVENANCE — it records how the slate was generated and is NOT re-validated if a slot is later rescheduled.",
+                                    "example": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+                                  },
+                                  "matchesRequestedCadence": {
+                                    "type": "boolean",
+                                    "description": "True when cadenceRrule is the rrule you asked for.",
+                                    "example": false
+                                  },
+                                  "cadenceRelaxation": {
+                                    "type": "string",
+                                    "enum": [
+                                      "EXACT",
+                                      "INTERVAL_TIGHTENED",
+                                      "DAYS_ADDED",
+                                      "DAYS_SUBSTITUTED",
+                                      "ALL_WORKING_DAYS",
+                                      "DIRECT_FILL"
+                                    ],
+                                    "description": "How this slate’s cadence was derived from the one you requested. EXACT matches the request. INTERVAL_TIGHTENED keeps the requested weekdays but runs more often. DAYS_ADDED keeps every requested weekday and adds more. DAYS_SUBSTITUTED replaces them with weekdays the supplier actually works. ALL_WORKING_DAYS uses every weekday the supplier works. DIRECT_FILL follows no recurrence rule at all — it is the supplier’s real openings, one session per day."
+                                  },
+                                  "cadenceDistance": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                    "example": 2
+                                  },
+                                  "sessionsPerWeek": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true,
+                                    "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
+                                    "example": 2
+                                  }
+                                },
+                                "required": [
+                                  "slateId",
+                                  "supplierId",
+                                  "completeness",
+                                  "sessionsRequested",
+                                  "sessionsFilled",
+                                  "startTimeConsistencyPercent",
+                                  "totalTravelTimeMins",
+                                  "slots"
+                                ]
+                              },
+                              "default": [],
+                              "description": "Complete N-session slates that fit the supplier’s real availability but do NOT follow the rrule you asked for — e.g. you requested weekly Fridays, no supplier has eight free Fridays, so this carries a Mon+Fri plan instead. Sorted closest-first by cadenceDistance. Always empty unless the request set cadenceFlexibility or guaranteeSlate. Each entry’s slateId is bookable exactly like primarySlate’s."
+                            },
+                            "requestedCadence": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "The rrule this request asked for, echoed back so you can diff it against each slate’s cadenceRrule.",
+                              "example": "FREQ=WEEKLY;BYDAY=FR;COUNT=8"
                             }
                           },
                           "required": [
@@ -20619,17 +21983,22 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 200,
-              "default": 50
+              "default": 50,
+              "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
+              "example": 50
             },
             "required": false,
+            "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
             "name": "limit",
             "in": "query"
           },
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page."
             },
             "required": false,
+            "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page.",
             "name": "cursor",
             "in": "query"
           }
