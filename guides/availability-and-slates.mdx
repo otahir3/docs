@@ -6,10 +6,11 @@ description: A deep dive into the clusters/availability engine — slate anatomy
 This is the deep-dive companion to
 [Create a package booking with a slate](/guides/create-a-package-booking). That
 guide covers the primary flow — build a slate, create an order, book it by
-`slateId` — end to end. This page goes underneath it: what the four
+`slateId` — end to end. This page goes underneath it: what the five
 availability endpoints are for, exactly what a slate response contains, the
-cadence rules that shape it, and the two advanced booking paths that exist
-alongside book-by-`slateId`.
+cadence rules that shape it, what happens when a supplier can't meet those
+rules, and the two advanced booking paths that exist alongside
+book-by-`slateId`.
 
 It builds on [The booking engine model](/concepts/booking-engine-model) —
 read the [Slates](/concepts/booking-engine-model#slates) section first if you
@@ -17,7 +18,7 @@ haven't.
 
 ## The availability engine
 
-Four endpoints make up the availability engine, all authenticated with the
+Five endpoints make up the availability engine, all authenticated with the
 `x-api-key` header (see the table below for exact paths). They're layers of
 the same clustering engine, from lowest to highest level:
 
@@ -25,11 +26,12 @@ the same clustering engine, from lowest to highest level:
 | --- | --- |
 | `POST .../availability/time-slots` | You already hold the scheduling state (suppliers, their bookings, their availability) and want to run the engine directly, passing everything in the body. |
 | `POST .../availability/search` | You have a service + offering + location and want the API to resolve suppliers from project data and return suggested/open slots — one-off, single-session slots. |
+| `POST .../availability/suppliers` | You want the same single-session availability **grouped by supplier** — a paginated list of supplier profiles, each with its open slots bucketed by local day. Reach for it when rendering a wall of supplier cards. |
 | `POST .../availability/package-slate` | You want a **complete N-session plan** for a package from one supplier, computed from a recurrence rule (`rrule`). This is the endpoint the rest of this guide covers. |
 | `POST .../availability/package-options` | You want **every** ACTIVE package of a service planned in one call, each with its own ready-to-book `slateId`. The composite built on `package-slate` — reach for it when rendering a package storefront. |
 
 <Note>
-`/search` and `/time-slots` are documented in full in the
+`/search`, `/time-slots` and `/suppliers` are documented in full in the
 [Availability resource reference](/resources/availability) — request fields,
 the recurring-search variant, and response envelopes. This guide focuses on
 `/package-slate`, since it's the one with package-specific anatomy and the
@@ -60,7 +62,9 @@ cadence (`lookAheadStartDate` + `rrule`). The response is a
     "slots": []
   },
   "alternates": [],
-  "partial": null
+  "partial": null,
+  "cadenceAlternatives": [],
+  "requestedCadence": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=8"
 }
 ```
 
@@ -69,32 +73,40 @@ for a fully populated example, and the field tables below for its shape.)
 
 | Field | Meaning |
 | --- | --- |
-| `status` | `OK`, `NO_COMPLETE_SLATE`, or `NO_AVAILABILITY` — see below. |
+| `status` | `OK`, `ALTERNATIVE_CADENCE`, `NO_COMPLETE_SLATE`, or `NO_AVAILABILITY` — see below. |
 | `reason` | Human-readable explanation when `status` isn't `OK`. `null` on success. |
 | `suggestionRequestId` | Audit id for this request. Present only when `persist` is `true` (the default). |
 | `resolvableUntil` | Slates and slots stay resolvable (holdable/bookable by id) for **24 hours** from the request; after that they're stale. |
 | `primarySlate` | The best **COMPLETE** single-supplier slate — book this by `slateId`. `null` if none satisfies the project's supplier policy. |
 | `alternates` | Runner-up suppliers' slates. Empty unless the project's `suggestionConfig.supplierPolicy` permits considering multiple suppliers. |
 | `partial` | The best **PARTIAL** slate (fills fewer than the requested sessions). `null` unless the project has `suggestionConfig.allowPartialPackages` enabled. |
+| `cadenceAlternatives` | **COMPLETE** N-session slates at a *different, supplier-feasible* cadence than the one you asked for. Sorted closest-first by `cadenceDistance`. Always `[]` unless the request opted in — see [Cadence relaxation](#cadence-relaxation). |
+| `requestedCadence` | The `rrule` this request asked for, echoed back so you can diff it against each slate's `cadenceRrule`. `null` when the request named no cadence. |
 
 ### Status values
 
 | `status` | Meaning |
 | --- | --- |
 | `OK` | A `COMPLETE` primary slate was found — every requested session filled by one supplier. |
+| `ALTERNATIVE_CADENCE` | **A success, returned as `200`.** No slate at the *requested* cadence, but `cadenceAlternatives` holds one or more complete plans at a denser, supplier-feasible cadence. `primarySlate` is `null`; every alternative's `slateId` is bookable exactly like `primarySlate`'s. Only ever returned when the request opted in via `cadenceFlexibility` or `guaranteeSlate`. |
 | `NO_COMPLETE_SLATE` | No complete single-supplier slate exists under the project's supplier policy. `alternates` may still be populated (multi-supplier policy) and `partial` may still be usable (if `allowPartialPackages` is on) — check both before treating this as a dead end. |
 | `NO_AVAILABILITY` | No availability at all for the request window — no supplier, complete or partial. |
 
 <Warning>
-When neither `primarySlate` nor `partial` comes back (nothing bookable at
-all), the endpoint returns **`422`** with the `code` set to `status`
-(`NO_COMPLETE_SLATE` or `NO_AVAILABILITY`) — not a `200` with an empty body.
+The endpoint returns **`422`** only when `primarySlate`, `partial` **and**
+`cadenceAlternatives` are *all* empty — nothing bookable at all. The `code`
+is then the `status` (`NO_COMPLETE_SLATE` or `NO_AVAILABILITY`), not a `200`
+with an empty body.
+
+A non-empty `cadenceAlternatives` is bookable output, so it makes the
+response a `200` (`ALTERNATIVE_CADENCE`) even with `primarySlate: null`.
+**Don't branch on `primarySlate` alone** once you've opted into relaxation.
 </Warning>
 
 ### Slate and slot fields
 
-Each slate (`primarySlate`, entries in `alternates`, and `partial`) has the
-same shape:
+Each slate (`primarySlate`, entries in `alternates`, entries in
+`cadenceAlternatives`, and `partial`) has the same shape:
 
 | Field | Meaning |
 | --- | --- |
@@ -105,6 +117,24 @@ same shape:
 | `startTimeConsistencyPercent` | How consistent the session start times are (0–100). |
 | `totalTravelTimeMins` | Summed travel time across the plan's sessions. |
 | `slots[]` | The resolved sessions — see below. |
+
+Slates additionally carry **cadence provenance** — a record of how the plan's
+cadence relates to the one you asked for. These fields are absent unless the
+request opted into [cadence relaxation](#cadence-relaxation):
+
+| Field | Meaning |
+| --- | --- |
+| `cadenceRrule` | The recurrence rule this slate's sessions actually follow. **`null` for a direct fill** — that plan follows no recurrence rule at all. |
+| `matchesRequestedCadence` | `true` when `cadenceRrule` is the `rrule` you asked for. |
+| `cadenceRelaxation` | How the cadence was derived: `EXACT`, `INTERVAL_TIGHTENED` (same weekdays, run more often), `DAYS_ADDED` (every requested weekday kept, more added), `DAYS_SUBSTITUTED` (requested weekdays replaced with ones the supplier works), `ALL_WORKING_DAYS`, or `DIRECT_FILL`. |
+| `cadenceDistance` | How far this cadence sits from the requested one — `0` is exact, lower is closer. `cadenceAlternatives` is already sorted by it. |
+| `sessionsPerWeek` | Average sessions per week across the plan — the number a UI renders as "2×/week". |
+
+<Note>
+Cadence provenance is **provenance**: it records how the slate was generated.
+It is not re-validated if a session is later rescheduled, so a booked plan can
+drift from its own `cadenceRrule`.
+</Note>
 
 Each entry in `slots[]`:
 
@@ -190,18 +220,28 @@ That ceiling is wide enough for the ordinary weekly product. A weekly
 comfortably inside the window — so it plans and books normally. Weekly
 12-packs (~84 days) and biweekly 5-packs (~70 days) fit too.
 
-If the cadence is too sparse to fit all of a package's sessions within 120
-days, `package-slate` fails fast with a `422` **before running the engine at
-all**, naming the exact window it would have needed. A cadence that needs
-more than 120 days still returns `NO_COMPLETE_SLATE` with a reason rather
-than silently dropping sessions — the guardrail moved, it didn't vanish.
+What happens when the cadence is too sparse to fit all of a package's
+sessions within 120 days **depends on whether you asked for cadence
+flexibility**. The two behaviours are genuinely different code paths:
+
+| `cadenceFlexibility` | Behaviour when the derived window exceeds 120 days |
+| --- | --- |
+| `NONE` (the default) | **Fails fast with a `422` before running the engine at all**, naming the exact window it would have needed. Nothing is silently truncated. |
+| `FALLBACK` / `ALWAYS` (or `guaranteeSlate: true`) | **Clamps the window to 120 days and runs the engine anyway.** No early return. |
+
+The clamp is not a loosened guardrail — it's the whole point of relaxation.
+A denser cadence needs a *shorter* window, so the over-window case is exactly
+the one the [relaxation ladder](#cadence-relaxation)
+can answer: Monday-only `COUNT=20` needs 134 days ✗, but the same 20 sessions
+twice a week need only 70 ✓. Returning early would short-circuit the feature
+before it ever got to try.
 
 For example, a package with `creditCount: 20` requested with a Monday-only
 cadence (`FREQ=WEEKLY;BYDAY=MO;COUNT=20`) needs about 20 weeks (134 days
 including the inclusive end boundary) to fit all 20 sessions — over the cap.
-Because nothing is bookable, this comes back as a `422` in the standard
-[error envelope](/concepts/errors) (the `reason` becomes `message` and the
-`status` becomes `code`), **not** a `200` with a slate body:
+On the default `NONE` path nothing is bookable, so this comes back as a `422`
+in the standard [error envelope](/concepts/errors) (the `reason` becomes
+`message` and the `status` becomes `code`), **not** a `200` with a slate body:
 
 ```json
 {
@@ -212,6 +252,13 @@ Because nothing is bookable, this comes back as a `422` in the standard
 }
 ```
 
+Send the *same* request with `cadenceFlexibility: "FALLBACK"` and you get a
+`200` instead: the window clamps to 120 days, the engine runs, and any
+complete denser plan the supplier can actually fill comes back in
+`cadenceAlternatives` with `status: "ALTERNATIVE_CADENCE"`. If even the
+relaxed cadences fail, it's a `422` again — the clamp buys the engine a
+chance to answer, it doesn't manufacture availability.
+
 Compare that to the working example from
 [Create a package booking](/guides/create-a-package-booking): an 8-session
 package with `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;COUNT=8` fits 8 sessions into
@@ -219,10 +266,176 @@ under two weeks (five eligible weekdays per week), well inside the cap.
 
 <Tip>
 If you need a window wider than the derived default, pass `lookAheadDays` or
-`endDate` explicitly — they override the derivation. They're still subject
-to the same engine behavior (a wider window doesn't bypass the 120-day cap;
-it's the engine's absolute ceiling).
+`endDate` explicitly. **Doing so skips the derivation entirely — you own the
+window.** Neither the 120-day cap nor the relaxation padding is applied to a
+window you sized yourself: the 120 is a ceiling on the window the API
+*derives* from your cadence, not a ceiling the engine enforces on a window you
+state outright. So an explicit `lookAheadDays: 200` really does search 200
+days.
+
+The trade is that nothing sanity-checks it for you. Too small and the cadence
+can't fit; too large and you pay for pool the engine has to build. See the
+warning below for what an explicit window costs a relaxation request
+specifically.
 </Tip>
+
+<Warning>
+**An explicit `lookAheadDays` or `endDate` also opts you out of the padding
+that cadence relaxation relies on.** When the window is derived, a relaxation
+request widens it by a few days so a weekday *substitution* — which can need a
+slightly longer span than the cadence you asked for — has room to land. Size
+the window yourself and that padding is gone, so a substituted cadence needing
+a handful more days is silently dropped from `cadenceAlternatives`. If you're
+combining `cadenceFlexibility` with an explicit window, budget a week of
+headroom, or let the derivation do it for you.
+</Warning>
+
+## Cadence relaxation
+
+A supplier who works every weekday still can't give you eight *Fridays* if
+their schedule only runs four weeks. Historically that returned an empty
+`422` and left you with nothing to show — the single biggest complaint
+against the booking engine.
+
+Now you can ask the engine to answer with a **denser, supplier-feasible
+cadence** instead: complete N-session plans that fit the supplier's real
+availability but don't follow the `rrule` you asked for. They arrive in
+`cadenceAlternatives`, each with a directly bookable `slateId`.
+
+<Warning>
+**This is strictly opt-in, and the opt-in is absolute.** A request that sets
+neither `cadenceFlexibility` nor `guaranteeSlate` behaves *exactly* as it did
+before this feature existed — same slates, same statuses, same `422`s.
+`cadenceFlexibility` defaults to `NONE`, `cadenceAlternatives` comes back
+empty, and `ALTERNATIVE_CADENCE` is unreachable. **You cannot be broken by
+this change without asking for it.**
+</Warning>
+
+### Request fields
+
+All six are optional, and all six exist on both `/availability/package-slate`
+and `/availability/package-options`:
+
+| Field | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `cadenceFlexibility` | `"NONE"` \| `"FALLBACK"` \| `"ALWAYS"` | `"NONE"` | The master switch. `NONE` is today's behavior. `FALLBACK` returns `cadenceAlternatives` **only when the requested cadence yields nothing**. `ALWAYS` returns them alongside a successful `primarySlate` too, so you can offer "…or twice a week". |
+| `guaranteeSlate` | `boolean` | `false` | Try harder before giving up — adds the direct-fill floor below. Implies `cadenceFlexibility: "FALLBACK"`, so setting this alone is enough. |
+| `maxCadenceAlternatives` | integer `0`–`10` | `3` | Cap on entries in `cadenceAlternatives`. Ignored when flexibility is `NONE`. |
+| `allowWeekdaySubstitution` | `boolean` | `true` | Whether a relaxed cadence may **drop** a weekday you asked for. Set `false` when the requested day is non-negotiable (the client is only home on Fridays) — the engine may then only *add* days, never swap them. |
+| `minGapDays` | integer `0`–`90` | *(none)* | Minimum whole days between consecutive sessions. Use it to stop a dense fallback from stacking sessions on back-to-back days. |
+| `maxSessionsPerWeek` | integer `1`–`14` | *(none)* | Cap on sessions per calendar week in a relaxed or direct-fill plan. |
+
+### What comes back
+
+When relaxation produces something and the requested cadence didn't, the
+response is a **`200`** with `status: "ALTERNATIVE_CADENCE"`, `primarySlate:
+null`, and a populated `cadenceAlternatives` sorted closest-first by
+`cadenceDistance`. Every entry is a normal slate: book it by `slateId`, hold
+it by `slateId`, transcribe its `slots[]` — all three paths in this guide
+work identically on an alternative.
+
+### Worked example
+
+A supplier works **Mon–Fri, 09:00–17:00**, `America/Toronto`, on a schedule
+that runs **2026-07-06 → 2026-08-03** — about four weeks. The client wants an
+**8-session package** on Fridays. Eight Fridays would run to late August;
+the schedule ends after the fourth. So the requested cadence is unfillable
+even though the supplier is demonstrably available.
+
+Send this body to `POST /availability/package-slate`:
+
+```json
+{
+  "packageId": "pkg_01kv7n10k0fnptwk81wkm59vj7",
+  "locationId": "loc_01kv60qgs4e4nbjhzradnqtj0h",
+  "timezone": "America/Toronto",
+  "lookAheadStartDate": "2026-07-06T00:00:00-04:00",
+  "rrule": "FREQ=WEEKLY;BYDAY=FR;COUNT=8",
+  "cadenceFlexibility": "FALLBACK"
+}
+```
+
+With `cadenceFlexibility` omitted (or `"NONE"`), that request is a **`422`
+`NO_COMPLETE_SLATE`** — unchanged, and still the default. With `"FALLBACK"`,
+the same request returns a **`200`**, and the response carries a complete
+eight-session plan on **Mondays and Fridays**:
+
+```json
+{
+  "status": "ALTERNATIVE_CADENCE",
+  "reason": "no complete slate at the requested cadence; returning alternative cadences",
+  "requestedCadence": "FREQ=WEEKLY;BYDAY=FR;COUNT=8",
+  "primarySlate": null,
+  "alternates": [],
+  "partial": null,
+  "cadenceAlternatives": [
+    {
+      "slateId": "slate_01kx16ejsqffc9rbgdcc591w2p",
+      "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+      "completeness": "COMPLETE",
+      "sessionsRequested": 8,
+      "sessionsFilled": 8,
+      "cadenceRrule": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8",
+      "matchesRequestedCadence": false,
+      "cadenceRelaxation": "DAYS_ADDED",
+      "cadenceDistance": 2,
+      "sessionsPerWeek": 2,
+      "slots": []
+    }
+  ]
+}
+```
+
+(Abridged: `suggestionRequestId`, `resolvableUntil` and the remaining two
+alternatives are omitted, and `slots[]` is collapsed as elsewhere on this
+page.)
+
+The eight sessions land on **Jul 6, 10, 13, 17, 20, 24, 27 and 31** — all
+inside the supplier's schedule, where eight Fridays would have needed until
+late August. `cadenceRelaxation` is `DAYS_ADDED` because Friday was *kept*
+and one weekday was added; `cadenceDistance: 2` ranks it as the closest
+answer available.
+
+<Note>
+Monday is chosen, not Wednesday or Thursday, because when the engine adds a
+weekday it **maximises the spacing between sessions**. `{MO, FR}` leaves gaps
+of 4 and 3 days; `{TH, FR}` would leave 1 and 6. Sessions spread evenly
+across the week beat sessions bunched against the day you asked for.
+</Note>
+
+Here the default `maxCadenceAlternatives: 3` means three plans come back —
+`MO,FR` first, then progressively denser ones. Render them as a choice
+("we can't do 8 Fridays, but we can do 8 sessions on Mondays and Fridays")
+rather than picking one silently.
+
+### `guaranteeSlate` and the direct fill
+
+When *every* relaxed cadence also fails — the supplier works no Fridays at
+all, say, and you've set `allowWeekdaySubstitution: false` so Friday can
+never be dropped — `guaranteeSlate: true` adds one last floor: a **direct
+fill**. All N sessions are picked straight from the supplier's real openings,
+one per day, at the most consistent start time available, following **no
+recurrence rule at all**.
+
+Direct-fill slates are recognisable by two fields:
+
+```json
+{
+  "cadenceRrule": null,
+  "cadenceRelaxation": "DIRECT_FILL"
+}
+```
+
+<Warning>
+**`guaranteeSlate` guarantees flexibility of *cadence*, not of *capacity*.**
+The name promises more than it delivers if you read it quickly. A supplier
+who simply doesn't have N open days still yields no complete plan — there is
+no cadence clever enough to invent time that isn't there. When that happens
+the under-filled plan is surfaced (or not) through `partial`, governed by the
+project's `suggestionConfig.allowPartialPackages` setting, exactly as it is
+today. `guaranteeSlate` does not override that setting, and it is not a
+guarantee that you always get a slate.
+</Warning>
 
 ## Path A: book explicit sessions (transcribe)
 
@@ -326,8 +539,9 @@ convert. See [Concurrency](/concepts/concurrency).
 | --- | --- | --- | --- |
 | `/v1/projects/{projectId}/availability/search` | `POST` | `x-api-key` | Single-session slot search. Full reference: [Availability](/resources/availability). |
 | `/v1/projects/{projectId}/availability/time-slots` | `POST` | `x-api-key` | Direct engine invocation. Full reference: [Availability](/resources/availability). |
-| `/v1/projects/{projectId}/availability/package-slate` | `POST` | `x-api-key` | Build an N-session slate for a package from one supplier. `422` when nothing is bookable. |
-| `/v1/projects/{projectId}/availability/package-options` | `POST` | `x-api-key` | Plan **every** ACTIVE package of a service in one call. Always `200` — an unbookable package carries its own `status` + `reason` instead of failing the request. |
+| `/v1/projects/{projectId}/availability/suppliers` | `POST` | `x-api-key` | Paginated suppliers, each with open slots grouped by local day. Full reference: [Availability](/resources/availability). |
+| `/v1/projects/{projectId}/availability/package-slate` | `POST` | `x-api-key` | Build an N-session slate for a package from one supplier. `422` only when `primarySlate`, `partial` **and** `cadenceAlternatives` are all empty — a bookable `cadenceAlternatives` makes it a `200`. |
+| `/v1/projects/{projectId}/availability/package-options` | `POST` | `x-api-key` | Plan **every** ACTIVE package of a service in one call. Always `200` — an unbookable package carries its own `status` + `reason` instead of failing the request. Accepts the same cadence-relaxation fields. |
 | `/v1/projects/{projectId}/orders/{orderId}/package-bookings` | `POST` | `x-api-key` | Book via `sessions` (Path A), `slateId`, or `slotIds` — exactly one. |
 | `/v1/projects/{projectId}/holds` | `POST` | `x-api-key` | Hold supplier time — `intervals`, `slateId`, or `slotIds` (exactly one). Returns `reservationId` + `heldUntil`. See [Hold slots during checkout](/guides/hold-slots-for-checkout). |
 | `/v1/projects/{projectId}/holds/{reservationId}/convert` | `POST` | `x-api-key` | Convert a hold into confirmed bookings. Idempotent — safe for webhooks. |
@@ -347,9 +561,9 @@ convert. See [Concurrency](/concepts/concurrency).
 | --- | --- | --- | --- |
 | `rrule` has no bounded `COUNT` | `VALIDATION_ERROR` | `400` | Add a positive `COUNT`, e.g. `FREQ=WEEKLY;BYDAY=MO;COUNT=8`. |
 | `lookAheadStartDate` has a `Z` suffix instead of a numeric offset | `VALIDATION_ERROR` | `400` | Use a numeric `±HH:MM` offset, e.g. `-04:00`. |
-| Cadence needs more than 120 days to fit the package's `creditCount` sessions | `NO_COMPLETE_SLATE` | `422` | `reason` names the exact window required. Use a denser cadence (more days per week), or fewer sessions per call. |
+| Cadence needs more than 120 days to fit the package's `creditCount` sessions, and `cadenceFlexibility` is `NONE` | `NO_COMPLETE_SLATE` | `422` | `reason` names the exact window required. Use a denser cadence (more days per week), fewer sessions per call, or set `cadenceFlexibility` — with flexibility on, the window **clamps to 120 days and the engine runs**, since a denser cadence needs a shorter window. |
 | No availability at all for the requested window/location | `NO_AVAILABILITY` | `422` | Try a different location, timezone, or `lookAheadStartDate`. |
-| No complete single-supplier slate under the project's supplier policy | `NO_COMPLETE_SLATE` | `422` | Check `alternates`/`partial` in the response first — they may still be usable. Otherwise widen the window or location. |
+| No complete single-supplier slate under the project's supplier policy | `NO_COMPLETE_SLATE` | `422` | Check `alternates`/`partial` in the response first — they may still be usable. Set `cadenceFlexibility` to also get complete plans at a denser cadence in `cadenceAlternatives`. Otherwise widen the window or location. |
 | Provided more than one (or none) of `sessions` / `slateId` / `slotIds` on booking or holding | `VALIDATION_ERROR` | `400` | Provide exactly one. |
 | The referenced slate/slot doesn't exist, has no slots, or is past its 24-hour resolvable window (**holding only**) | `SLATE_NOT_FOUND` / `SLOT_NOT_FOUND` / `SUGGESTION_EXPIRED` | `409` | Rebuild the slate with `POST /availability/package-slate` and hold the fresh one. |
 | Chosen slot went stale between building a slate and booking it directly (`slateId`/`slotIds`, no hold) | `SLOT_NO_LONGER_BOOKABLE` | `409` | The response includes `freshSuggestions` — rebuild from it. Covered in depth in [Create a package booking](/guides/create-a-package-booking#reference). |
