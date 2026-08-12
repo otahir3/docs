@@ -1,0 +1,11 @@
+# This repo has core.autocrlf=true; the mb-core repo that GENERATES the files below
+# has core.autocrlf=input. The generators
+# (apps/open-api-mb/scripts/openapi.ts, apps/open-api-mb/scripts/docs-contract.ts) write LF
+# unconditionally, and the sync step copies them here byte-for-byte. Without this rule,
+# checkout would rewrite the working copy to CRLF, so the two repos' copies would no longer
+# be byte-identical on disk and the next sync would produce a spurious full-file diff instead
+# of the real change.
+#
+# Deliberately narrow: explicit paths, not a blanket *.json.
+api-reference/openapi.json text eol=lf
+api-reference/docs-contract.json text eol=lf
