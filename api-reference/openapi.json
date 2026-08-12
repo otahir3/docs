@@ -10379,7 +10379,8 @@
                     "exclusiveMinimum": true
                   },
                   "language": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Preferred language for localized skill and offering NAMES. Not a filter — it never affects which suppliers or services match, and has no effect on this response."
                   },
                   "bookingType": {
                     "type": "string",
@@ -10816,7 +10817,7 @@
                   },
                   "language": {
                     "type": "string",
-                    "description": "Preferred language for supplier/service matching in multilingual projects.",
+                    "description": "Preferred language for localized skill and offering NAMES. Not a filter — it never affects which suppliers or services match, and has no effect on this response.",
                     "example": "en"
                   },
                   "limit": {
@@ -11311,6 +11312,28 @@
                       },
                       "required": ["startTime", "endTime"]
                     }
+                  },
+                  "daysOfWeek": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    },
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "description": "Weekdays sessions may fall on (0 = Sunday … 6 = Saturday). At least one weekday is required when this field is present — omit the field entirely for \"any day\"; an empty array is rejected. This is a HARD filter, not a preference: a weekday you leave out is removed from the supplier availability the planner sees, so no session can land on it and cadence relaxation cannot reintroduce it.",
+                    "example": [1, 2]
+                  },
+                  "excludeDates": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "maxItems": 90,
+                    "description": "Local calendar dates (YYYY-MM-DD) that must not carry a session — a holiday, a trip. Matched against each slot's own local calendar date as the planner buckets it, not against a UTC instant. Pass each date individually; there is no range form.",
+                    "example": ["2026-08-20", "2026-08-21", "2026-08-22"]
                   },
                   "cadenceFlexibility": {
                     "type": "string",
@@ -12330,6 +12353,28 @@
                       },
                       "required": ["startTime", "endTime"]
                     }
+                  },
+                  "daysOfWeek": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    },
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "description": "Weekdays sessions may fall on (0 = Sunday … 6 = Saturday). At least one weekday is required when this field is present — omit the field entirely for \"any day\"; an empty array is rejected. This is a HARD filter, not a preference: a weekday you leave out is removed from the supplier availability the planner sees, so no session can land on it and cadence relaxation cannot reintroduce it.",
+                    "example": [1, 2]
+                  },
+                  "excludeDates": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "maxItems": 90,
+                    "description": "Local calendar dates (YYYY-MM-DD) that must not carry a session — a holiday, a trip. Matched against each slot's own local calendar date as the planner buckets it, not against a UTC instant. Pass each date individually; there is no range form.",
+                    "example": ["2026-08-20", "2026-08-21", "2026-08-22"]
                   },
                   "cadenceFlexibility": {
                     "type": "string",
