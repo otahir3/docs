@@ -48,6 +48,21 @@ slots, open slots, and (for recurring requests) recurrence patterns.
 | `interval`             | Open-slot granularity in minutes.                                    |
 | `timeSuggestionsLimit` | Cap on suggested slots returned.                                     |
 | `sortBy`               | `leastTravelTime` or `nearestDate`.                                  |
+| `daysOfWeek`           | Allow-list of weekdays a slot may fall on (`0 = Sunday … 6 = Saturday`). Omit for any day. See the note below. |
+
+<Note>
+  **`daysOfWeek` is a hard allow-list, not a preference.** A weekday you
+  leave out is removed from the pool before the engine searches — no
+  matching slot can land on it. If your UI collects the inverse (exception
+  chips like "No Sundays" the client toggles *on*), invert the selection
+  before sending it: pass the days that remain allowed, not the ones the
+  client excluded.
+
+  `excludeDates` (individual LOCAL blackout dates, no range form) is a
+  related field, but it isn't part of this endpoint's request — it's
+  specific to `package-slate` and `package-options`. See
+  [Availability and slates](/guides/availability-and-slates#schedule-preferences-daysofweek-and-excludedates).
+</Note>
 
 The response envelope:
 

@@ -224,6 +224,154 @@ to the same engine behavior (a wider window doesn't bypass the 120-day cap;
 it's the engine's absolute ceiling).
 </Tip>
 
+## Schedule preferences: `daysOfWeek` and `excludeDates`
+
+`package-slate` and `package-options` both also take two fields that narrow
+*which* calendar days a session is allowed to land on, on top of the cadence
+itself.
+
+### `daysOfWeek` is a hard filter, not a preference
+
+`daysOfWeek` is an **allow-list** of weekdays sessions may fall on, using the
+convention `0 = Sunday … 6 = Saturday`:
+
+```json
+{ "daysOfWeek": [1, 2, 3, 4, 5] }
+```
+
+It's enforced **before** the planner ever looks at the supplier's
+availability: a weekday you leave out is removed from the pool the engine
+plans against, not filtered out of a result afterward. That has one
+consequence worth stating plainly — **cadence relaxation cannot reintroduce
+a day `daysOfWeek` excludes.** Every fallback cadence `cadenceFlexibility`
+can produce, including the direct-fill floor `guaranteeSlate` reaches (see
+the synergy example below), still plans only inside the allowed weekdays. A
+UI's "No Sundays" choice stays honoured even when the planner has to work
+harder to fill the package.
+
+<Warning>
+**`daysOfWeek` is an allow-list, not a block-list.** If your UI collects
+exceptions the other way around — "No Sun / No Mon" chips a client toggles
+*on* to exclude those days — you must invert the selection before calling
+the API: send the days that remain (`[2, 3, 4, 5, 6]`), not the two the
+client excluded. Sending the excluded days directly restricts the plan to
+almost nothing instead of almost everything — the obvious integration bug
+here.
+</Warning>
+
+Omit `daysOfWeek` entirely to allow any day.
+
+### `excludeDates` blocks specific local dates
+
+`excludeDates` is a list of individual local calendar dates that must not
+carry a session:
+
+```json
+{ "excludeDates": ["2026-08-20", "2026-08-21", "2026-08-22"] }
+```
+
+- **Dates are LOCAL**, matching how the planner buckets slots — a
+  `YYYY-MM-DD` string matched against each slot's own local calendar date as
+  the planner buckets it, not a UTC instant.
+- **Each date is passed individually — there is no range form.** A five-day
+  trip is five entries in the array, not a `{ from, to }` pair.
+- **Maximum 90 dates** per request.
+
+### The synergy: a blackout doesn't have to mean a refusal
+
+Blacking out enough dates to make the *exact* requested cadence unfillable
+used to mean the request came back a flat `422 NO_COMPLETE_SLATE` — even if
+the supplier had plenty of other open time. With `cadenceFlexibility` opted
+in, the same blackout can now produce a **relaxed-cadence plan** instead of
+a refusal.
+
+Take a supplier who works Monday–Friday, 09:00–17:00, in `America/Toronto`
+(`-04:00` in July), on a schedule that runs `2026-07-06` (a Monday) through
+`2026-08-03`. Request eight sessions, twice a week, on Mondays and Fridays:
+
+```json
+{
+  "packageId": "pkg_01kvr4cgb3esg8hxx32kwhre7g",
+  "timezone": "America/Toronto",
+  "lookAheadStartDate": "2026-07-06T00:00:00-04:00",
+  "rrule": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8",
+  "cadenceFlexibility": "FALLBACK"
+}
+```
+
+Without any exclusions, that cadence fills cleanly — eight sessions on Jul
+6, 10, 13, 17, 20, 24, 27, and 31. Now black out the third week's Monday and
+Friday:
+
+```json
+{ "excludeDates": ["2026-07-20", "2026-07-24"] }
+```
+
+That removes 2 of the 8 occurrences the exact cadence needs. The rest of
+the ~4-week schedule has only 7 more Monday/Friday slots to draw from (4
+Mondays + 3 Fridays — the next Friday, Aug 7, falls after the schedule
+ends), one short of the 8 requested. **No occurrence set of the exact
+`MO,FR` cadence can complete, from any start date** — every prior version of
+this endpoint would `422` here.
+
+With `cadenceFlexibility: "FALLBACK"` set, the response instead comes back:
+
+```json
+{
+  "status": "ALTERNATIVE_CADENCE",
+  "reason": "no complete slate at the requested cadence; returning alternative cadences",
+  "suggestionRequestId": "sugreq_01kx16ej7pe4r9da74adf6m4h0",
+  "resolvableUntil": "2026-07-07T12:00:00.000Z",
+  "primarySlate": null,
+  "alternates": [],
+  "partial": null,
+  "cadenceAlternatives": [
+    {
+      "slateId": "slate_01kx16ejsqffc9rbgdcc591w2p",
+      "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+      "completeness": "COMPLETE",
+      "sessionsRequested": 8,
+      "sessionsFilled": 8,
+      "startTimeConsistencyPercent": 100,
+      "totalTravelTimeMins": 0,
+      "cadenceRrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,FR;COUNT=8",
+      "matchesRequestedCadence": false,
+      "cadenceRelaxation": "DAYS_ADDED",
+      "slots": []
+    }
+  ],
+  "requestedCadence": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8"
+}
+```
+
+(`cadenceAlternatives[0].slots` abridged to `[]` here, the same convention
+as [Anatomy of a slate](#anatomy-of-a-slate) above. `cadenceDistance` and
+`sessionsPerWeek` — both present on a real response here, since they're
+stamped whenever relaxation was requested — are left out too: their exact
+numbers depend on which admissible cadence the engine actually picks, which
+the underlying test doesn't pin down. Every other field is real:
+`reason` always carries that exact string whenever `status` is
+`ALTERNATIVE_CADENCE`; `suggestionRequestId` and `resolvableUntil` are
+present because `persist` defaults to `true`; `requestedCadence` is present
+because `cadenceFlexibility` was set to anything other than `NONE` — it
+echoes `rrule` verbatim.)
+
+`primarySlate` is `null` — the exact requested cadence is genuinely
+unfillable — but `cadenceAlternatives` carries at least one **COMPLETE**
+plan (all 8 sessions, none of them on an excluded date), sorted
+closest-first, at a denser cadence that finishes before ever reaching the
+blackout week. (The exact alternate depends on the supplier's real
+openings — adding Tuesday and Wednesday, shown above, is one admissible
+rung that reaches 8 sessions by day 12, well ahead of the July 20
+blackout.) A request that used to be a dead end now returns a workable,
+shifted plan.
+
+<Note>
+`daysOfWeek` and `excludeDates` are accepted by `package-options` too, with
+identical semantics — it plans every ACTIVE package the same way
+`package-slate` plans one.
+</Note>
+
 ## Path A: book explicit sessions (transcribe)
 
 The primary path — passing `{ slateId }` to `POST .../package-bookings` — is
