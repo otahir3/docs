@@ -61,7 +61,8 @@
               "resources/bookings",
               "resources/orders",
               "resources/suppliers",
-              "resources/availability"
+              "resources/availability",
+              "resources/reviews"
             ]
           }
         ]

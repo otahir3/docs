@@ -290,6 +290,65 @@
         },
         "required": ["amount", "currency"]
       },
+      "BookingReport": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "bookingId": {
+            "type": "string"
+          },
+          "reporterRole": {
+            "type": "string",
+            "enum": ["CLIENT", "SUPPLIER"]
+          },
+          "reporterId": {
+            "type": "string"
+          },
+          "reportType": {
+            "type": "string",
+            "enum": ["ATTENDANCE"]
+          },
+          "attended": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectId",
+          "bookingId",
+          "reporterRole",
+          "reporterId",
+          "reportType",
+          "attended",
+          "deleted",
+          "createdAt",
+          "updatedAt",
+          "createdBy",
+          "updatedBy"
+        ]
+      },
       "Order": {
         "type": "object",
         "properties": {
@@ -1780,8 +1839,8 @@
     "/v1/projects/{projectId}/bookings/{bookingId}/aggregate": {
       "get": {
         "tags": ["Bookings"],
-        "summary": "Get a booking with its services, participants and notes",
-        "description": "The booking plus everything hanging off it — service lines, participants and notes — in one call. This is the shape for a booking detail screen; assembling it from four separate endpoints is slower and can tear if something changes mid-sequence.",
+        "summary": "Get a booking with its services, participants, notes, reports and party names",
+        "description": "The booking plus everything hanging off it — service lines, participants, notes and attendance reports — in one call. This is the shape for a booking detail screen; assembling it from five separate endpoints is slower and can tear if something changes mid-sequence. `reports` holds at most two rows, one per side; see POST /bookings/{bookingId}/reports for what a report asserts.\n\n`parties` carries both sides with their display names resolved, so a page can render \"How was your booking with Javier?\" without a second call — and there is no public endpoint that turns a `clientId` into a name, so this is the only way to get one. It is available immediately, before any review exists. `parties.supplier` is `null` when no supplier is assigned, and each `fullName` is best-effort: a party whose profile cannot be resolved keeps its bare id rather than failing the call. Names only — no email address is returned for either party.",
         "parameters": [
           {
             "schema": {
@@ -2170,13 +2229,62 @@
                               "updatedBy"
                             ]
                           }
+                        },
+                        "reports": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/BookingReport"
+                          }
+                        },
+                        "parties": {
+                          "type": "object",
+                          "properties": {
+                            "client": {
+                              "type": "object",
+                              "properties": {
+                                "clientId": {
+                                  "type": "string",
+                                  "description": "The client on this booking.",
+                                  "example": "cli_01kv60qge5eh59ap0gw0pqrrys"
+                                },
+                                "fullName": {
+                                  "type": "string",
+                                  "description": "Display name, resolved from the client profile. Best-effort: absent when the profile cannot be resolved, which is not an error — render the id instead.",
+                                  "example": "Cara Client"
+                                }
+                              },
+                              "required": ["clientId"],
+                              "description": "The client. Always present — every booking has one."
+                            },
+                            "supplier": {
+                              "type": "object",
+                              "nullable": true,
+                              "properties": {
+                                "supplierId": {
+                                  "type": "string",
+                                  "description": "The supplier assigned to this booking.",
+                                  "example": "sup_01kv60qge5eh59ap0gw0pqrrys"
+                                },
+                                "fullName": {
+                                  "type": "string",
+                                  "description": "Display name, resolved from the supplier profile. Best-effort: absent when the profile cannot be resolved, which is not an error — render the id instead.",
+                                  "example": "Javier Supplier"
+                                }
+                              },
+                              "required": ["supplierId"],
+                              "description": "`null` when no supplier is assigned yet — a legal state for a booking, not an error."
+                            }
+                          },
+                          "required": ["client", "supplier"]
                         }
                       },
                       "required": [
                         "booking",
                         "services",
                         "participants",
-                        "notes"
+                        "notes",
+                        "reports",
+                        "parties"
                       ]
                     }
                   },
@@ -3891,6 +3999,591 @@
           },
           "404": {
             "description": "Note or booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/bookings/{bookingId}/reviews": {
+      "post": {
+        "tags": ["Reviews"],
+        "summary": "Review a booking, in either direction",
+        "description": "Records one side of a booking rating the other, and folds the rating into the rated party's running average in the same atomic write. Both parties are read off the booking in the URL — the body carries **no ids at all**, so a review can only ever be attributed to the supplier and client who were actually on that booking.\n\n`direction` picks who is rating whom. `CLIENT_TO_SUPPLIER` is the client rating the supplier; `SUPPLIER_TO_CLIENT` is the supplier rating the client. The response tells you which party the review is *about* without re-deriving it: `subjectType` is `SUPPLIER` or `CLIENT`, and `subjectId` is that party's id.\n\n**The booking does not have to be COMPLETED.** Nothing in MarketBox moves a booking to COMPLETED automatically — the status is only ever set deliberately — so requiring it would make this endpoint unusable for most tenants. Any booking is reviewable except a CANCELLED one, which returns 422. A booking with no supplier assigned is a legal state, but there is no supplier to rate or to rate from, so it also returns 422.\n\nAt most **one review per booking per direction**, enforced by a uniqueness item written inside the same transaction rather than by a read beforehand — two simultaneous submits cannot both win. A second review in the same direction returns 409 `REVIEW_ALREADY_EXISTS`. Reviews posted through the older project-level `POST /reviews` route carry no such guard, so this endpoint also runs a best-effort index lookup first and will report 409 for one it can see; that lookup reads an eventually-consistent index, so treat it as a courtesy rather than the guarantee.\n\nTreat a review as permanent — there is no update or delete route, and the average it moved stays moved.\n\nThe response carries best-effort display names (`supplierName`, `clientName`) resolved from the two profiles, so a hosted review page can render a name without a second call. A counterparty whose profile cannot be resolved keeps its bare id and the corresponding name is absent. No email address is returned for either party.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+              "example": "prj_01kv60qgnef2kt3pvqgwmkbzfr"
+            },
+            "required": true,
+            "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
+              "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
+            },
+            "required": true,
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
+            "name": "bookingId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Review data",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "direction": {
+                    "type": "string",
+                    "enum": ["CLIENT_TO_SUPPLIER", "SUPPLIER_TO_CLIENT"],
+                    "description": "Which way the review points. CLIENT_TO_SUPPLIER is the client rating the supplier; SUPPLIER_TO_CLIENT is the supplier rating the client.",
+                    "example": "CLIENT_TO_SUPPLIER"
+                  },
+                  "ratingStars": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5,
+                    "description": "Whole-star rating from 1 to 5.",
+                    "example": 5
+                  },
+                  "reviewText": {
+                    "type": "string",
+                    "maxLength": 5000,
+                    "description": "Optional free-text comment, up to 5000 characters.",
+                    "example": "Turned up on time and was a pleasure to work with."
+                  }
+                },
+                "required": ["direction", "ratingStars"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Review created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "reviewId": {
+                          "type": "string"
+                        },
+                        "supplierId": {
+                          "type": "string"
+                        },
+                        "clientId": {
+                          "type": "string"
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "ratingStars": {
+                          "type": "integer"
+                        },
+                        "reviewText": {
+                          "type": "string"
+                        },
+                        "reviewerId": {
+                          "type": "string"
+                        },
+                        "bookingId": {
+                          "type": "string"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": ["CLIENT_TO_SUPPLIER", "SUPPLIER_TO_CLIENT"]
+                        },
+                        "subjectType": {
+                          "type": "string",
+                          "enum": ["SUPPLIER", "CLIENT"]
+                        },
+                        "subjectId": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "supplierName": {
+                          "type": "string"
+                        },
+                        "clientName": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "reviewId",
+                        "supplierId",
+                        "projectId",
+                        "ratingStars",
+                        "direction",
+                        "subjectType",
+                        "subjectId",
+                        "createdAt"
+                      ]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "This side has already reviewed this booking",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Booking is cancelled, or has no supplier to review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Reviews"],
+        "summary": "List every review linked to a booking",
+        "description": "Every review linked to this booking, newest first, in both directions and unpaginated.\n\nDo not assume at most two. The strict `POST /bookings/{bookingId}/reviews` route allows one review per direction, but the older project-level `POST /reviews` accepts a `bookingId` without deduplicating, so a booking created through that path can carry several client→supplier reviews. Read the list, do not index into it.\n\nEach review carries best-effort `supplierName` / `clientName` resolved from the two profiles, so a hosted review page renders without further calls; a counterparty that cannot be resolved keeps its bare id and those fields are absent. No email address is returned for either party. An unknown booking returns 404, matching the POST.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+              "example": "prj_01kv60qgnef2kt3pvqgwmkbzfr"
+            },
+            "required": true,
+            "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
+              "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
+            },
+            "required": true,
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
+            "name": "bookingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviews for the booking",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "reviewId": {
+                            "type": "string"
+                          },
+                          "supplierId": {
+                            "type": "string"
+                          },
+                          "clientId": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "ratingStars": {
+                            "type": "integer"
+                          },
+                          "reviewText": {
+                            "type": "string"
+                          },
+                          "reviewerId": {
+                            "type": "string"
+                          },
+                          "bookingId": {
+                            "type": "string"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": ["CLIENT_TO_SUPPLIER", "SUPPLIER_TO_CLIENT"]
+                          },
+                          "subjectType": {
+                            "type": "string",
+                            "enum": ["SUPPLIER", "CLIENT"]
+                          },
+                          "subjectId": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "supplierName": {
+                            "type": "string"
+                          },
+                          "clientName": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "reviewId",
+                          "supplierId",
+                          "projectId",
+                          "ratingStars",
+                          "direction",
+                          "subjectType",
+                          "subjectId",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/bookings/{bookingId}/reports": {
+      "post": {
+        "tags": ["Bookings"],
+        "summary": "File one side's report on a booking",
+        "description": "Records one side of a booking reporting on it — today, whether they showed up. A booking carries at most two reports, one per side, identified by `(bookingId, reporterRole)`; there is no report id.\n\n**`attended` is a self-report.** A `CLIENT` report says the client attended; a `SUPPLIER` report says the supplier attended. Neither says anything whatsoever about the other party, so a supplier cannot mark a client as a no-show through this endpoint. `reporterId` is read off the booking (`CLIENT` → the booking's client, `SUPPLIER` → the booking's supplier) and is not accepted in the body, so a caller cannot file a report as somebody else.\n\n**Resubmitting is safe.** This endpoint gets double-clicked from an email, so filing the same answer twice is a no-op rather than an error:\n\n- nothing on file yet → **201** with the newly written report\n- identical to what is on file → **200** with the **stored** report\n- contradicts what is on file → **409** `REPORT_ALREADY_EXISTS`, naming the stored values\n\n**`note` is not part of the claim.** The assertion a report makes is `reportType` + `attended`. Resubmitting those unchanged but with different text therefore returns 200 with the record as stored, including the ORIGINAL note — the new text is discarded, not merged. There is no route that edits a filed report.\n\nThe booking must exist and must not be CANCELLED (422). A `SUPPLIER` report against a booking with no supplier assigned is also 422, since there is nobody to attribute it to; a `CLIENT` report on the same booking is fine.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+              "example": "prj_01kv60qgnef2kt3pvqgwmkbzfr"
+            },
+            "required": true,
+            "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
+              "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
+            },
+            "required": true,
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
+            "name": "bookingId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "Report data",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reporterRole": {
+                    "type": "string",
+                    "enum": ["CLIENT", "SUPPLIER"],
+                    "description": "Which side of the booking is filing this report.",
+                    "example": "SUPPLIER"
+                  },
+                  "reportType": {
+                    "type": "string",
+                    "enum": ["ATTENDANCE"],
+                    "default": "ATTENDANCE",
+                    "description": "What the report is about. Defaults to ATTENDANCE, the only type today.",
+                    "example": "ATTENDANCE"
+                  },
+                  "attended": {
+                    "type": "boolean",
+                    "description": "Whether the reporting side attended the booking. This is a self-report — the client confirms the client attended, the supplier confirms the supplier attended. Stored explicitly so \"I did not attend\" is a first-class answer.",
+                    "example": true
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "description": "Optional free-text detail, up to 1000 characters.",
+                    "example": "Arrived 10 minutes late but stayed for the full session."
+                  }
+                },
+                "required": ["reporterRole", "attended"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Identical report already on file (no-op)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BookingReport"
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Report filed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BookingReport"
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A different report from this side is already on file",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Booking is cancelled, or has no supplier to report as",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "List the reports filed on a booking",
+        "description": "Both sides' reports on this booking — at most two, one per `reporterRole`, unpaginated. A side that has not filed is simply absent, which is not the same as a filed report saying `attended: false`; only an explicit row means \"I did not attend\". Also included in `GET /bookings/{bookingId}/aggregate`, so prefer that when you need the booking and its reports together. An unknown booking returns 404.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+              "example": "prj_01kv60qgnef2kt3pvqgwmkbzfr"
+            },
+            "required": true,
+            "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The booking — one scheduled unit of service occupying supplier time.",
+              "example": "bk_01kv7q41n2hbqxwm03ymn7bxl9"
+            },
+            "required": true,
+            "description": "The booking — one scheduled unit of service occupying supplier time.",
+            "name": "bookingId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reports on the booking",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/BookingReport"
+                      }
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -9990,7 +10683,7 @@
                   "bookingId": {
                     "type": "string",
                     "description": "Optional booking this review is about. Supplying it links the review to that booking and stops the rating follow-up emails for it. Stored as given and not validated against the booking, and it does not deduplicate.",
-                    "example": "bkg_01kv60qge5eh59ap0gw0pqrrys"
+                    "example": "bk_01kv60qge5eh59ap0gw0pqrrys"
                   }
                 },
                 "required": ["supplierId", "ratingStars"]
@@ -10015,6 +10708,9 @@
                         "supplierId": {
                           "type": "string"
                         },
+                        "clientId": {
+                          "type": "string"
+                        },
                         "projectId": {
                           "type": "string"
                         },
@@ -10030,13 +10726,24 @@
                         "bookingId": {
                           "type": "string"
                         },
+                        "direction": {
+                          "type": "string",
+                          "enum": ["CLIENT_TO_SUPPLIER", "SUPPLIER_TO_CLIENT"]
+                        },
+                        "subjectType": {
+                          "type": "string",
+                          "enum": ["SUPPLIER", "CLIENT"]
+                        },
+                        "subjectId": {
+                          "type": "string"
+                        },
                         "createdAt": {
                           "type": "string"
                         },
                         "supplierName": {
                           "type": "string"
                         },
-                        "supplierEmail": {
+                        "clientName": {
                           "type": "string"
                         }
                       },
@@ -10045,6 +10752,9 @@
                         "supplierId",
                         "projectId",
                         "ratingStars",
+                        "direction",
+                        "subjectType",
+                        "subjectId",
                         "createdAt"
                       ]
                     }
@@ -10167,6 +10877,9 @@
                           "supplierId": {
                             "type": "string"
                           },
+                          "clientId": {
+                            "type": "string"
+                          },
                           "projectId": {
                             "type": "string"
                           },
@@ -10182,13 +10895,24 @@
                           "bookingId": {
                             "type": "string"
                           },
+                          "direction": {
+                            "type": "string",
+                            "enum": ["CLIENT_TO_SUPPLIER", "SUPPLIER_TO_CLIENT"]
+                          },
+                          "subjectType": {
+                            "type": "string",
+                            "enum": ["SUPPLIER", "CLIENT"]
+                          },
+                          "subjectId": {
+                            "type": "string"
+                          },
                           "createdAt": {
                             "type": "string"
                           },
                           "supplierName": {
                             "type": "string"
                           },
-                          "supplierEmail": {
+                          "clientName": {
                             "type": "string"
                           }
                         },
@@ -10197,6 +10921,9 @@
                           "supplierId",
                           "projectId",
                           "ratingStars",
+                          "direction",
+                          "subjectType",
+                          "subjectId",
                           "createdAt"
                         ]
                       }
@@ -10233,6 +10960,370 @@
           },
           "403": {
             "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/clients/{clientId}/reviews": {
+      "get": {
+        "tags": ["Reviews"],
+        "summary": "List the reviews written about a client",
+        "description": "Reviews **of** this client — the ones suppliers wrote about them — newest first. It is not the reviews this client wrote; those are reviews of a supplier and are read through `GET /reviews?supplierId=…`. Only `SUPPLIER_TO_CLIENT` reviews appear here, so every row has this client as its `subjectId`.\n\nPaginated with `limit` and an opaque `cursor`; `nextCursor: null` is the only end-of-results signal, and a cursor is valid only for the filters that produced it. Each row carries best-effort `supplierName` / `clientName` merged in from the two profiles, so a page renders without further calls; a counterparty that cannot be resolved keeps its bare id and those fields are absent. No email address is returned for either party.\n\nA client that does not exist in this project returns 404 rather than an empty page, so an empty `data` genuinely means \"nobody has reviewed this client yet\".",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+              "example": "prj_01kv60qgnef2kt3pvqgwmkbzfr"
+            },
+            "required": true,
+            "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The client — the person the booking is for.",
+              "example": "cli_01kv6r83j9fmquwl81xkm5bwj6"
+            },
+            "required": true,
+            "description": "The client — the person the booking is for.",
+            "name": "clientId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
+              "example": 50
+            },
+            "required": false,
+            "description": "Maximum rows to return in `data`, 1–200. Defaults to 50. Values outside the range return 400. A page can still hold fewer rows than requested, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short.",
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page."
+            },
+            "required": false,
+            "description": "Opaque pagination token from a previous response's `nextCursor`. Treat it as a magic string — never parse or construct one. A cursor is only valid for the same filters that produced it, and `nextCursor: null` means the last page.",
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviews of the client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "reviewId": {
+                            "type": "string"
+                          },
+                          "supplierId": {
+                            "type": "string"
+                          },
+                          "clientId": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "ratingStars": {
+                            "type": "integer"
+                          },
+                          "reviewText": {
+                            "type": "string"
+                          },
+                          "reviewerId": {
+                            "type": "string"
+                          },
+                          "bookingId": {
+                            "type": "string"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": ["CLIENT_TO_SUPPLIER", "SUPPLIER_TO_CLIENT"]
+                          },
+                          "subjectType": {
+                            "type": "string",
+                            "enum": ["SUPPLIER", "CLIENT"]
+                          },
+                          "subjectId": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "supplierName": {
+                            "type": "string"
+                          },
+                          "clientName": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "reviewId",
+                          "supplierId",
+                          "projectId",
+                          "ratingStars",
+                          "direction",
+                          "subjectType",
+                          "subjectId",
+                          "createdAt"
+                        ]
+                      }
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": ["data", "nextCursor"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid cursor or limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Client not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/clients/{clientId}/review-summary": {
+      "get": {
+        "tags": ["Reviews"],
+        "summary": "Get a client's average rating and review count",
+        "description": "The running average of the reviews suppliers have written about this client, maintained at write time rather than computed on read — so it never disagrees with the rows behind it and does not require walking `GET /clients/{clientId}/reviews`.\n\n`averageRating` is rounded to one decimal place. A client nobody has reviewed returns `averageRating: 0` and `reviewCount: 0`, **not** 404 — \"unrated\" and \"does not exist\" are different answers, and a 404 here means the client id is unknown in this project.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+              "example": "prj_01kv60qgnef2kt3pvqgwmkbzfr"
+            },
+            "required": true,
+            "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The client — the person the booking is for.",
+              "example": "cli_01kv6r83j9fmquwl81xkm5bwj6"
+            },
+            "required": true,
+            "description": "The client — the person the booking is for.",
+            "name": "clientId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Client rating summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "clientId": {
+                          "type": "string"
+                        },
+                        "averageRating": {
+                          "type": "number"
+                        },
+                        "reviewCount": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": ["clientId", "averageRating", "reviewCount"]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Client not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects/{projectId}/suppliers/{supplierId}/review-summary": {
+      "get": {
+        "tags": ["Reviews"],
+        "summary": "Get a supplier's average rating and review count",
+        "description": "This supplier's star rating and how many reviews it is based on, read from the aggregate maintained in the same atomic write that records each review.\n\nThis is the endpoint to use for a rating badge. `GET /reviews?supplierId=…` returns individual reviews and exposes no average, so computing a rating from it means paging through every review that supplier has ever received — averaging the first page gives a wrong number. That is no longer necessary.\n\n`averageRating` is rounded to one decimal place. A supplier nobody has reviewed returns `averageRating: 0` and `reviewCount: 0`, **not** 404 — a 404 here means the supplier id is unknown in this project.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+              "example": "prj_01kv60qgnef2kt3pvqgwmkbzfr"
+            },
+            "required": true,
+            "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The supplier — the person or resource delivering the service.",
+              "example": "sup_01kv60qh1k5xylm7r0c1qj8zpa"
+            },
+            "required": true,
+            "description": "The supplier — the person or resource delivering the service.",
+            "name": "supplierId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Supplier rating summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "supplierId": {
+                          "type": "string"
+                        },
+                        "averageRating": {
+                          "type": "number"
+                        },
+                        "reviewCount": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": ["supplierId", "averageRating", "reviewCount"]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Supplier not found",
             "content": {
               "application/json": {
                 "schema": {
