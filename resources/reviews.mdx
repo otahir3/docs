@@ -100,9 +100,15 @@ secret. See [Authentication](/concepts/authentication).
   </Step>
 </Steps>
 
-Responses carry `supplierName`, `supplierEmail`, `clientName` and `clientEmail` alongside the ids,
-so a page can render a name without a second call. They are best-effort: a counterparty whose
-profile cannot be resolved keeps its bare id and the name fields are simply absent.
+Responses carry `supplierName` and `clientName` alongside the ids, so a page can render a name
+without a second call. They are best-effort: a counterparty whose profile cannot be resolved keeps
+its bare id and the name fields are simply absent. No email address is returned for either party.
+
+Those names only exist once a review does, which is backwards for a page whose job is collecting
+the first one. Before any review exists, get both display names from
+`GET /v1/projects/{projectId}/bookings/{bookingId}/aggregate` in a single call — its `parties`
+object carries `parties.client.fullName` and `parties.supplier.fullName`, which is the only way to
+turn a `clientId` into a name (there is no public client read endpoint).
 
 ### One review per booking per direction
 
@@ -206,7 +212,7 @@ review to compute a star rating yourself.
 | `ratingStars` | Whole number, 1–5. |
 | `reviewText` | Optional, ≤ 5000 characters. |
 | `bookingId` | The booking this is about. |
-| `supplierName`, `supplierEmail`, `clientName`, `clientEmail` | Best-effort display fields. |
+| `supplierName`, `clientName` | Best-effort display names. No email address is returned. |
 | `createdAt` | ISO 8601 UTC. |
 
 ### Report fields

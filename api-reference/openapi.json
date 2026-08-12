@@ -1839,8 +1839,8 @@
     "/v1/projects/{projectId}/bookings/{bookingId}/aggregate": {
       "get": {
         "tags": ["Bookings"],
-        "summary": "Get a booking with its services, participants, notes and reports",
-        "description": "The booking plus everything hanging off it — service lines, participants, notes and attendance reports — in one call. This is the shape for a booking detail screen; assembling it from five separate endpoints is slower and can tear if something changes mid-sequence. `reports` holds at most two rows, one per side; see POST /bookings/{bookingId}/reports for what a report asserts.",
+        "summary": "Get a booking with its services, participants, notes, reports and party names",
+        "description": "The booking plus everything hanging off it — service lines, participants, notes and attendance reports — in one call. This is the shape for a booking detail screen; assembling it from five separate endpoints is slower and can tear if something changes mid-sequence. `reports` holds at most two rows, one per side; see POST /bookings/{bookingId}/reports for what a report asserts.\n\n`parties` carries both sides with their display names resolved, so a page can render \"How was your booking with Javier?\" without a second call — and there is no public endpoint that turns a `clientId` into a name, so this is the only way to get one. It is available immediately, before any review exists. `parties.supplier` is `null` when no supplier is assigned, and each `fullName` is best-effort: a party whose profile cannot be resolved keeps its bare id rather than failing the call. Names only — no email address is returned for either party.",
         "parameters": [
           {
             "schema": {
@@ -2235,6 +2235,47 @@
                           "items": {
                             "$ref": "#/components/schemas/BookingReport"
                           }
+                        },
+                        "parties": {
+                          "type": "object",
+                          "properties": {
+                            "client": {
+                              "type": "object",
+                              "properties": {
+                                "clientId": {
+                                  "type": "string",
+                                  "description": "The client on this booking.",
+                                  "example": "cli_01kv60qge5eh59ap0gw0pqrrys"
+                                },
+                                "fullName": {
+                                  "type": "string",
+                                  "description": "Display name, resolved from the client profile. Best-effort: absent when the profile cannot be resolved, which is not an error — render the id instead.",
+                                  "example": "Cara Client"
+                                }
+                              },
+                              "required": ["clientId"],
+                              "description": "The client. Always present — every booking has one."
+                            },
+                            "supplier": {
+                              "type": "object",
+                              "nullable": true,
+                              "properties": {
+                                "supplierId": {
+                                  "type": "string",
+                                  "description": "The supplier assigned to this booking.",
+                                  "example": "sup_01kv60qge5eh59ap0gw0pqrrys"
+                                },
+                                "fullName": {
+                                  "type": "string",
+                                  "description": "Display name, resolved from the supplier profile. Best-effort: absent when the profile cannot be resolved, which is not an error — render the id instead.",
+                                  "example": "Javier Supplier"
+                                }
+                              },
+                              "required": ["supplierId"],
+                              "description": "`null` when no supplier is assigned yet — a legal state for a booking, not an error."
+                            }
+                          },
+                          "required": ["client", "supplier"]
                         }
                       },
                       "required": [
@@ -2242,7 +2283,8 @@
                         "services",
                         "participants",
                         "notes",
-                        "reports"
+                        "reports",
+                        "parties"
                       ]
                     }
                   },
@@ -3972,7 +4014,7 @@
       "post": {
         "tags": ["Reviews"],
         "summary": "Review a booking, in either direction",
-        "description": "Records one side of a booking rating the other, and folds the rating into the rated party's running average in the same atomic write. Both parties are read off the booking in the URL — the body carries **no ids at all**, so a review can only ever be attributed to the supplier and client who were actually on that booking.\n\n`direction` picks who is rating whom. `CLIENT_TO_SUPPLIER` is the client rating the supplier; `SUPPLIER_TO_CLIENT` is the supplier rating the client. The response tells you which party the review is *about* without re-deriving it: `subjectType` is `SUPPLIER` or `CLIENT`, and `subjectId` is that party's id.\n\n**The booking does not have to be COMPLETED.** Nothing in MarketBox moves a booking to COMPLETED automatically — the status is only ever set deliberately — so requiring it would make this endpoint unusable for most tenants. Any booking is reviewable except a CANCELLED one, which returns 422. A booking with no supplier assigned is a legal state, but there is no supplier to rate or to rate from, so it also returns 422.\n\nAt most **one review per booking per direction**, enforced by a uniqueness item written inside the same transaction rather than by a read beforehand — two simultaneous submits cannot both win. A second review in the same direction returns 409 `REVIEW_ALREADY_EXISTS`. Reviews posted through the older project-level `POST /reviews` route carry no such guard, so this endpoint also runs a best-effort index lookup first and will report 409 for one it can see; that lookup reads an eventually-consistent index, so treat it as a courtesy rather than the guarantee.\n\nTreat a review as permanent — there is no update or delete route, and the average it moved stays moved.\n\nThe response carries best-effort display fields (`supplierName`, `supplierEmail`, `clientName`, `clientEmail`) resolved from the two profiles, so a hosted review page can render a name without a second call. A counterparty whose profile cannot be resolved keeps its bare id and the corresponding name/email fields are absent.",
+        "description": "Records one side of a booking rating the other, and folds the rating into the rated party's running average in the same atomic write. Both parties are read off the booking in the URL — the body carries **no ids at all**, so a review can only ever be attributed to the supplier and client who were actually on that booking.\n\n`direction` picks who is rating whom. `CLIENT_TO_SUPPLIER` is the client rating the supplier; `SUPPLIER_TO_CLIENT` is the supplier rating the client. The response tells you which party the review is *about* without re-deriving it: `subjectType` is `SUPPLIER` or `CLIENT`, and `subjectId` is that party's id.\n\n**The booking does not have to be COMPLETED.** Nothing in MarketBox moves a booking to COMPLETED automatically — the status is only ever set deliberately — so requiring it would make this endpoint unusable for most tenants. Any booking is reviewable except a CANCELLED one, which returns 422. A booking with no supplier assigned is a legal state, but there is no supplier to rate or to rate from, so it also returns 422.\n\nAt most **one review per booking per direction**, enforced by a uniqueness item written inside the same transaction rather than by a read beforehand — two simultaneous submits cannot both win. A second review in the same direction returns 409 `REVIEW_ALREADY_EXISTS`. Reviews posted through the older project-level `POST /reviews` route carry no such guard, so this endpoint also runs a best-effort index lookup first and will report 409 for one it can see; that lookup reads an eventually-consistent index, so treat it as a courtesy rather than the guarantee.\n\nTreat a review as permanent — there is no update or delete route, and the average it moved stays moved.\n\nThe response carries best-effort display names (`supplierName`, `clientName`) resolved from the two profiles, so a hosted review page can render a name without a second call. A counterparty whose profile cannot be resolved keeps its bare id and the corresponding name is absent. No email address is returned for either party.",
         "parameters": [
           {
             "schema": {
@@ -4084,13 +4126,7 @@
                         "supplierName": {
                           "type": "string"
                         },
-                        "supplierEmail": {
-                          "type": "string"
-                        },
                         "clientName": {
-                          "type": "string"
-                        },
-                        "clientEmail": {
                           "type": "string"
                         }
                       },
@@ -4176,7 +4212,7 @@
       "get": {
         "tags": ["Reviews"],
         "summary": "List every review linked to a booking",
-        "description": "Every review linked to this booking, newest first, in both directions and unpaginated.\n\nDo not assume at most two. The strict `POST /bookings/{bookingId}/reviews` route allows one review per direction, but the older project-level `POST /reviews` accepts a `bookingId` without deduplicating, so a booking created through that path can carry several client→supplier reviews. Read the list, do not index into it.\n\nEach review carries best-effort `supplierName` / `supplierEmail` / `clientName` / `clientEmail` resolved from the two profiles, so a hosted review page renders without further calls; a counterparty that cannot be resolved keeps its bare id and those fields are absent. An unknown booking returns 404, matching the POST.",
+        "description": "Every review linked to this booking, newest first, in both directions and unpaginated.\n\nDo not assume at most two. The strict `POST /bookings/{bookingId}/reviews` route allows one review per direction, but the older project-level `POST /reviews` accepts a `bookingId` without deduplicating, so a booking created through that path can carry several client→supplier reviews. Read the list, do not index into it.\n\nEach review carries best-effort `supplierName` / `clientName` resolved from the two profiles, so a hosted review page renders without further calls; a counterparty that cannot be resolved keeps its bare id and those fields are absent. No email address is returned for either party. An unknown booking returns 404, matching the POST.",
         "parameters": [
           {
             "schema": {
@@ -4257,13 +4293,7 @@
                           "supplierName": {
                             "type": "string"
                           },
-                          "supplierEmail": {
-                            "type": "string"
-                          },
                           "clientName": {
-                            "type": "string"
-                          },
-                          "clientEmail": {
                             "type": "string"
                           }
                         },
@@ -10713,13 +10743,7 @@
                         "supplierName": {
                           "type": "string"
                         },
-                        "supplierEmail": {
-                          "type": "string"
-                        },
                         "clientName": {
-                          "type": "string"
-                        },
-                        "clientEmail": {
                           "type": "string"
                         }
                       },
@@ -10888,13 +10912,7 @@
                           "supplierName": {
                             "type": "string"
                           },
-                          "supplierEmail": {
-                            "type": "string"
-                          },
                           "clientName": {
-                            "type": "string"
-                          },
-                          "clientEmail": {
                             "type": "string"
                           }
                         },
@@ -10957,7 +10975,7 @@
       "get": {
         "tags": ["Reviews"],
         "summary": "List the reviews written about a client",
-        "description": "Reviews **of** this client — the ones suppliers wrote about them — newest first. It is not the reviews this client wrote; those are reviews of a supplier and are read through `GET /reviews?supplierId=…`. Only `SUPPLIER_TO_CLIENT` reviews appear here, so every row has this client as its `subjectId`.\n\nPaginated with `limit` and an opaque `cursor`; `nextCursor: null` is the only end-of-results signal, and a cursor is valid only for the filters that produced it. Each row carries best-effort `supplierName` / `supplierEmail` / `clientName` / `clientEmail` merged in from the two profiles, so a page renders without further calls; a counterparty that cannot be resolved keeps its bare id and those fields are absent.\n\nA client that does not exist in this project returns 404 rather than an empty page, so an empty `data` genuinely means \"nobody has reviewed this client yet\".",
+        "description": "Reviews **of** this client — the ones suppliers wrote about them — newest first. It is not the reviews this client wrote; those are reviews of a supplier and are read through `GET /reviews?supplierId=…`. Only `SUPPLIER_TO_CLIENT` reviews appear here, so every row has this client as its `subjectId`.\n\nPaginated with `limit` and an opaque `cursor`; `nextCursor: null` is the only end-of-results signal, and a cursor is valid only for the filters that produced it. Each row carries best-effort `supplierName` / `clientName` merged in from the two profiles, so a page renders without further calls; a counterparty that cannot be resolved keeps its bare id and those fields are absent. No email address is returned for either party.\n\nA client that does not exist in this project returns 404 rather than an empty page, so an empty `data` genuinely means \"nobody has reviewed this client yet\".",
         "parameters": [
           {
             "schema": {
@@ -11062,13 +11080,7 @@
                           "supplierName": {
                             "type": "string"
                           },
-                          "supplierEmail": {
-                            "type": "string"
-                          },
                           "clientName": {
-                            "type": "string"
-                          },
-                          "clientEmail": {
                             "type": "string"
                           }
                         },
