@@ -8,17 +8,29 @@ Given a service, a location, and a window of time, it returns the slots
 a supplier can realistically be booked into — accounting for existing
 bookings, schedules, and travel time between jobs.
 
-There are two endpoints, both project-scoped and authenticated with the
-`x-api-key` header:
+There are five endpoints, all project-scoped and authenticated with the
+`x-api-key` header. The first three answer "when is someone free?" for a
+**single session**; the last two build **complete N-session plans** for a
+package:
 
 | Endpoint                                              | Use it when                                                            |
 | ---------------------------------------------------- | --------------------------------------------------------------------- |
 | `POST .../availability/search`                       | You have a service + offering + location and want the API to find suppliers and slots from project data. |
 | `POST .../availability/time-slots`                   | You already have suppliers + their bookings and want to run the engine directly, passing everything in the body. |
+| `POST .../availability/suppliers`                    | You want the same availability **grouped by supplier** — a paginated list of supplier profiles, each with open slots bucketed by local day. |
+| `POST .../availability/package-slate`                | You want a **complete N-session plan** for one package, from one supplier, built from a recurrence rule. |
+| `POST .../availability/package-options`              | You want **every** ACTIVE package of a service planned in one call, each with its own ready-to-book `slateId`. |
 
 <Note>
-  Both endpoints are authenticated with the `x-api-key` header, not
-  `Authorization`. See [Authentication](/concepts/authentication).
+  Every endpoint on this page is authenticated with the `x-api-key` header,
+  not `Authorization`. See [Authentication](/concepts/authentication).
+</Note>
+
+<Note>
+  The two package endpoints have package-specific anatomy — slate and slot
+  shapes, cadence rules, the 120-day look-ahead ceiling, cadence relaxation,
+  and the hold/convert path. They're summarised below and documented in full
+  in [Availability and slates](/guides/availability-and-slates).
 </Note>
 
 ## Search (who-is-available)
@@ -153,6 +165,80 @@ to the slot list:
 }
 ```
 
+## Suppliers (grouped by supplier)
+
+```
+POST /v1/projects/{projectId}/availability/suppliers
+```
+
+The same single-session availability as `/search`, pivoted: instead of flat
+slot arrays you get a **paginated list of suppliers**, each with its full
+profile (the same shape as `GET /suppliers`) and its open slots bucketed by
+local day. Use it to render a wall of supplier cards with bookable times.
+
+**Required:** `serviceId`, `offeringId`, and **either** `locationId` **or**
+both `lat` and `lng` — the same location rule as `/search`.
+
+Notes that catch people out:
+
+- It returns **regular-interval open slots only** — no clustered or
+  travel-optimized suggestions, and no recurrence patterns. Use `/search`
+  for those.
+- Suppliers that match the service and location but have **no availability**
+  in the window are still returned, with `days: []`. Filter client-side if
+  you only want bookable ones.
+- Paginate with `limit` (max 50) plus the opaque `cursor`. `nextCursor` is
+  `null` on the last page.
+- Each slot carries a UTC anchor (`startUtc` / `endUtc`) **plus** `*Local`
+  strings rendered in the request `timezone`.
+
+## Package slate (a complete N-session plan)
+
+```
+POST /v1/projects/{projectId}/availability/package-slate
+```
+
+Builds a **slate** — a complete N-session plan for a package, from a single
+supplier's availability. Pass a `packageId` (the session count, service and
+offering are derived from it), a location, a `timezone`, a
+`lookAheadStartDate` carrying a numeric offset, and an `rrule` with a bounded
+`COUNT`. The returned `primarySlate.slateId` books the whole plan in one call
+via `POST /v1/projects/{projectId}/orders/{orderId}/package-bookings`.
+
+The same two cadence guards as recurring search apply, and for the same
+reasons: `lookAheadStartDate` must carry a numeric offset, and `rrule` must
+carry a bounded, positive `COUNT`. Both are `400 VALIDATION_ERROR`.
+
+Responses are `200` when anything is bookable and `422` when nothing is —
+specifically, when `primarySlate`, `partial` **and** `cadenceAlternatives`
+are all empty.
+
+<Note>
+  **Cadence relaxation.** By default a supplier who can't meet your exact
+  `rrule` yields a `422`. Opt in with `cadenceFlexibility` (or
+  `guaranteeSlate`) and the response instead carries `cadenceAlternatives`:
+  complete N-session plans at a denser, supplier-feasible cadence, each
+  directly bookable, under `status: "ALTERNATIVE_CADENCE"` — a **success**,
+  returned as `200`. A request that sets neither field sees no change
+  whatsoever. Fully documented in
+  [Availability and slates](/guides/availability-and-slates).
+</Note>
+
+## Package options (every package of a service)
+
+```
+POST /v1/projects/{projectId}/availability/package-options
+```
+
+The composite built on `package-slate`: returns every ACTIVE package of a
+service, each with its own complete N-session plan and ready-to-book
+`slateId`. Cadence defaults to `FREQ=WEEKLY;COUNT={creditCount}`, derived per
+package. It accepts the same cadence-relaxation fields.
+
+Unlike `package-slate`, it is **always `200`** — a package that can't be
+planned comes back with its own `status` and `reason` rather than failing the
+whole request.
+
 ## Errors
 
 | Status | When                                                                 |
@@ -160,6 +246,8 @@ to the slot list:
 | `400`  | Missing location, missing `rrule` on a recurring request, recurring `lookAheadStartDate` using `Z`, recurring `rrule` without `COUNT`, or `time-slots` without `suppliers`. |
 | `401`  | Missing or invalid API key.                                          |
 | `403`  | API key cannot access this project.                                  |
+| `404`  | `package-options` only — the service doesn't exist in this project.  |
+| `422`  | `package-slate` only — nothing bookable: no `primarySlate`, no `partial`, and no `cadenceAlternatives`. The `code` is `NO_COMPLETE_SLATE` or `NO_AVAILABILITY`. |
 
 See [Errors](/concepts/errors) for the full error envelope.
 
@@ -167,3 +255,6 @@ See [Errors](/concepts/errors) for the full error envelope.
 
 - `POST /v1/projects/{projectId}/availability/search`
 - `POST /v1/projects/{projectId}/availability/time-slots`
+- `POST /v1/projects/{projectId}/availability/suppliers`
+- `POST /v1/projects/{projectId}/availability/package-slate`
+- `POST /v1/projects/{projectId}/availability/package-options`
