@@ -34,10 +34,10 @@ existed carry no `direction` and are reported as `CLIENT_TO_SUPPLIER`.
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
+    participant C as Client or supplier
     participant P as Your page
     participant M as MarketBox API
-    M-->>C: rating email, linking to your page with a bookingId
+    M-->>C: rating email, linking to your page with a bookingId and a role
     C->>P: opens the page
     P->>M: GET /bookings/{bookingId}
     M-->>P: booking, with its supplierId and clientId
@@ -51,6 +51,49 @@ sequenceDiagram
 
 Your page calls MarketBox from **your server**, never the browser: the API key is a server-only
 secret. See [Authentication](/concepts/authentication).
+
+### What MarketBox puts in the link
+
+Set `reviewRedirectUrl` in your project's notification settings and MarketBox sends recipients
+there instead of to its own page. It appends its own query parameters to whatever URL you
+configure, merging them into any query string already present:
+
+| Parameter   | Always sent? | Values                  | What it means                                     |
+| ----------- | ------------ | ----------------------- | ------------------------------------------------- |
+| `bookingId` | yes          | a booking id            | which booking the feedback is about                |
+| `role`      | yes          | `client` \| `supplier`  | **which side clicked** — see below                 |
+| `rating`    | star links only | `1`–`5`              | the star they tapped, to pre-select in your form   |
+
+**Treat these leniently.** Ignore parameters you do not recognise, and expect new ones to appear
+over time; `role` itself was added after `bookingId`. Nothing that was already sent has changed
+meaning.
+
+If your URL contains the literal token `{bookingId}`, MarketBox substitutes it **and still appends
+the `bookingId` parameter**. You get the id twice on purpose — parse whichever you prefer.
+
+```
+configured:  https://acme.example/review/{bookingId}
+sent:        https://acme.example/review/bk_123?bookingId=bk_123&role=client
+
+configured:  https://acme.example/feedback?src=mb
+sent:        https://acme.example/feedback?src=mb&bookingId=bk_123&role=supplier&rating=4
+```
+
+#### `role` tells you who is standing in front of you
+
+One booking produces two different asks, and both land on the same URL:
+
+| `role`     | Who clicked | What to show                                                                 |
+| ---------- | ----------- | ---------------------------------------------------------------------------- |
+| `client`   | the client  | rate the **supplier** — post `direction: "CLIENT_TO_SUPPLIER"`                 |
+| `supplier` | the supplier | rate the **client**, and confirm attendance — post `direction: "SUPPLIER_TO_CLIENT"` |
+
+Without it your page cannot tell the two apart from the booking id alone, and would show one side
+the other side's form. If `role` is missing or unrecognised — an old link, a hand-edited URL —
+fall back to your own signed-in context rather than guessing; do not default to `client`.
+
+`role` says which side was **emailed**, not which side is authenticated. It is a routing hint in a
+URL anyone can edit, so keep authorising the submission the way you already do.
 
 ## Leaving a review
 
@@ -134,10 +177,21 @@ predates it and is deliberately permissive; it remains for existing integrations
 
 ### Reviews and the rating emails
 
-MarketBox emails a client after a booking asking for a rating, and follows up if none arrives.
-**A review linked to a booking stops those follow-ups for it.** The booking-scoped route links it
-for you. A review posted through the project-level route without a `bookingId` does not, and the
-client keeps being asked to rate something they have already rated.
+After a booking ends MarketBox emails **both sides** asking for a rating, and follows up if none
+arrives. The client is asked to rate the supplier; the supplier is asked to rate the client and
+confirm they attended. The two arrive on the same cadence and are told apart by `role` in the link.
+
+**A review linked to a booking stops the follow-ups for that side.** The booking-scoped route
+links it for you. A review posted through the project-level route without a `bookingId` does not,
+and the recipient keeps being asked to rate something they have already rated.
+
+**The two directions suppress independently.** A `CLIENT_TO_SUPPLIER` review stops the client's
+follow-ups only; the supplier keeps being asked until a `SUPPLIER_TO_CLIENT` review exists, and
+vice versa. That is deliberate — one side answering says nothing about the other — so do not
+expect writing one review to silence both.
+
+Suppression keys on the **review**, not the attendance report. A supplier who confirms attendance
+but leaves no rating will still be asked again.
 
 ## Reporting on a booking
 
