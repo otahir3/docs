@@ -244,8 +244,7 @@ whole request.
 | Status | When                                                                 |
 | ------ | -------------------------------------------------------------------- |
 | `400`  | Missing location, missing `rrule` on a recurring request, recurring `lookAheadStartDate` using `Z`, recurring `rrule` without `COUNT`, or `time-slots` without `suppliers`. |
-| `401`  | Missing or invalid API key.                                          |
-| `403`  | API key cannot access this project.                                  |
+| `403`  | Missing or unrecognised API key — rejected at the edge, before any scope check — or a key that cannot access this project. |
 | `404`  | `package-options` only — the service doesn't exist in this project.  |
 | `422`  | `package-slate` only — nothing bookable: no `primarySlate`, no `partial`, and no `cadenceAlternatives`. The `code` is `NO_COMPLETE_SLATE` or `NO_AVAILABILITY`. |
 

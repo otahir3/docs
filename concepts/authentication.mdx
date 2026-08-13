@@ -21,8 +21,34 @@ Host: $MARKETBOX_API_URL
 x-api-key: mb_live_********************************
 ```
 
-A request without a valid `x-api-key` is rejected at the edge with `401`
-before reaching any business logic.
+### When the key is missing or wrong
+
+A request with no `x-api-key`, or one carrying a key MarketBox does not
+recognise, is rejected **at the edge** with `403` — before any business logic
+runs, and before your key's project scope is evaluated at all. It returns the
+same error envelope as every other MarketBox error, so you can read `code` here
+exactly as you do everywhere else:
+
+```json
+{
+  "code": "FORBIDDEN",
+  "message": "API key missing or not recognised",
+  "statusCode": 403,
+  "requestId": "8f3c1a4e-2b7d-4f19-9a55-1c0e7d2b6f84"
+}
+```
+
+A request to a path the API does not serve is rejected the same way and carries
+the same `code`, with `"message": "No such route"`. The two are `403` for the
+same reason — the edge refuses them before it knows anything about you — so the
+`message` is what tells them apart.
+
+<Note>
+  Because these are rejected before your request reaches the application, the
+  `requestId` here is the gateway's own id rather than an `X-Request-Id` you
+  supplied. Quote it when contacting support; it is still the id that identifies
+  your request in our logs.
+</Note>
 
 ## What a key carries
 

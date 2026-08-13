@@ -77,8 +77,8 @@ A **hold-lifecycle** failure (`409`, see the table below) is the plain envelope:
 | Status | When you'll see it                                                                                 |
 | ------ | -------------------------------------------------------------------------------------------------- |
 | `400`  | The request is malformed: invalid JSON, invalid query parameters, a violated business invariant.   |
-| `401`  | The `x-api-key` header is missing, malformed, or the key has been revoked.                         |
-| `403`  | The key is valid but its `projectScope` does not allow the `{projectId}` in the URL.               |
+| `401`  | Narrow: only on the few routes that require no API key at the edge (`/health`, `/v1/openapi.json`), where the application's own middleware rejects the request. A missing or unrecognised key on any project-scoped route is `403`, not `401`. |
+| `403`  | The `x-api-key` header is missing or the key isn't recognised — rejected at the edge, before any scope check runs — or the key is valid but its `projectScope` does not allow the `{projectId}` in the URL. |
 | `404`  | The resource you targeted doesn't exist (or has been soft-deleted).                                |
 | `409`  | Version conflict on an optimistic update, the supplier's time is already booked or held, capacity exceeded, or duplicate registration. |
 | `5xx`  | Something went wrong on our side. Safe to retry idempotent requests with backoff.                  |
@@ -89,8 +89,8 @@ A **hold-lifecycle** failure (`409`, see the table below) is the plain envelope:
 | --------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
 | `VALIDATION_ERROR`                      | 400    | Request body or query failed schema validation. `message` names the field.              |
 | `BAD_REQUEST`                           | 400    | Generic client-input failure covering several situations: an illegal status transition (e.g. can't go from `CANCELLED` back to `CONFIRMED`), a mismatched currency between an order and an item you're adding to it, an offering that isn't `ACTIVE`, an unparseable pagination `cursor`, and other malformed input. `message` names the specific problem. |
-| `UNAUTHORIZED`                          | 401    | API key is missing or revoked.                                                          |
-| `FORBIDDEN`                             | 403    | API key cannot access this project.                                                     |
+| `UNAUTHORIZED`                          | 401    | Rare. Reachable only on the routes that need no API key at the edge (`/health`, `/v1/openapi.json`), where the application's own middleware rejects the request. Everywhere else a missing or unrecognised key is `FORBIDDEN`. |
+| `FORBIDDEN`                             | 403    | API key is missing, isn't recognised, or cannot access this project. The first two are rejected at the edge before the request reaches the application, so `message` — not `code` — is what distinguishes them. |
 | `NOT_FOUND`                             | 404    | Resource doesn't exist or has been soft-deleted.                                        |
 | `VERSION_CONFLICT`                      | 409    | Concurrent modification — re-read the resource and try again.                           |
 | `CONFLICT`                              | 409    | Generic write conflict covering situations like a booking that's already at capacity, or a client that's already registered as a participant on it. `message` names the specific problem. |
