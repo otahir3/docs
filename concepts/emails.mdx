@@ -1,0 +1,140 @@
+---
+title: Emails
+description: What MarketBox sends on your behalf, when, and what you control.
+---
+
+MarketBox sends transactional email automatically as bookings are created, changed and completed.
+You do not trigger these — creating a booking through the API is enough. This page covers every
+email that exists, who receives it, and which parts you can configure.
+
+Emails are sent from MarketBox's infrastructure under your project's name. Nothing here is a
+marketing surface: there is no list, no unsubscribe funnel, and no campaign. Every message is tied
+to one booking or one invitation.
+
+## The full set
+
+<Note>
+All times are relative to the booking. "Start" and "end" mean the booking's scheduled start and end,
+not when it was created.
+</Note>
+
+### When a booking is created
+
+| Email | Goes to | When |
+| --- | --- | --- |
+| Booking confirmation | the client | immediately |
+| New booking | the assigned supplier | immediately |
+
+Both are sent as part of the create call. A booking created without a supplier assigned sends only
+the client's.
+
+### Before it happens
+
+| Email | Goes to | When |
+| --- | --- | --- |
+| Reminder | the client | 24 hours before start |
+| Daily agenda | each supplier | 07:00 in the supplier's own timezone |
+
+The agenda lists that supplier's bookings for the day and is the only recurring email in the system.
+Suppliers with nothing booked get nothing.
+
+### When something changes
+
+| Email | Goes to | When |
+| --- | --- | --- |
+| Booking updated | client, current supplier, previously assigned supplier, project admins | on a change to time, location or supplier |
+| Booking cancelled | client, supplier, project admins | on cancellation |
+
+Cancelling a booking also removes every email still scheduled for it — no reminder, no rating
+request afterwards.
+
+### After it happens
+
+| Email | Goes to | When |
+| --- | --- | --- |
+| Leave a rating | the client | 1 hour after end |
+| Rating follow-up | the client | 3, 6 and 9 days after end |
+| Rate your client | the supplier | 1 hour after end |
+| Rating follow-up | the supplier | 3, 6 and 9 days after end |
+
+Both sides are asked independently: the client is asked to rate the supplier, and the supplier to
+rate the client and confirm they attended. Neither knows about the other.
+
+### Account
+
+| Email | Goes to | When |
+| --- | --- | --- |
+| Invitation | the invited supplier or staff member | when an invitation is created or resent |
+
+## Stopping the rating follow-ups
+
+The follow-ups exist to chase a rating that never arrived. **They stop as soon as that side leaves
+one** — a client who rates after the first email never receives the other three.
+
+What makes that work is the review being linked to the booking. Reviews created through
+`POST /v1/projects/{projectId}/bookings/{bookingId}/reviews` are linked by definition, so
+suppression is automatic.
+
+<Warning>
+A review created through the older project-level `POST /v1/projects/{projectId}/reviews` route
+**without** a `bookingId` is not linked to any booking, so MarketBox cannot tell it happened and the
+client keeps being asked. If you use that route, always supply `bookingId`.
+</Warning>
+
+The two directions are tracked separately. A supplier rating a client does not stop the client's
+follow-ups, and vice versa — each side is only ever chased about its own missing rating.
+
+See [Reviews and reports](/resources/reviews) for the endpoints themselves.
+
+## Where the rating links go
+
+The rating emails contain five star links and a button. By default they lead to a MarketBox-hosted
+page where the recipient can leave their rating and confirm attendance — no login, and nothing for
+you to build.
+
+If you would rather collect ratings on your own site, set a **review redirect URL** in your
+project's notification settings in the MarketBox dashboard. Every rating link then points there
+instead, with the booking identified in the query string:
+
+```
+https://yourdomain.com/review?bookingId=bk_01kv60qge5eh59ap0gw0pqrrys&role=client&rating=4
+```
+
+- `bookingId` — always appended, whatever URL you configure
+- `role` — `client` or `supplier`, so one page can serve both
+- `rating` — present only on the star links, carrying the star that was clicked
+
+You can also template the path — `https://yourdomain.com/review/{bookingId}` substitutes the id and
+still appends the query parameter, so either style works.
+
+<Tip>
+Ignore query parameters you do not recognise. More may be added, and a page that validates strictly
+will break when they are.
+</Tip>
+
+Your page then posts to the API from your own server, using your API key. See
+[Reviews and reports](/resources/reviews).
+
+## Sender identity
+
+Two settings, both in your project's notification settings in the dashboard:
+
+| Setting | Effect |
+| --- | --- |
+| From name | The display name on every email from this project. Defaults to the project name. |
+| Reply-to address | Where replies go. Unset means replies go to the platform default. |
+
+Neither is stored on the email itself — they are resolved when each message is sent, so renaming
+your project changes the name on the next send, including for bookings made before the change.
+
+## Limits worth knowing
+
+- **There is no per-project switch to turn emails off.** Every project on MarketBox sends the full
+  set.
+- **Nothing marks a booking complete automatically.** The rating emails fire on the booking's
+  scheduled end time, not on a status change, so they arrive whether or not anyone updated the
+  booking afterwards.
+- **Cancelled bookings send nothing further**, but a booking marked as a no-show still stops the
+  rating requests too.
+- **Emails cannot be resent through the API.** Invitations are the exception — resending one sends a
+  fresh email.

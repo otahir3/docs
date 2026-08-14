@@ -36,6 +36,7 @@
               "concepts/service-fees",
               "concepts/pagination",
               "concepts/errors",
+              "concepts/emails",
               "concepts/versioning",
               "concepts/timezones",
               "concepts/concurrency"
