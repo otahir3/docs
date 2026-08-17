@@ -58,6 +58,7 @@ cadence (`lookAheadStartDate` + `rrule`). The response is a
     "sessionsRequested": 8,
     "sessionsFilled": 8,
     "startTimeConsistencyPercent": 100,
+    "matchScore": 1,
     "totalTravelTimeMins": 0,
     "slots": []
   },
@@ -115,6 +116,7 @@ Each slate (`primarySlate`, entries in `alternates`, entries in
 | `completeness` | `COMPLETE` or `PARTIAL`. |
 | `sessionsRequested` / `sessionsFilled` | How many of the package's sessions this plan could fill, out of how many were requested. |
 | `startTimeConsistencyPercent` | How consistent the session start times are (0–100). |
+| `matchScore` | How well the slate matches the requested schedule preferences (0–1). Currently returns `1` for all slates; ranking by it is not yet supported. |
 | `totalTravelTimeMins` | Summed travel time across the plan's sessions. |
 | `slots[]` | The resolved sessions — see below. |
 
@@ -380,6 +382,7 @@ eight-session plan on **Mondays and Fridays**:
       "completeness": "COMPLETE",
       "sessionsRequested": 8,
       "sessionsFilled": 8,
+      "matchScore": 1,
       "cadenceRrule": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8",
       "matchesRequestedCadence": false,
       "cadenceRelaxation": "DAYS_ADDED",
@@ -552,6 +555,7 @@ With `cadenceFlexibility: "FALLBACK"` set, the response instead comes back:
       "sessionsRequested": 8,
       "sessionsFilled": 8,
       "startTimeConsistencyPercent": 100,
+      "matchScore": 1,
       "totalTravelTimeMins": 0,
       "cadenceRrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,FR;COUNT=8",
       "matchesRequestedCadence": false,

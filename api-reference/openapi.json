@@ -7529,6 +7529,13 @@
                                   "exclusiveMinimum": true,
                                   "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                   "example": 2
+                                },
+                                "matchScore": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "example": 1
                                 }
                               },
                               "required": [
@@ -7539,7 +7546,8 @@
                                 "sessionsFilled",
                                 "startTimeConsistencyPercent",
                                 "totalTravelTimeMins",
-                                "slots"
+                                "slots",
+                                "matchScore"
                               ],
                               "description": "The best COMPLETE single-supplier slate; book this by slateId."
                             },
@@ -7713,6 +7721,13 @@
                                     "exclusiveMinimum": true,
                                     "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                     "example": 2
+                                  },
+                                  "matchScore": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                    "example": 1
                                   }
                                 },
                                 "required": [
@@ -7723,7 +7738,8 @@
                                   "sessionsFilled",
                                   "startTimeConsistencyPercent",
                                   "totalTravelTimeMins",
-                                  "slots"
+                                  "slots",
+                                  "matchScore"
                                 ]
                               }
                             },
@@ -7896,6 +7912,13 @@
                                   "exclusiveMinimum": true,
                                   "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                   "example": 2
+                                },
+                                "matchScore": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "example": 1
                                 }
                               },
                               "required": [
@@ -7906,7 +7929,8 @@
                                 "sessionsFilled",
                                 "startTimeConsistencyPercent",
                                 "totalTravelTimeMins",
-                                "slots"
+                                "slots",
+                                "matchScore"
                               ]
                             },
                             "cadenceAlternatives": {
@@ -8079,6 +8103,13 @@
                                     "exclusiveMinimum": true,
                                     "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                     "example": 2
+                                  },
+                                  "matchScore": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                    "example": 1
                                   }
                                 },
                                 "required": [
@@ -8089,7 +8120,8 @@
                                   "sessionsFilled",
                                   "startTimeConsistencyPercent",
                                   "totalTravelTimeMins",
-                                  "slots"
+                                  "slots",
+                                  "matchScore"
                                 ]
                               },
                               "default": [],
@@ -12684,6 +12716,13 @@
                           "exclusiveMinimum": true,
                           "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                           "example": 2
+                        },
+                        "matchScore": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1,
+                          "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                          "example": 1
                         }
                       },
                       "required": [
@@ -12694,7 +12733,8 @@
                         "sessionsFilled",
                         "startTimeConsistencyPercent",
                         "totalTravelTimeMins",
-                        "slots"
+                        "slots",
+                        "matchScore"
                       ],
                       "description": "The best COMPLETE single-supplier slate; book this by slateId."
                     },
@@ -12864,6 +12904,13 @@
                             "exclusiveMinimum": true,
                             "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                             "example": 2
+                          },
+                          "matchScore": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                            "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                            "example": 1
                           }
                         },
                         "required": [
@@ -12874,7 +12921,8 @@
                           "sessionsFilled",
                           "startTimeConsistencyPercent",
                           "totalTravelTimeMins",
-                          "slots"
+                          "slots",
+                          "matchScore"
                         ]
                       }
                     },
@@ -13043,6 +13091,13 @@
                           "exclusiveMinimum": true,
                           "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                           "example": 2
+                        },
+                        "matchScore": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1,
+                          "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                          "example": 1
                         }
                       },
                       "required": [
@@ -13053,7 +13108,8 @@
                         "sessionsFilled",
                         "startTimeConsistencyPercent",
                         "totalTravelTimeMins",
-                        "slots"
+                        "slots",
+                        "matchScore"
                       ]
                     },
                     "cadenceAlternatives": {
@@ -13222,6 +13278,13 @@
                             "exclusiveMinimum": true,
                             "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                             "example": 2
+                          },
+                          "matchScore": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                            "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                            "example": 1
                           }
                         },
                         "required": [
@@ -13232,7 +13295,8 @@
                           "sessionsFilled",
                           "startTimeConsistencyPercent",
                           "totalTravelTimeMins",
-                          "slots"
+                          "slots",
+                          "matchScore"
                         ]
                       },
                       "default": [],
@@ -13729,6 +13793,13 @@
                                 "exclusiveMinimum": true,
                                 "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                 "example": 2
+                              },
+                              "matchScore": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                "example": 1
                               }
                             },
                             "required": [
@@ -13739,7 +13810,8 @@
                               "sessionsFilled",
                               "startTimeConsistencyPercent",
                               "totalTravelTimeMins",
-                              "slots"
+                              "slots",
+                              "matchScore"
                             ]
                           },
                           "alternates": {
@@ -13912,6 +13984,13 @@
                                   "exclusiveMinimum": true,
                                   "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                   "example": 2
+                                },
+                                "matchScore": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "example": 1
                                 }
                               },
                               "required": [
@@ -13922,7 +14001,8 @@
                                 "sessionsFilled",
                                 "startTimeConsistencyPercent",
                                 "totalTravelTimeMins",
-                                "slots"
+                                "slots",
+                                "matchScore"
                               ]
                             }
                           },
@@ -14095,6 +14175,13 @@
                                 "exclusiveMinimum": true,
                                 "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                 "example": 2
+                              },
+                              "matchScore": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                "example": 1
                               }
                             },
                             "required": [
@@ -14105,7 +14192,8 @@
                               "sessionsFilled",
                               "startTimeConsistencyPercent",
                               "totalTravelTimeMins",
-                              "slots"
+                              "slots",
+                              "matchScore"
                             ]
                           },
                           "cadenceAlternatives": {
@@ -14278,6 +14366,13 @@
                                   "exclusiveMinimum": true,
                                   "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                   "example": 2
+                                },
+                                "matchScore": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "example": 1
                                 }
                               },
                               "required": [
@@ -14288,7 +14383,8 @@
                                 "sessionsFilled",
                                 "startTimeConsistencyPercent",
                                 "totalTravelTimeMins",
-                                "slots"
+                                "slots",
+                                "matchScore"
                               ]
                             },
                             "default": [],
@@ -14576,6 +14672,13 @@
                           "exclusiveMinimum": true,
                           "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                           "example": 2
+                        },
+                        "matchScore": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1,
+                          "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                          "example": 1
                         }
                       },
                       "required": [
@@ -14586,7 +14689,8 @@
                         "sessionsFilled",
                         "startTimeConsistencyPercent",
                         "totalTravelTimeMins",
-                        "slots"
+                        "slots",
+                        "matchScore"
                       ]
                     }
                   },
@@ -14848,6 +14952,13 @@
                                   "exclusiveMinimum": true,
                                   "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                   "example": 2
+                                },
+                                "matchScore": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "example": 1
                                 }
                               },
                               "required": [
@@ -14858,7 +14969,8 @@
                                 "sessionsFilled",
                                 "startTimeConsistencyPercent",
                                 "totalTravelTimeMins",
-                                "slots"
+                                "slots",
+                                "matchScore"
                               ],
                               "description": "The best COMPLETE single-supplier slate; book this by slateId."
                             },
@@ -15032,6 +15144,13 @@
                                     "exclusiveMinimum": true,
                                     "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                     "example": 2
+                                  },
+                                  "matchScore": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                    "example": 1
                                   }
                                 },
                                 "required": [
@@ -15042,7 +15161,8 @@
                                   "sessionsFilled",
                                   "startTimeConsistencyPercent",
                                   "totalTravelTimeMins",
-                                  "slots"
+                                  "slots",
+                                  "matchScore"
                                 ]
                               }
                             },
@@ -15215,6 +15335,13 @@
                                   "exclusiveMinimum": true,
                                   "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                   "example": 2
+                                },
+                                "matchScore": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1,
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "example": 1
                                 }
                               },
                               "required": [
@@ -15225,7 +15352,8 @@
                                 "sessionsFilled",
                                 "startTimeConsistencyPercent",
                                 "totalTravelTimeMins",
-                                "slots"
+                                "slots",
+                                "matchScore"
                               ]
                             },
                             "cadenceAlternatives": {
@@ -15398,6 +15526,13 @@
                                     "exclusiveMinimum": true,
                                     "description": "Average sessions per week across this slate — the number a UI renders as \"3×/week\".",
                                     "example": 2
+                                  },
+                                  "matchScore": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                    "example": 1
                                   }
                                 },
                                 "required": [
@@ -15408,7 +15543,8 @@
                                   "sessionsFilled",
                                   "startTimeConsistencyPercent",
                                   "totalTravelTimeMins",
-                                  "slots"
+                                  "slots",
+                                  "matchScore"
                                 ]
                               },
                               "default": [],
