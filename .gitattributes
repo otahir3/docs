@@ -1,3 +1,12 @@
+# This repo is edited on Windows (core.autocrlf=true) but every file in it is either
+# hand-written Markdown or synced byte-for-byte from mb-core, which generates LF
+# unconditionally. Pin the whole repo to LF so the bytes on disk match what the
+# generators produce, and so the working tree does not depend on any individual
+# developer's core.autocrlf setting. Without this, a checkout on a machine with
+# autocrlf unset or false rewrites the working copy to CRLF, and the next
+# `openapi:sync` reports a spurious full-file diff instead of the real change.
+* text=auto eol=lf
+
 # This repo has core.autocrlf=true; the mb-core repo that GENERATES the files below
 # has core.autocrlf=input. The generators
 # (apps/open-api-mb/scripts/openapi.ts, apps/open-api-mb/scripts/docs-contract.ts) write LF
@@ -6,6 +15,8 @@
 # be byte-identical on disk and the next sync would produce a spurious full-file diff instead
 # of the real change.
 #
-# Deliberately narrow: explicit paths, not a blanket *.json.
+# Redundant with the blanket rule above, and kept deliberately so: these two are the
+# only files whose LF-ness is load-bearing for a check, so an explicit pin should
+# survive any future edit that narrows or removes the blanket rule.
 api-reference/openapi.json text eol=lf
 api-reference/docs-contract.json text eol=lf
