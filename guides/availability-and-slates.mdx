@@ -482,6 +482,16 @@ here.
 
 Omit `daysOfWeek` entirely to allow any day.
 
+<Note>
+**Same field name, opposite behaviour on `/availability/suppliers`.** This
+hard-filter behaviour is specific to `package-slate` and `package-options`.
+On [`POST /availability/suppliers`](/guides/search-suppliers-by-availability#rank-suppliers-by-fit-availabilitymatch),
+`daysOfWeek` is a **ranking preference**, not a filter — a weekday you leave
+out is never removed from a supplier's slots, it only lowers that supplier's
+`availabilityMatch` score. Check which endpoint you're calling before you
+carry an integration's `daysOfWeek` handling over from one to the other.
+</Note>
+
 ### `excludeDates` blocks specific local dates
 
 `excludeDates` is a list of individual local calendar dates that must not
