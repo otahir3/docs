@@ -306,6 +306,201 @@ Each interval carries the same location contract as a booking —
 </Step>
 </Steps>
 
+## Rank suppliers by fit: `availabilityMatch`
+
+Four optional **scoring criteria** shape a per-supplier fit score:
+`lookAheadStartDate` — a field you may already be sending — plus three new
+ones: `preferredTimes`, `daysOfWeek`, `sessionsPerWeek`. Send any of the four
+and every supplier in the response grows an `availabilityMatch` object next
+to `supplier` and `days`:
+
+```json
+{
+  "supplier": { /* full supplier profile — same shape as above */ },
+  "days": [ /* open slots, same shape as above */ ],
+  "availabilityMatch": {
+    "score": 0.8035714285714286,
+    "components": {
+      "startDate": 0.7142857142857143,
+      "timeOfDay": 0.5,
+      "daysOfWeek": 1,
+      "sessionsPerWeek": 1
+    }
+  }
+}
+```
+
+<Note>
+**`availabilityMatch` is omitted, not `null`, when you send none of the four
+scoring criteria above.** A bare request — just `serviceId`, `offeringId`,
+and a location — gets a byte-identical response to before this field
+existed. Don't assume the key exists; check for it before reading `.score`.
+</Note>
+
+- **`score`** is the plain mean of the components you triggered, 0–1,
+  **renormalised over only the criteria you supplied** — not divided by 4.
+  Send one preference and a supplier can score a clean `1.0`; that's correct,
+  not a bug. Without renormalising, sending a single preference would cap
+  every supplier at 0.25.
+- **`components`** contains exactly the keys for the fields you sent — a key
+  only appears when its matching request field was present.
+- **No rounding.** Expect long floats like `0.8035714285714286`, not `0.8`.
+- Each component is a **coverage ratio, not a slot count**. A supplier with
+  200 open slots isn't a better fit than one with 40 if both cover the
+  pattern you asked for equally well — counting slots would just rank the
+  busiest calendar top, which is the opposite of what a fit score is for.
+
+### The four components
+
+| Component | Present when you send | Meaning |
+| --- | --- | --- |
+| `startDate` | `lookAheadStartDate` | How soon the supplier's first open slot arrives after the window opens: `1 - (daysUntilFirstSlot / windowDays)`, where `windowDays` is the number of local dates your search window actually spans (not `lookAheadDays` — see below). `1` = free on day one, `0` = no slots in the window. |
+| `timeOfDay` | `preferredTimes` | Of the days this supplier has any availability, the fraction with at least one slot **starting** inside a `preferredTimes` window. |
+| `daysOfWeek` | `daysOfWeek` | Of the weekdays you asked for, the fraction the supplier can cover somewhere in the window. |
+| `sessionsPerWeek` | `sessionsPerWeek` | Of the whole weeks in the window, the fraction with at least `sessionsPerWeek` distinct days carrying a slot. |
+
+<Warning>
+**`startDate`'s denominator is the local dates your window actually spans —
+not `lookAheadDays`.** A window that doesn't open at local midnight reaches
+one calendar date further than `lookAheadDays` suggests, and the default path
+doesn't open at midnight: an omitted `lookAheadStartDate` resolves to *now*,
+and any minimum-booking-notice policy can shift it later still. Concretely, a
+window opening Tuesday 14:00 with `lookAheadDays: 7` runs through the
+following Tuesday 14:00 — that's **eight** local dates, not seven. The two
+only coincide when the window happens to end at exact local midnight.
+</Warning>
+
+`startDate` itself only appears when you explicitly send
+`lookAheadStartDate` — even though the field always has an effective value
+(it defaults to now), sending nothing means no criterion was expressed, so
+nothing is scored or averaged in. This is what lets a request with none of
+the four scoring criteria come back with no `availabilityMatch` at all.
+
+Two more behaviours worth knowing:
+
+- **`sessionsPerWeek` counts consecutive 7-day blocks from the start of your
+  window**, not ISO/Monday weeks, and a **trailing partial week isn't
+  scored** — a 10-day window has exactly one scored week; slots in the
+  leftover 3 days still count toward the other three components. A window
+  shorter than 7 days is evaluated as a single week at the full,
+  un-prorated threshold.
+- **`daysOfWeek`'s denominator is the weekdays you requested**, so a window
+  shorter than a week caps the component below `1` — asking for `[1, 3, 5]`
+  over a 4-day window can reach at most `2/3`. Widen the window if you need
+  the component to be reachable.
+
+**`preferredTimes` windows may cross midnight.** `{ "startTime": "22:00",
+"endTime": "02:00" }` matches a slot starting at `23:00` *and* one starting at
+`01:00` — when `startTime > endTime` the window is read as spanning
+midnight. Membership is inclusive at both ends.
+
+<Warning>
+**`daysOfWeek` ranks here; it's a hard filter on `/availability/package-slate`.**
+Same field name, opposite behaviour. On this endpoint, a weekday you leave
+out of `daysOfWeek` is never removed from a supplier's `days[]` — it only
+lowers that supplier's `daysOfWeek` component and therefore their `score`.
+Compare [`daysOfWeek` is a hard filter, not a preference](/guides/availability-and-slates#daysofweek-is-a-hard-filter-not-a-preference)
+on `package-slate`, where the same field name removes days from the plan
+before it's built.
+</Warning>
+
+**`excludeDates` removes slots; it doesn't lower a score.** A blacked-out
+date never appears in `days[]` for any supplier, and `excludeDates` has no
+component in `availabilityMatch`. The filter runs against the slot pool
+*before* the four components are computed, so a blackout influences a score
+exactly as much as it shows up in the response — not at all.
+
+<Note>
+**Suppliers with no matching availability still get an entry — with `score:
+0`, not dropped.** Every supplier on the page is scored, in page order. Page
+size and `nextCursor` behave exactly as they do without `availabilityMatch`.
+</Note>
+
+<Warning>
+**Ranking only holds within a single page.** `availabilityMatch.score` is
+comparable between suppliers *in the same response* — it is **not** a
+globally ranked list across pages. Page membership is decided by supplier id
+(sorted, then sliced) before any availability or score is computed, so a
+supplier on page 2 can legitimately outscore every supplier on page 1. This
+is deliberate: it bounds the cost of the endpoint, since each supplier's
+availability is computed on demand. Don't paginate expecting suppliers to
+arrive in descending score order — sort/filter within a page instead, or pull
+every page before ranking across the whole set.
+</Warning>
+
+### Worked example
+
+A request supplying all four scoring criteria, plus `excludeDates`:
+
+```json
+{
+  "serviceId": "srv_01kv60qg12e82acr78edfnjhvv",
+  "offeringId": "off_01kv60qge5eh59ap0gw0pqrrys",
+  "lat": 43.6532,
+  "lng": -79.3832,
+  "lookAheadStartDate": "2026-07-07T00:00:00-04:00",
+  "lookAheadDays": 14,
+  "timezone": "America/Toronto",
+  "preferredTimes": [{ "startTime": "17:00", "endTime": "20:00" }],
+  "daysOfWeek": [1, 3, 5],
+  "sessionsPerWeek": 2,
+  "excludeDates": ["2026-07-10"],
+  "limit": 20
+}
+```
+
+The matching response fragment for one supplier, with all four components
+present:
+
+```json
+{
+  "data": [
+    {
+      "supplier": {
+        "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+        "firstName": "Priya",
+        "lastName": "Nadeau"
+      },
+      "days": [
+        { "date": "2026-07-09", "slots": [ /* one slot starting inside 17:00–20:00 */ ] },
+        { "date": "2026-07-13", "slots": [ /* one slot starting inside 17:00–20:00 */ ] },
+        { "date": "2026-07-15", "slots": [ /* slots present, all outside 17:00–20:00 */ ] }
+      ],
+      "availabilityMatch": {
+        "score": 0.6726190476190476,
+        "components": {
+          "startDate": 0.8571428571428572,
+          "timeOfDay": 0.6666666666666666,
+          "daysOfWeek": 0.6666666666666666,
+          "sessionsPerWeek": 0.5
+        }
+      }
+    }
+  ],
+  "timezone": "America/Toronto",
+  "nextCursor": null,
+  "errors": []
+}
+```
+
+The window is a clean 14 local dates (midnight-aligned, so `windowDays`
+equals `lookAheadDays` here — see the warning above for when it doesn't).
+`startDate` is `1 - 2/14`: the supplier's first slot, on `2026-07-09`, lands
+two days in. `timeOfDay` is `2/3`: of the three days with any availability
+(`07-09`, `07-13`, `07-15`), two carry a slot that *starts* inside the
+`17:00`–`20:00` window — `07-15`'s slots all start outside it. `daysOfWeek`
+is also `2/3`: of the requested `[1, 3, 5]` (Mon/Wed/Fri), the supplier
+covers Monday (`07-13`) and Wednesday (`07-15`) but not Friday — it simply
+has no slots on `2026-07-17`, the window's other Friday. (`2026-07-10`, the
+Friday you excluded, never had a slot to remove — `excludeDates` isn't why
+Friday scores zero here.) `sessionsPerWeek` is `1/2`: the window's two whole
+7-day blocks are `07-07`–`07-13` and `07-14`–`07-20`; the first holds two
+distinct days with a slot (`07-09` and `07-13`), meeting the requested
+threshold of 2, and the second holds only one (`07-15`), missing it.
+`2026-07-10` itself is simply **absent** from `days[]` — excluded dates never
+appear there, empty or otherwise. `score` is the exact mean of the four:
+`(0.8571428571428572 + 0.6666666666666666 + 0.6666666666666666 + 0.5) / 4`.
+
 ## Notes on the window and timezone
 
 <Note>
@@ -348,6 +543,10 @@ the location or the window, or check the service is offered there via
 | `distanceUnit` | No | `km` or `mi` for travel calculations. |
 | `limit` | No | Suppliers per page, 1–50 (default 20). |
 | `cursor` | No | Opaque token from a prior `nextCursor`. Omit for the first page. |
+| `preferredTimes` | No | `[{ startTime: "HH:mm", endTime: "HH:mm" }]`. Time-of-day windows you'd prefer sessions to land in. Ranking only — no slot is removed for falling outside them. A window may cross midnight; see [Rank suppliers by fit](#rank-suppliers-by-fit-availabilitymatch) above. |
+| `daysOfWeek` | No | Weekdays you'd prefer (`0 = Sunday … 6 = Saturday`), 1–7 entries. **Ranking only on this endpoint** — omit for "any day". See [Rank suppliers by fit](#rank-suppliers-by-fit-availabilitymatch) above; the same field name is a hard filter on `/availability/package-slate`. |
+| `excludeDates` | No | Local `YYYY-MM-DD` dates that must not carry a session, max 90, each passed individually (no range form). Matched against each slot's own local calendar date. **Removes slots** — see [Rank suppliers by fit](#rank-suppliers-by-fit-availabilitymatch) above. |
+| `sessionsPerWeek` | No | Integer 1–14: how many sessions per week you'd want to be able to book with this supplier. A plain weekly-cadence preference that feeds the score — there's no package and no `COUNT` to plan against here, unlike `/availability/package-slate`. |
 
 ### Configuration
 

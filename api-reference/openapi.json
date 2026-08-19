@@ -11954,6 +11954,62 @@
                   "cursor": {
                     "type": "string",
                     "description": "Opaque pagination token from a previous response’s `nextCursor`. Omit for the first page."
+                  },
+                  "preferredTimes": {
+                    "type": "array",
+                    "nullable": true,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "startTime": {
+                          "type": "string",
+                          "description": "Local time-of-day the window opens (HH:mm).",
+                          "example": "17:00"
+                        },
+                        "endTime": {
+                          "type": "string",
+                          "description": "Local time-of-day the window closes (HH:mm).",
+                          "example": "20:00"
+                        }
+                      },
+                      "required": ["startTime", "endTime"]
+                    },
+                    "description": "Time-of-day windows the caller would prefer sessions to fall in (e.g. \"after work\"). Feeds the per-supplier match score — a supplier with no availability inside these windows is still returned, just ranked lower. Not a filter: no slot is removed for falling outside them.",
+                    "example": [
+                      {
+                        "startTime": "17:00",
+                        "endTime": "20:00"
+                      }
+                    ]
+                  },
+                  "daysOfWeek": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    },
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "description": "Weekdays the caller would prefer sessions to land on (0 = Sunday … 6 = Saturday). On THIS route this is a ranking preference, not a hard filter — unlike the same-named field on /availability/package-slate, a weekday left out of this list is never removed from a supplier's slots; it only lowers that supplier's match score. At least one weekday is required when this field is present — omit the field entirely for \"any day\".",
+                    "example": [1, 3, 5]
+                  },
+                  "excludeDates": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "maxItems": 90,
+                    "description": "Local calendar dates (YYYY-MM-DD) that must not carry a session — a holiday, a trip. Matched against each slot's own local calendar date, not against a UTC instant. Pass each date individually; there is no range form.",
+                    "example": ["2026-08-20", "2026-08-21", "2026-08-22"]
+                  },
+                  "sessionsPerWeek": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 14,
+                    "description": "How many sessions per week the caller wants to be able to book with this supplier. Unlike package-slate — which plans a fixed session count against a package's creditCount via `rrule` — there is no package and no COUNT to bound here, so this is a plain weekly-cadence preference that feeds the match score rather than a schedule to be planned.",
+                    "example": 3
                   }
                 },
                 "required": ["serviceId", "offeringId"]
@@ -12219,6 +12275,51 @@
                               "required": ["date", "slots"]
                             },
                             "description": "Days with open slots, ascending. Empty (`[]`) when this supplier matches the service and location but has no availability in the window."
+                          },
+                          "availabilityMatch": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "score": {
+                                "type": "number",
+                                "description": "How well this supplier fits the schedule you asked for, 0–1. The plain mean of the `components` below — only the criteria you actually sent are averaged, so sending one preference does not cap every supplier at 0.25. Unrounded. Rank suppliers by this WITHIN a page; see the note on `availabilityMatch` about paging.",
+                                "example": 0.8035714285714286
+                              },
+                              "components": {
+                                "type": "object",
+                                "properties": {
+                                  "startDate": {
+                                    "type": "number",
+                                    "description": "How soon the supplier’s first open slot arrives after `lookAheadStartDate`, as `1 - (daysUntilFirstSlot / windowDays)`. 1 = free on day one. Present only when you sent `lookAheadStartDate`.",
+                                    "example": 0.7142857142857143
+                                  },
+                                  "timeOfDay": {
+                                    "type": "number",
+                                    "description": "Of the days this supplier has any availability, the fraction with at least one slot starting inside a `preferredTimes` window. Present only when you sent `preferredTimes`.",
+                                    "example": 0.5
+                                  },
+                                  "daysOfWeek": {
+                                    "type": "number",
+                                    "description": "Of the weekdays you asked for, the fraction the supplier can cover somewhere in the window. Present only when you sent `daysOfWeek`.",
+                                    "example": 1
+                                  },
+                                  "sessionsPerWeek": {
+                                    "type": "number",
+                                    "description": "Of the whole weeks in the window, the fraction in which the supplier has at least `sessionsPerWeek` distinct days carrying a slot. A trailing partial week is not counted. Present only when you sent `sessionsPerWeek`.",
+                                    "example": 1
+                                  }
+                                },
+                                "description": "The per-criterion breakdown behind `score` — each 0–1, each a coverage RATIO rather than a slot count, so a busy calendar does not automatically outrank a well-fitting one. A key appears only when you supplied the matching request field. Use it to explain a ranking (\"great on Mondays, poor on afternoons\") instead of showing a bare number.",
+                                "example": {
+                                  "startDate": 0.7142857142857143,
+                                  "timeOfDay": 0.5,
+                                  "daysOfWeek": 1,
+                                  "sessionsPerWeek": 1
+                                }
+                              }
+                            },
+                            "required": ["score", "components"],
+                            "description": "How well this supplier matches the schedule preferences on the request (`lookAheadStartDate`, `preferredTimes`, `daysOfWeek`, `sessionsPerWeek`). ABSENT when you supplied none of them — no preferences expressed is not a perfect match, and a bare request gets exactly today’s response. `excludeDates` has no component: it removes slots from the pool instead of scoring. Ranking is WITHIN A PAGE only — page membership is decided before any availability is computed, so a supplier on page 2 can legitimately outscore every supplier on page 1."
                           }
                         },
                         "required": ["supplier", "days"]

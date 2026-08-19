@@ -192,6 +192,58 @@ Notes that catch people out:
 - Each slot carries a UTC anchor (`startUtc` / `endUtc`) **plus** `*Local`
   strings rendered in the request `timezone`.
 
+### Rank suppliers by fit: `availabilityMatch`
+
+Four new optional request fields describe the schedule you actually want,
+rather than just a window to search. Three of them — plus the pre-existing
+`lookAheadStartDate` — feed the `availabilityMatch` score below;
+`excludeDates` instead filters the slot pool and has no score component:
+
+| Field | Notes |
+| --- | --- |
+| `preferredTimes` | `[{ startTime: "HH:mm", endTime: "HH:mm" }]`, nullable. Ranking only — no slot is removed for falling outside a window. A window may cross midnight (`"22:00"`–`"02:00"` matches both `23:00` and `01:00`). |
+| `daysOfWeek` | `0 = Sunday … 6 = Saturday`, 1–7 entries when present; omit for any day. **Ranking preference on this endpoint** — unlike the same-named field on `/availability/package-slate`, which is a hard filter. |
+| `excludeDates` | Local `YYYY-MM-DD` dates, max 90, passed individually (no range form). **Removes slots** from the pool before scoring — a blacked-out date never appears in `days[]`, and has no `availabilityMatch` component. |
+| `sessionsPerWeek` | Integer 1–14. A weekly-cadence preference that feeds the score; there's no package and no `COUNT` to plan against here. |
+
+`availabilityMatch` is produced by four **scoring criteria**:
+`lookAheadStartDate`, `preferredTimes`, `daysOfWeek`, and `sessionsPerWeek`.
+Send any of those four and each supplier in `data[]` gains an
+`availabilityMatch` object next to `supplier` and `days`:
+
+```json
+{
+  "score": 0.8035714285714286,
+  "components": {
+    "startDate": 0.7142857142857143,
+    "timeOfDay": 0.5,
+    "daysOfWeek": 1,
+    "sessionsPerWeek": 1
+  }
+}
+```
+
+- `score` is the plain, unrounded mean of the `components` present —
+  renormalised over only the criteria you sent, not divided by 4. Sending one
+  preference can legitimately score a supplier `1.0`.
+- `components` carries exactly one key per field you sent: `startDate` for
+  `lookAheadStartDate` (present only when you explicitly send it — its
+  denominator is the local dates your window actually spans, not
+  `lookAheadDays`), `timeOfDay` for `preferredTimes`, `daysOfWeek` for
+  `daysOfWeek`, `sessionsPerWeek` for `sessionsPerWeek`.
+- Suppliers with no matching availability are still returned, with `score: 0`
+  — never dropped from the page.
+- `availabilityMatch` is **omitted entirely**, not `null`, when none of
+  `lookAheadStartDate`, `preferredTimes`, `daysOfWeek` or `sessionsPerWeek`
+  is sent. **`excludeDates` alone does not produce one** — it filters the
+  slot pool instead of scoring it, so a request carrying only `excludeDates`
+  gets the same response shape as before this field existed.
+- Ranking only holds **within a page** — page membership is decided before
+  any availability is computed, so a supplier on page 2 can outscore every
+  supplier on page 1. See the full breakdown, including the
+  `sessionsPerWeek`-week and `daysOfWeek`-denominator details, in
+  [Search suppliers by availability](/guides/search-suppliers-by-availability#rank-suppliers-by-fit-availabilitymatch).
+
 ## Package slate (a complete N-session plan)
 
 ```
