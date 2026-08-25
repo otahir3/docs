@@ -243,6 +243,7 @@ A successful response carries `status: "OK"` and the `primarySlate` — the
     "sessionsFilled": 8,
     "startTimeConsistencyPercent": 100,
     "matchScore": 1,
+    "matchComponents": { "startDate": 1, "cadence": 1 },
     "totalTravelTimeMins": 0,
     "slots": [
       {
@@ -273,6 +274,11 @@ If nothing bookable can be found, the response is `422` with `code:
 the project's supplier policy) or `code: "NO_AVAILABILITY"` (no availability
 at all in the window). See the Reference section below.
 </Note>
+
+`matchScore` is the mean of `matchComponents` — here `1`, since session one
+lands on the window's first day and the plan runs at exactly the requested
+cadence. See [How well a slate matches](/guides/availability-and-slates#how-well-a-slate-matches-matchscore-and-matchcomponents)
+for the full breakdown and how ranking works.
 
 You only need `primarySlate.slateId` for the next steps — hold onto it.
 </Step>

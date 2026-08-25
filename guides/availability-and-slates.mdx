@@ -59,6 +59,7 @@ cadence (`lookAheadStartDate` + `rrule`). The response is a
     "sessionsFilled": 8,
     "startTimeConsistencyPercent": 100,
     "matchScore": 1,
+    "matchComponents": { "startDate": 1, "cadence": 1 },
     "totalTravelTimeMins": 0,
     "slots": []
   },
@@ -70,7 +71,9 @@ cadence (`lookAheadStartDate` + `rrule`). The response is a
 ```
 
 (`slots[]` abridged to `[]` here — see [Create a package booking](/guides/create-a-package-booking)
-for a fully populated example, and the field tables below for its shape.)
+for a fully populated example, and the field tables below for its shape. `alternates` is shown
+empty for brevity too — under the default `supplierPolicy` of `SAME_SUPPLIER` it carries this
+same supplier's other bookable schedules.)
 
 | Field | Meaning |
 | --- | --- |
@@ -79,10 +82,16 @@ for a fully populated example, and the field tables below for its shape.)
 | `suggestionRequestId` | Audit id for this request. Present only when `persist` is `true` (the default). |
 | `resolvableUntil` | Slates and slots stay resolvable (holdable/bookable by id) for **24 hours** from the request; after that they're stale. |
 | `primarySlate` | The best **COMPLETE** single-supplier slate — book this by `slateId`. `null` if none satisfies the project's supplier policy. |
-| `alternates` | Runner-up suppliers' slates. Empty unless the project's `suggestionConfig.supplierPolicy` permits considering multiple suppliers. |
+| `alternates` | Other bookable options beyond `primarySlate`, ranked best first and capped at the request's `maxAlternates` (default `3`; `0` returns none). Under the default `supplierPolicy` of `SAME_SUPPLIER` these are other schedules from the same supplier as `primarySlate`; under `PREFERRED` or `ANY` they're other suppliers' best schedules, one per supplier. Each entry's `slateId` is bookable exactly like `primarySlate`'s. |
 | `partial` | The best **PARTIAL** slate (fills fewer than the requested sessions). `null` unless the project has `suggestionConfig.allowPartialPackages` enabled. |
-| `cadenceAlternatives` | **COMPLETE** N-session slates at a *different, supplier-feasible* cadence than the one you asked for. Sorted closest-first by `cadenceDistance`. Always `[]` unless the request opted in — see [Cadence relaxation](#cadence-relaxation). |
+| `cadenceAlternatives` | **COMPLETE** N-session slates at a *different, supplier-feasible* cadence than the one you asked for. Sorted closest-first by `cadenceDistance` — unless you sent `sessionsPerWeek`, in which case closeness to that frequency target is the primary sort key, ahead of `cadenceDistance`. Always `[]` unless the request opted in — see [Cadence relaxation](#cadence-relaxation). |
 | `requestedCadence` | The `rrule` this request asked for, echoed back so you can diff it against each slate's `cadenceRrule`. `null` when the request named no cadence. |
+
+<Note>
+Two schedules from the same supplier count as different options only when they run on
+**different weekdays** or start **at least 30 minutes apart** — a supplier offering both 09:00
+and 09:20 contributes one option, not two.
+</Note>
 
 ### Status values
 
@@ -90,7 +99,7 @@ for a fully populated example, and the field tables below for its shape.)
 | --- | --- |
 | `OK` | A `COMPLETE` primary slate was found — every requested session filled by one supplier. |
 | `ALTERNATIVE_CADENCE` | **A success, returned as `200`.** No slate at the *requested* cadence, but `cadenceAlternatives` holds one or more complete plans at a denser, supplier-feasible cadence. `primarySlate` is `null`; every alternative's `slateId` is bookable exactly like `primarySlate`'s. Only ever returned when the request opted in via `cadenceFlexibility` or `guaranteeSlate`. |
-| `NO_COMPLETE_SLATE` | No complete single-supplier slate exists under the project's supplier policy. `alternates` may still be populated (multi-supplier policy) and `partial` may still be usable (if `allowPartialPackages` is on) — check both before treating this as a dead end. |
+| `NO_COMPLETE_SLATE` | No complete single-supplier slate exists under the project's supplier policy. `alternates` may still be populated **under any `supplierPolicy`, including the default `SAME_SUPPLIER`** — here they're the same supplier's other PARTIAL schedules, so booking one still depends on `allowPartialPackages`. `partial` may also be usable (if `allowPartialPackages` is on) — check both before treating this as a dead end. |
 | `NO_AVAILABILITY` | No availability at all for the request window — no supplier, complete or partial. |
 
 <Warning>
@@ -116,7 +125,8 @@ Each slate (`primarySlate`, entries in `alternates`, entries in
 | `completeness` | `COMPLETE` or `PARTIAL`. |
 | `sessionsRequested` / `sessionsFilled` | How many of the package's sessions this plan could fill, out of how many were requested. |
 | `startTimeConsistencyPercent` | How consistent the session start times are (0–100). |
-| `matchScore` | How well the slate matches the requested schedule preferences (0–1). Currently returns `1` for all slates; ranking by it is not yet supported. |
+| `matchScore` | How well this slate matches the requested schedule preferences, `0`–`1` — the mean of the components in `matchComponents`. `1` with an empty `matchComponents` means no schedule preference was expressed, not a perfect match. See [How well a slate matches: `matchScore` and `matchComponents`](#how-well-a-slate-matches-matchscore-and-matchcomponents) below. |
+| `matchComponents` | The per-criterion breakdown behind `matchScore` — carries only the criteria you actually supplied and that were scoreable for this slate. Present on every fresh availability response, empty when nothing was asked; absent entirely only on a slate resolved from a pre-existing booking rather than a fresh call — see below. |
 | `totalTravelTimeMins` | Summed travel time across the plan's sessions. |
 | `slots[]` | The resolved sessions — see below. |
 
@@ -129,7 +139,7 @@ request opted into [cadence relaxation](#cadence-relaxation):
 | `cadenceRrule` | The recurrence rule this slate's sessions actually follow. **`null` for a direct fill** — that plan follows no recurrence rule at all. |
 | `matchesRequestedCadence` | `true` when `cadenceRrule` is the `rrule` you asked for. |
 | `cadenceRelaxation` | How the cadence was derived: `EXACT`, `INTERVAL_TIGHTENED` (same weekdays, run more often), `DAYS_ADDED` (every requested weekday kept, more added), `DAYS_SUBSTITUTED` (requested weekdays replaced with ones the supplier works), `ALL_WORKING_DAYS`, or `DIRECT_FILL`. |
-| `cadenceDistance` | How far this cadence sits from the requested one — `0` is exact, lower is closer. `cadenceAlternatives` is already sorted by it. |
+| `cadenceDistance` | How far this cadence sits from the requested one — `0` is exact, lower is closer. `cadenceAlternatives` is sorted by it — unless the request sent `sessionsPerWeek`, in which case closeness to that frequency target sorts first, and `cadenceDistance` only breaks ties within it. |
 | `sessionsPerWeek` | Average sessions per week across the plan — the number a UI renders as "2×/week". |
 
 <Note>
@@ -158,6 +168,73 @@ Each entry in `slots[]`:
 without adjusting — see
 [Create a package booking](/guides/create-a-package-booking).
 </Tip>
+
+### How well a slate matches: `matchScore` and `matchComponents`
+
+`matchScore` is the arithmetic mean of the components present in
+`matchComponents`, each itself a `0`–`1` ratio. There's no rounding.
+
+Each component is a `0`–`1` ratio measured against what you asked for. Most
+are measured over *this slate's own sessions*; `startDate` is measured
+against the window instead, and `cadence` is binary rather than a ratio at
+all:
+
+| Component | Scored when | Meaning |
+| --- | --- | --- |
+| `startDate` | you sent `lookAheadStartDate` | how soon session one lands — `1` when it lands on the window's first day, lower the later it lands |
+| `timeOfDay` | you sent `preferredTimes` | fraction of this slate's sessions that fall at a preferred time |
+| `daysOfWeek` | you sent `daysOfWeek` | fraction of this slate's sessions that fall on a requested weekday |
+| `sessionsPerWeek` | you sent `sessionsPerWeek` | fraction of the window's whole weeks in which this slate holds **at least** the target number of sessions |
+| `cadence` | you sent `rrule` **and** the slate follows a cadence | see below |
+
+`excludeDates` is never a component — it's a hard filter, so it could only
+ever score `1`, and including it would just dilute the mean. A component you
+didn't ask about is simply left out of `matchComponents`, and the score is
+the mean of whatever remains.
+
+**The `cadence` component**, so you can predict its value:
+
+- `1` when the slate runs at the `rrule` you requested.
+- `1` also when the only departure was a weekday substitution you
+  authorised — `cadenceRelaxation` of `DAYS_SUBSTITUTED` or
+  `ALL_WORKING_DAYS`, with `allowWeekdaySubstitution: true` (the default) and
+  **no** `daysOfWeek` sent. Naming your weekdays withdraws that
+  authorisation, because it says the weekdays are the point.
+- `0` when the cadence changed in a way you didn't authorise — including
+  every change to how *often* sessions occur (`INTERVAL_TIGHTENED`,
+  `DAYS_ADDED`). Allowing weekday substitution doesn't authorise a frequency
+  change.
+- **Absent, not `0`,** on a slate that follows no cadence at all: a
+  `DIRECT_FILL` slate and a `PARTIAL` slate are both greedy fills that never
+  consult your `rrule`, so the question is unanswerable rather than answered
+  zero. Absent too when you sent no `rrule`.
+
+A request that expresses no schedule preference at all gets `matchScore: 1`
+with `matchComponents: {}`. Read `matchComponents`, not the score, to tell
+"perfect match" from "nothing asked".
+
+A fresh call to `/availability/package-slate` or `/availability/package-options`
+always carries `matchComponents`, even when it's empty. The key is absent
+entirely only on a slate resolved from a booking made before this shipped —
+the book-by-`slateId`, `409`-stale-rebuild, and reschedule paths read an
+existing row rather than running a fresh match, so that row's `matchScore: 1`
+comes back with no `matchComponents` at all. Treat a missing key as "no data
+recorded", a third case alongside "perfect match" and "nothing asked".
+
+<Warning>
+Results already arrive ranked. `primarySlate` is the best-matching
+**COMPLETE** slate and `alternates` follow it in descending order;
+**completeness always outranks `matchScore`**, so a COMPLETE slate is never
+placed below a PARTIAL one that scored higher. (`cadenceAlternatives` is
+ordered separately, closest-cadence first.)
+
+**Don't re-sort the slates you receive by `matchScore`.** The order carries a
+preference the number can't. `matchComponents.sessionsPerWeek` scores a week
+holding **at least** the target, so against a target of `2` a slate
+delivering three sessions a week scores exactly the same as one delivering
+two — only the order distinguishes them. Re-sorting silently discards "two,
+not three".
+</Warning>
 
 ## Cadence rules: `rrule` and `lookAheadStartDate`
 
@@ -315,7 +392,7 @@ this change without asking for it.**
 
 ### Request fields
 
-All six are optional, and all six exist on both `/availability/package-slate`
+All seven are optional, and all seven exist on both `/availability/package-slate`
 and `/availability/package-options`:
 
 | Field | Type | Default | What it does |
@@ -324,8 +401,9 @@ and `/availability/package-options`:
 | `guaranteeSlate` | `boolean` | `false` | Try harder before giving up — adds the direct-fill floor below. Implies `cadenceFlexibility: "FALLBACK"`, so setting this alone is enough. |
 | `maxCadenceAlternatives` | integer `0`–`10` | `3` | Cap on entries in `cadenceAlternatives`. Ignored when flexibility is `NONE`. |
 | `allowWeekdaySubstitution` | `boolean` | `true` | Whether a relaxed cadence may **drop** a weekday you asked for. Set `false` when the requested day is non-negotiable (the client is only home on Fridays) — the engine may then only *add* days, never swap them. |
-| `minGapDays` | integer `0`–`90` | *(none)* | Minimum whole days between consecutive sessions. Use it to stop a dense fallback from stacking sessions on back-to-back days. |
-| `maxSessionsPerWeek` | integer `1`–`14` | *(none)* | Cap on sessions per calendar week in a relaxed or direct-fill plan. |
+| `minGapDays` | integer `0`–`90` | *(none)* | Minimum whole days between consecutive sessions **in the direct fill** (`guaranteeSlate`) only — not applied to any cadence-ladder rung in `cadenceAlternatives`. Use it to stop a direct fill from stacking sessions on back-to-back days. |
+| `maxSessionsPerWeek` | integer `1`–`14` | *(none)* | Cap on sessions per **Monday-anchored** calendar week **in the direct fill** (`guaranteeSlate`) only — no rung in `cadenceAlternatives` is filtered by it, so a `FALLBACK`/`ALWAYS` response can still return a denser week than this cap. |
+| `sessionsPerWeek` | integer `1`–`14` | *(none)* | A frequency **target**, independent of which weekdays — "twice a week". Distinct from `maxSessionsPerWeek`, which is a **cap**. Steers which cadences are offered and in what order; also stands in as the direct-fill cap when no `maxSessionsPerWeek` was given. |
 
 Two further optional fields — `daysOfWeek` and `excludeDates` — also exist on
 both endpoints. They aren't relaxation controls; they constrain which calendar
@@ -382,7 +460,8 @@ eight-session plan on **Mondays and Fridays**:
       "completeness": "COMPLETE",
       "sessionsRequested": 8,
       "sessionsFilled": 8,
-      "matchScore": 1,
+      "matchScore": 0.5,
+      "matchComponents": { "startDate": 1, "cadence": 0 },
       "cadenceRrule": "FREQ=WEEKLY;BYDAY=MO,FR;COUNT=8",
       "matchesRequestedCadence": false,
       "cadenceRelaxation": "DAYS_ADDED",
@@ -396,7 +475,9 @@ eight-session plan on **Mondays and Fridays**:
 
 (Abridged: `suggestionRequestId`, `resolvableUntil` and the remaining two
 alternatives are omitted, and `slots[]` is collapsed as elsewhere on this
-page.)
+page.) `matchScore` is `0.5`, not `1`: `DAYS_ADDED` is a frequency change the
+request didn't authorise, so `cadence` scores `0` and drags the mean down
+from the `startDate` component's `1`.
 
 The eight sessions land on **Jul 6, 10, 13, 17, 20, 24, 27 and 31** — all
 inside the supplier's schedule, where eight Fridays would have needed until
@@ -415,6 +496,65 @@ Here the default `maxCadenceAlternatives: 3` means three plans come back —
 `MO,FR` first, then progressively denser ones. Render them as a choice
 ("we can't do 8 Fridays, but we can do 8 sessions on Mondays and Fridays")
 rather than picking one silently.
+
+### Asking for a frequency: "twice a week, any day"
+
+A frequency picker collects "twice a week" with no weekday preference.
+`rrule` can't express that on its own — it names specific weekdays — and
+`daysOfWeek` is a hard filter, so naming days there would rule every other
+day out.
+
+Send `sessionsPerWeek` alongside a starting-point `rrule` instead. Here's a
+complete body for `POST /availability/package-slate`: `rrule` is
+**required** on this endpoint, so the two weekdays in it are a starting
+point, not a constraint — `sessionsPerWeek` states the real target, and
+`allowWeekdaySubstitution` (default `true`) lets the engine move the days to
+hit it:
+
+```json
+{
+  "packageId": "pkg_01kvr4cgb3esg8hxx32kwhre7g",
+  "locationId": "loc_01kv60qgs4e4nbjhzradnqtj0h",
+  "timezone": "America/Toronto",
+  "lookAheadStartDate": "2026-07-06T00:00:00-04:00",
+  "rrule": "FREQ=WEEKLY;BYDAY=MO,TH;COUNT=8",
+  "sessionsPerWeek": 2,
+  "cadenceFlexibility": "ALWAYS"
+}
+```
+
+**Omit `daysOfWeek` entirely.** Sending it would make `MO,TH` a hard filter
+and, on top of that, withdraw the `cadence` component's substitution
+exemption (see [above](#how-well-a-slate-matches-matchscore-and-matchcomponents)).
+On `/availability/package-options`, `rrule` is optional; omit it there and
+the cadence is synthesised per package from its credit count, with
+`sessionsPerWeek` still steering.
+
+`sessionsPerWeek` is always *scored* — `matchComponents.sessionsPerWeek`
+comes back on any slate — but it only *steers which slates get built* when
+cadence relaxation actually runs. That means `cadenceFlexibility: "ALWAYS"`,
+or `"FALLBACK"` once the requested cadence yields nothing, or
+`guaranteeSlate: true` (which promotes `NONE` to `FALLBACK`). On the default
+`"NONE"`, the `rrule` fixes the schedule completely, and the target is
+scored but changes nothing about which slates come back.
+
+Where to read the answer — and the trap that pairs with the point above:
+
+- With `"ALWAYS"` and a fillable requested cadence: `status: "OK"`, the
+  answer is `primarySlate`, and `cadenceAlternatives` carries the denser
+  options alongside it.
+- When the requested cadence can't be met but a relaxed one can:
+  **`status: "ALTERNATIVE_CADENCE"`, `primarySlate` is `null`, and the
+  answer is `cadenceAlternatives[0]`** — already ordered closest-first, with
+  the frequency target ranked ahead of raw cadence distance. This is a
+  `200`, not a failure. **A client that reads only `primarySlate` concludes
+  there's no availability when a bookable plan is sitting right there** —
+  see the warning under [Status values](#status-values), which already
+  makes the "don't branch on `primarySlate` alone" point.
+- Take `cadenceAlternatives[0]` rather than re-sorting by `matchScore` — see
+  the [warning above](#how-well-a-slate-matches-matchscore-and-matchcomponents):
+  a three-a-week plan ties a two-a-week one against a target of `2`, so only
+  the order tells them apart.
 
 ### `guaranteeSlate` and the direct fill
 
@@ -565,7 +705,8 @@ With `cadenceFlexibility: "FALLBACK"` set, the response instead comes back:
       "sessionsRequested": 8,
       "sessionsFilled": 8,
       "startTimeConsistencyPercent": 100,
-      "matchScore": 1,
+      "matchScore": 0.5,
+      "matchComponents": { "startDate": 1, "cadence": 0 },
       "totalTravelTimeMins": 0,
       "cadenceRrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,FR;COUNT=8",
       "matchesRequestedCadence": false,
@@ -587,7 +728,9 @@ the underlying test doesn't pin down. Every other field is real:
 `ALTERNATIVE_CADENCE`; `suggestionRequestId` and `resolvableUntil` are
 present because `persist` defaults to `true`; `requestedCadence` is present
 because `cadenceFlexibility` was set to anything other than `NONE` — it
-echoes `rrule` verbatim.)
+echoes `rrule` verbatim.) `matchScore` is `0.5` for the same reason as the
+[worked example](#worked-example) above: `DAYS_ADDED` scores `cadence` at
+`0`, averaged with `startDate`'s `1`.
 
 `primarySlate` is `null` — the exact requested cadence is genuinely
 unfillable — but `cadenceAlternatives` carries at least one **COMPLETE**
