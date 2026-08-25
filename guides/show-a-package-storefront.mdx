@@ -236,6 +236,7 @@ unplannable one):
         "sessionsRequested": 10,
         "sessionsFilled": 10,
         "matchScore": 1,
+        "matchComponents": { "startDate": 1 },
         "slots": [ { "sessionIndex": 1, "bookingStartUtc": "2026-08-01T13:30:00.000Z" } ]
       },
       "alternates": []
@@ -258,6 +259,13 @@ unplannable one):
   ]
 }
 ```
+
+`matchComponents` carries only `startDate` here, with no `cadence` entry —
+this endpoint's whole appeal is not sending an `rrule` per package, and
+without one there's no requested cadence for the plan to be scored against.
+`matchScore` is `1`, the mean of the one component present. See
+[How well a slate matches](/guides/availability-and-slates#how-well-a-slate-matches-matchscore-and-matchcomponents)
+for the full breakdown.
 
 <Note>
 **This is a `200` even when some — or every — package is unplannable.**

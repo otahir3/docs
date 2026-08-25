@@ -70,6 +70,14 @@ const NOT_CODES = new Set([
   'NEXT_PUBLIC_OIDC_AUTHORIZE_URL', 'NEXT_PUBLIC_OIDC_TOKEN_URL',
   'NEXT_PUBLIC_OIDC_LOGOUT_URL', 'NEXT_PUBLIC_OAUTH_SCOPES',
   'NEXT_PUBLIC_APP_ORIGIN',
+  // guides/availability-and-slates.mdx: a `suggestionConfig.supplierPolicy`
+  // value. It's set in project configuration, never sent or returned on the
+  // public API, so it appears in no schema `enum` — but it's real, and it's
+  // the exact string an integrator sees in their own project config, so the
+  // availability guide names it literally alongside its siblings `PREFERRED`
+  // and `ANY` (which pass already: no underscore, so CODE_RE never candidates
+  // them).
+  'SAME_SUPPLIER',
 ]);
 
 /** Recursively collects every string member of every `enum` array anywhere

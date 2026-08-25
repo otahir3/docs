@@ -7520,7 +7520,7 @@
                                 "cadenceDistance": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                   "example": 2
                                 },
                                 "sessionsPerWeek": {
@@ -7534,8 +7534,44 @@
                                   "type": "number",
                                   "minimum": 0,
                                   "maximum": 1,
-                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                   "example": 1
+                                },
+                                "matchComponents": {
+                                  "type": "object",
+                                  "properties": {
+                                    "startDate": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                    },
+                                    "timeOfDay": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                    },
+                                    "daysOfWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                    },
+                                    "sessionsPerWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                    },
+                                    "cadence": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                    }
+                                  },
+                                  "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                                 }
                               },
                               "required": [
@@ -7712,7 +7748,7 @@
                                   "cadenceDistance": {
                                     "type": "integer",
                                     "minimum": 0,
-                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                     "example": 2
                                   },
                                   "sessionsPerWeek": {
@@ -7726,8 +7762,44 @@
                                     "type": "number",
                                     "minimum": 0,
                                     "maximum": 1,
-                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                     "example": 1
+                                  },
+                                  "matchComponents": {
+                                    "type": "object",
+                                    "properties": {
+                                      "startDate": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                      },
+                                      "timeOfDay": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                      },
+                                      "daysOfWeek": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                      },
+                                      "sessionsPerWeek": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                      },
+                                      "cadence": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                      }
+                                    },
+                                    "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                                   }
                                 },
                                 "required": [
@@ -7741,7 +7813,8 @@
                                   "slots",
                                   "matchScore"
                                 ]
-                              }
+                              },
+                              "description": "Other bookable options beyond primarySlate, ranked best first and capped at the maxAlternates you sent. Under the default supplierPolicy of SAME_SUPPLIER these are other schedules from the SAME supplier as primarySlate; under PREFERRED or ANY they are other suppliers’ best schedules, one per supplier. Two schedules from one supplier count as different options only when they run on different weekdays, or start at least 30 minutes apart — so a supplier offering 09:00 and 09:20 gives you one option, not two. Each entry’s slateId is bookable exactly like primarySlate’s."
                             },
                             "partial": {
                               "type": "object",
@@ -7903,7 +7976,7 @@
                                 "cadenceDistance": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                   "example": 2
                                 },
                                 "sessionsPerWeek": {
@@ -7917,8 +7990,44 @@
                                   "type": "number",
                                   "minimum": 0,
                                   "maximum": 1,
-                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                   "example": 1
+                                },
+                                "matchComponents": {
+                                  "type": "object",
+                                  "properties": {
+                                    "startDate": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                    },
+                                    "timeOfDay": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                    },
+                                    "daysOfWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                    },
+                                    "sessionsPerWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                    },
+                                    "cadence": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                    }
+                                  },
+                                  "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                                 }
                               },
                               "required": [
@@ -8094,7 +8203,7 @@
                                   "cadenceDistance": {
                                     "type": "integer",
                                     "minimum": 0,
-                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                     "example": 2
                                   },
                                   "sessionsPerWeek": {
@@ -8108,8 +8217,44 @@
                                     "type": "number",
                                     "minimum": 0,
                                     "maximum": 1,
-                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                     "example": 1
+                                  },
+                                  "matchComponents": {
+                                    "type": "object",
+                                    "properties": {
+                                      "startDate": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                      },
+                                      "timeOfDay": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                      },
+                                      "daysOfWeek": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                      },
+                                      "sessionsPerWeek": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                      },
+                                      "cadence": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                      }
+                                    },
+                                    "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                                   }
                                 },
                                 "required": [
@@ -8125,7 +8270,7 @@
                                 ]
                               },
                               "default": [],
-                              "description": "Complete N-session slates that fit the supplier’s real availability but do NOT follow the rrule you asked for — e.g. you requested weekly Fridays, no supplier has eight free Fridays, so this carries a Mon+Fri plan instead. Sorted closest-first by cadenceDistance. Always empty unless the request set cadenceFlexibility or guaranteeSlate. Each entry’s slateId is bookable exactly like primarySlate’s."
+                              "description": "Complete N-session slates that fit the supplier’s real availability but do NOT follow the rrule you asked for — e.g. you requested weekly Fridays, no supplier has eight free Fridays, so this carries a Mon+Fri plan instead. Sorted by cadenceDistance, closest first, when the request carries no sessionsPerWeek target; when it does, ranked by closeness to that target first and cadenceDistance only as the tiebreaker. Always empty unless the request set cadenceFlexibility or guaranteeSlate. Each entry’s slateId is bookable exactly like primarySlate’s."
                             },
                             "requestedCadence": {
                               "type": "string",
@@ -12008,7 +12153,7 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 14,
-                    "description": "How many sessions per week the caller wants to be able to book with this supplier. Unlike package-slate — which plans a fixed session count against a package's creditCount via `rrule` — there is no package and no COUNT to bound here, so this is a plain weekly-cadence preference that feeds the match score rather than a schedule to be planned.",
+                    "description": "How many sessions per week the caller wants to be able to book with this supplier. On this route there is no package and no session count to plan against, so this preference can only ever feed the match score. On package-slate a package supplies a creditCount, giving the planner an actual COUNT to plan sessions against.",
                     "example": 3
                   }
                 },
@@ -12559,6 +12704,13 @@
                     "description": "Local calendar dates (YYYY-MM-DD) that must not carry a session — a holiday, a trip. Matched against each slot's own local calendar date as the planner buckets it, not against a UTC instant. Pass each date individually; there is no range form.",
                     "example": ["2026-08-20", "2026-08-21", "2026-08-22"]
                   },
+                  "sessionsPerWeek": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 14,
+                    "description": "How many sessions a week you want, independent of which weekdays. A TARGET, not a cap: distinct from maxSessionsPerWeek, which bounds sessions per Monday-anchored week and applies only to direct-fill slates. The target is always SCORED — matchComponents.sessionsPerWeek reports it on every slate — but it only STEERS which slates get built when cadence relaxation actually runs: cadenceFlexibility ALWAYS, cadenceFlexibility FALLBACK once the requested cadence yields nothing, or guaranteeSlate true, which promotes NONE to FALLBACK. On the default cadenceFlexibility of NONE your rrule fixes the schedule completely, so the target is scored and reported but changes nothing about which slates come back — send it together with cadenceFlexibility FALLBACK or ALWAYS to have it steer. Where it steers, it steers the ORDER too, and that order carries the half of your preference matchScore cannot: matchComponents.sessionsPerWeek asks for AT LEAST the target, so against a target of 2 a three-a-week slate scores exactly as well as a two-a-week one. Take the results in the order they arrive; re-sorting them by matchScore throws that preference away.",
+                    "example": 3
+                  },
                   "cadenceFlexibility": {
                     "type": "string",
                     "enum": ["NONE", "FALLBACK", "ALWAYS"],
@@ -12590,7 +12742,7 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 90,
-                    "description": "Minimum whole days between consecutive sessions in a relaxed or direct-fill slate. Use it to stop a dense fallback from stacking sessions on back-to-back days.",
+                    "description": "Minimum whole days between consecutive sessions in a direct-fill slate. Use it to stop a dense fallback from stacking sessions on back-to-back days. It reaches only the direct fill, not any relaxed cadence-ladder rung, so a rung can still land sessions closer together than this.",
                     "example": 2
                   },
                   "maxSessionsPerWeek": {
@@ -12598,14 +12750,14 @@
                     "minimum": 0,
                     "exclusiveMinimum": true,
                     "maximum": 14,
-                    "description": "Cap on sessions per Monday-anchored calendar week in a relaxed or direct-fill slate.",
+                    "description": "Cap on sessions per Monday-anchored calendar week in a direct-fill slate — it reaches only the direct fill, not any relaxed cadence-ladder rung, so a rung built at a denser cadence can still land more sessions in a week than this. See sessionsPerWeek for the corresponding TARGET.",
                     "example": 3
                   },
                   "maxAlternates": {
                     "type": "integer",
                     "minimum": 0,
                     "default": 3,
-                    "description": "Max runner-up (alternate supplier) slates to return.",
+                    "description": "Maximum entries in alternates — same-supplier schedules or other suppliers, per your supplierPolicy. 0 returns none.",
                     "example": 3
                   },
                   "persist": {
@@ -12808,7 +12960,7 @@
                         "cadenceDistance": {
                           "type": "integer",
                           "minimum": 0,
-                          "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                          "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                           "example": 2
                         },
                         "sessionsPerWeek": {
@@ -12822,8 +12974,44 @@
                           "type": "number",
                           "minimum": 0,
                           "maximum": 1,
-                          "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                          "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                           "example": 1
+                        },
+                        "matchComponents": {
+                          "type": "object",
+                          "properties": {
+                            "startDate": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                            },
+                            "timeOfDay": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                            },
+                            "daysOfWeek": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                            },
+                            "sessionsPerWeek": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                            },
+                            "cadence": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                            }
+                          },
+                          "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                         }
                       },
                       "required": [
@@ -12996,7 +13184,7 @@
                           "cadenceDistance": {
                             "type": "integer",
                             "minimum": 0,
-                            "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                            "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                             "example": 2
                           },
                           "sessionsPerWeek": {
@@ -13010,8 +13198,44 @@
                             "type": "number",
                             "minimum": 0,
                             "maximum": 1,
-                            "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                            "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                             "example": 1
+                          },
+                          "matchComponents": {
+                            "type": "object",
+                            "properties": {
+                              "startDate": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                              },
+                              "timeOfDay": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                              },
+                              "daysOfWeek": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                              },
+                              "sessionsPerWeek": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                              },
+                              "cadence": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                              }
+                            },
+                            "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                           }
                         },
                         "required": [
@@ -13025,7 +13249,8 @@
                           "slots",
                           "matchScore"
                         ]
-                      }
+                      },
+                      "description": "Other bookable options beyond primarySlate, ranked best first and capped at the maxAlternates you sent. Under the default supplierPolicy of SAME_SUPPLIER these are other schedules from the SAME supplier as primarySlate; under PREFERRED or ANY they are other suppliers’ best schedules, one per supplier. Two schedules from one supplier count as different options only when they run on different weekdays, or start at least 30 minutes apart — so a supplier offering 09:00 and 09:20 gives you one option, not two. Each entry’s slateId is bookable exactly like primarySlate’s."
                     },
                     "partial": {
                       "type": "object",
@@ -13183,7 +13408,7 @@
                         "cadenceDistance": {
                           "type": "integer",
                           "minimum": 0,
-                          "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                          "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                           "example": 2
                         },
                         "sessionsPerWeek": {
@@ -13197,8 +13422,44 @@
                           "type": "number",
                           "minimum": 0,
                           "maximum": 1,
-                          "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                          "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                           "example": 1
+                        },
+                        "matchComponents": {
+                          "type": "object",
+                          "properties": {
+                            "startDate": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                            },
+                            "timeOfDay": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                            },
+                            "daysOfWeek": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                            },
+                            "sessionsPerWeek": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                            },
+                            "cadence": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                            }
+                          },
+                          "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                         }
                       },
                       "required": [
@@ -13370,7 +13631,7 @@
                           "cadenceDistance": {
                             "type": "integer",
                             "minimum": 0,
-                            "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                            "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                             "example": 2
                           },
                           "sessionsPerWeek": {
@@ -13384,8 +13645,44 @@
                             "type": "number",
                             "minimum": 0,
                             "maximum": 1,
-                            "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                            "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                             "example": 1
+                          },
+                          "matchComponents": {
+                            "type": "object",
+                            "properties": {
+                              "startDate": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                              },
+                              "timeOfDay": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                              },
+                              "daysOfWeek": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                              },
+                              "sessionsPerWeek": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                              },
+                              "cadence": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                                "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                              }
+                            },
+                            "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                           }
                         },
                         "required": [
@@ -13401,7 +13698,7 @@
                         ]
                       },
                       "default": [],
-                      "description": "Complete N-session slates that fit the supplier’s real availability but do NOT follow the rrule you asked for — e.g. you requested weekly Fridays, no supplier has eight free Fridays, so this carries a Mon+Fri plan instead. Sorted closest-first by cadenceDistance. Always empty unless the request set cadenceFlexibility or guaranteeSlate. Each entry’s slateId is bookable exactly like primarySlate’s."
+                      "description": "Complete N-session slates that fit the supplier’s real availability but do NOT follow the rrule you asked for — e.g. you requested weekly Fridays, no supplier has eight free Fridays, so this carries a Mon+Fri plan instead. Sorted by cadenceDistance, closest first, when the request carries no sessionsPerWeek target; when it does, ranked by closeness to that target first and cadenceDistance only as the tiebreaker. Always empty unless the request set cadenceFlexibility or guaranteeSlate. Each entry’s slateId is bookable exactly like primarySlate’s."
                     },
                     "requestedCadence": {
                       "type": "string",
@@ -13632,6 +13929,13 @@
                     "description": "Local calendar dates (YYYY-MM-DD) that must not carry a session — a holiday, a trip. Matched against each slot's own local calendar date as the planner buckets it, not against a UTC instant. Pass each date individually; there is no range form.",
                     "example": ["2026-08-20", "2026-08-21", "2026-08-22"]
                   },
+                  "sessionsPerWeek": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 14,
+                    "description": "How many sessions a week you want, independent of which weekdays. A TARGET, not a cap: distinct from maxSessionsPerWeek, which bounds sessions per Monday-anchored week and applies only to direct-fill slates. The target is always SCORED — matchComponents.sessionsPerWeek reports it on every slate — but it only STEERS which slates get built when cadence relaxation actually runs: cadenceFlexibility ALWAYS, cadenceFlexibility FALLBACK once the requested cadence yields nothing, or guaranteeSlate true, which promotes NONE to FALLBACK. On the default cadenceFlexibility of NONE your rrule fixes the schedule completely, so the target is scored and reported but changes nothing about which slates come back — send it together with cadenceFlexibility FALLBACK or ALWAYS to have it steer. Where it steers, it steers the ORDER too, and that order carries the half of your preference matchScore cannot: matchComponents.sessionsPerWeek asks for AT LEAST the target, so against a target of 2 a three-a-week slate scores exactly as well as a two-a-week one. Take the results in the order they arrive; re-sorting them by matchScore throws that preference away.",
+                    "example": 3
+                  },
                   "cadenceFlexibility": {
                     "type": "string",
                     "enum": ["NONE", "FALLBACK", "ALWAYS"],
@@ -13663,7 +13967,7 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 90,
-                    "description": "Minimum whole days between consecutive sessions in a relaxed or direct-fill slate. Use it to stop a dense fallback from stacking sessions on back-to-back days.",
+                    "description": "Minimum whole days between consecutive sessions in a direct-fill slate. Use it to stop a dense fallback from stacking sessions on back-to-back days. It reaches only the direct fill, not any relaxed cadence-ladder rung, so a rung can still land sessions closer together than this.",
                     "example": 2
                   },
                   "maxSessionsPerWeek": {
@@ -13671,7 +13975,7 @@
                     "minimum": 0,
                     "exclusiveMinimum": true,
                     "maximum": 14,
-                    "description": "Cap on sessions per Monday-anchored calendar week in a relaxed or direct-fill slate.",
+                    "description": "Cap on sessions per Monday-anchored calendar week in a direct-fill slate — it reaches only the direct fill, not any relaxed cadence-ladder rung, so a rung built at a denser cadence can still land more sessions in a week than this. See sessionsPerWeek for the corresponding TARGET.",
                     "example": 3
                   },
                   "maxAlternates": {
@@ -13885,7 +14189,7 @@
                               "cadenceDistance": {
                                 "type": "integer",
                                 "minimum": 0,
-                                "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                 "example": 2
                               },
                               "sessionsPerWeek": {
@@ -13899,8 +14203,44 @@
                                 "type": "number",
                                 "minimum": 0,
                                 "maximum": 1,
-                                "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                 "example": 1
+                              },
+                              "matchComponents": {
+                                "type": "object",
+                                "properties": {
+                                  "startDate": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                  },
+                                  "timeOfDay": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                  },
+                                  "daysOfWeek": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                  },
+                                  "sessionsPerWeek": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                  },
+                                  "cadence": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                  }
+                                },
+                                "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                               }
                             },
                             "required": [
@@ -14076,7 +14416,7 @@
                                 "cadenceDistance": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                   "example": 2
                                 },
                                 "sessionsPerWeek": {
@@ -14090,8 +14430,44 @@
                                   "type": "number",
                                   "minimum": 0,
                                   "maximum": 1,
-                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                   "example": 1
+                                },
+                                "matchComponents": {
+                                  "type": "object",
+                                  "properties": {
+                                    "startDate": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                    },
+                                    "timeOfDay": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                    },
+                                    "daysOfWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                    },
+                                    "sessionsPerWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                    },
+                                    "cadence": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                    }
+                                  },
+                                  "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                                 }
                               },
                               "required": [
@@ -14105,7 +14481,8 @@
                                 "slots",
                                 "matchScore"
                               ]
-                            }
+                            },
+                            "description": "Other bookable options beyond primarySlate, ranked best first and capped at the maxAlternates you sent. Under the default supplierPolicy of SAME_SUPPLIER these are other schedules from the SAME supplier as primarySlate; under PREFERRED or ANY they are other suppliers’ best schedules, one per supplier. Two schedules from one supplier count as different options only when they run on different weekdays, or start at least 30 minutes apart — so a supplier offering 09:00 and 09:20 gives you one option, not two. Each entry’s slateId is bookable exactly like primarySlate’s."
                           },
                           "partial": {
                             "type": "object",
@@ -14267,7 +14644,7 @@
                               "cadenceDistance": {
                                 "type": "integer",
                                 "minimum": 0,
-                                "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                 "example": 2
                               },
                               "sessionsPerWeek": {
@@ -14281,8 +14658,44 @@
                                 "type": "number",
                                 "minimum": 0,
                                 "maximum": 1,
-                                "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                 "example": 1
+                              },
+                              "matchComponents": {
+                                "type": "object",
+                                "properties": {
+                                  "startDate": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                  },
+                                  "timeOfDay": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                  },
+                                  "daysOfWeek": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                  },
+                                  "sessionsPerWeek": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                  },
+                                  "cadence": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                  }
+                                },
+                                "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                               }
                             },
                             "required": [
@@ -14458,7 +14871,7 @@
                                 "cadenceDistance": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                   "example": 2
                                 },
                                 "sessionsPerWeek": {
@@ -14472,8 +14885,44 @@
                                   "type": "number",
                                   "minimum": 0,
                                   "maximum": 1,
-                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                   "example": 1
+                                },
+                                "matchComponents": {
+                                  "type": "object",
+                                  "properties": {
+                                    "startDate": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                    },
+                                    "timeOfDay": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                    },
+                                    "daysOfWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                    },
+                                    "sessionsPerWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                    },
+                                    "cadence": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                    }
+                                  },
+                                  "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                                 }
                               },
                               "required": [
@@ -14764,7 +15213,7 @@
                         "cadenceDistance": {
                           "type": "integer",
                           "minimum": 0,
-                          "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                          "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                           "example": 2
                         },
                         "sessionsPerWeek": {
@@ -14778,8 +15227,44 @@
                           "type": "number",
                           "minimum": 0,
                           "maximum": 1,
-                          "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                          "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                           "example": 1
+                        },
+                        "matchComponents": {
+                          "type": "object",
+                          "properties": {
+                            "startDate": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                            },
+                            "timeOfDay": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                            },
+                            "daysOfWeek": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                            },
+                            "sessionsPerWeek": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                            },
+                            "cadence": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1,
+                              "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                            }
+                          },
+                          "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                         }
                       },
                       "required": [
@@ -15044,7 +15529,7 @@
                                 "cadenceDistance": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                   "example": 2
                                 },
                                 "sessionsPerWeek": {
@@ -15058,8 +15543,44 @@
                                   "type": "number",
                                   "minimum": 0,
                                   "maximum": 1,
-                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                   "example": 1
+                                },
+                                "matchComponents": {
+                                  "type": "object",
+                                  "properties": {
+                                    "startDate": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                    },
+                                    "timeOfDay": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                    },
+                                    "daysOfWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                    },
+                                    "sessionsPerWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                    },
+                                    "cadence": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                    }
+                                  },
+                                  "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                                 }
                               },
                               "required": [
@@ -15236,7 +15757,7 @@
                                   "cadenceDistance": {
                                     "type": "integer",
                                     "minimum": 0,
-                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                     "example": 2
                                   },
                                   "sessionsPerWeek": {
@@ -15250,8 +15771,44 @@
                                     "type": "number",
                                     "minimum": 0,
                                     "maximum": 1,
-                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                     "example": 1
+                                  },
+                                  "matchComponents": {
+                                    "type": "object",
+                                    "properties": {
+                                      "startDate": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                      },
+                                      "timeOfDay": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                      },
+                                      "daysOfWeek": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                      },
+                                      "sessionsPerWeek": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                      },
+                                      "cadence": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                      }
+                                    },
+                                    "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                                   }
                                 },
                                 "required": [
@@ -15265,7 +15822,8 @@
                                   "slots",
                                   "matchScore"
                                 ]
-                              }
+                              },
+                              "description": "Other bookable options beyond primarySlate, ranked best first and capped at the maxAlternates you sent. Under the default supplierPolicy of SAME_SUPPLIER these are other schedules from the SAME supplier as primarySlate; under PREFERRED or ANY they are other suppliers’ best schedules, one per supplier. Two schedules from one supplier count as different options only when they run on different weekdays, or start at least 30 minutes apart — so a supplier offering 09:00 and 09:20 gives you one option, not two. Each entry’s slateId is bookable exactly like primarySlate’s."
                             },
                             "partial": {
                               "type": "object",
@@ -15427,7 +15985,7 @@
                                 "cadenceDistance": {
                                   "type": "integer",
                                   "minimum": 0,
-                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                  "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                   "example": 2
                                 },
                                 "sessionsPerWeek": {
@@ -15441,8 +15999,44 @@
                                   "type": "number",
                                   "minimum": 0,
                                   "maximum": 1,
-                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                  "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                   "example": 1
+                                },
+                                "matchComponents": {
+                                  "type": "object",
+                                  "properties": {
+                                    "startDate": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                    },
+                                    "timeOfDay": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                    },
+                                    "daysOfWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                    },
+                                    "sessionsPerWeek": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                    },
+                                    "cadence": {
+                                      "type": "number",
+                                      "minimum": 0,
+                                      "maximum": 1,
+                                      "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                    }
+                                  },
+                                  "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                                 }
                               },
                               "required": [
@@ -15618,7 +16212,7 @@
                                   "cadenceDistance": {
                                     "type": "integer",
                                     "minimum": 0,
-                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. cadenceAlternatives is already sorted by it.",
+                                    "description": "How far this slate’s cadence is from the one you requested — 0 is an exact match, lower is closer. When the request carries no sessionsPerWeek target, cadenceAlternatives is sorted by this value alone, closest first. When it does carry a target, alternatives are ranked by closeness to that target first, and this distance only breaks ties between cadences equally close to it.",
                                     "example": 2
                                   },
                                   "sessionsPerWeek": {
@@ -15632,8 +16226,44 @@
                                     "type": "number",
                                     "minimum": 0,
                                     "maximum": 1,
-                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1. Currently returns 1 for all slates; ranking by it is not yet supported.",
+                                    "description": "How well this slate matches the requested schedule preferences, from 0 to 1 — the mean of the components present in matchComponents. When the caller expressed no schedule preferences it is 1 and matchComponents is empty, so a caller distinguishes \"perfect match\" from \"nothing asked\" by reading matchComponents, not this score. Compare the availabilityMatch property on /availability/suppliers, which is ABSENT entirely for the \"nothing asked\" case rather than present with a null score — matchScore cannot go absent, because it is a required property on this shipped contract and dropping it would break the generated SDK types. The results are already ranked: primarySlate is the best-matching COMPLETE slate and alternates follow it in descending order, with completeness always outranking this score, so a COMPLETE slate never sits below a PARTIAL one that scored higher. (cadenceAlternatives is ordered separately, closest-cadence first.) Do NOT re-sort the slates you receive by matchScore: the order carries preferences this number cannot. matchComponents.sessionsPerWeek scores a week holding AT LEAST the sessionsPerWeek you asked for, so against a target of 2 a slate delivering three sessions a week scores identically to one delivering two, and only the order distinguishes them. Re-sorting silently discards that.",
                                     "example": 1
+                                  },
+                                  "matchComponents": {
+                                    "type": "object",
+                                    "properties": {
+                                      "startDate": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "How soon this slate’s first session lands in the requested window — 1 when session one lands as early as possible in the window, lower the later it lands."
+                                      },
+                                      "timeOfDay": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of this slate’s sessions that fall at a preferred time of day."
+                                      },
+                                      "daysOfWeek": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of this slate’s sessions that fall on a requested weekday."
+                                      },
+                                      "sessionsPerWeek": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "Fraction of the window’s whole weeks in which this slate holds at least the requested number of sessions. Distinct from the top-level sessionsPerWeek field above, which is the slate’s average sessions-per-week count (e.g. \"3×/week\") — this one is a match ratio in [0, 1], not a count. AT LEAST is literal: against a target of 2, a week holding 3 sessions counts exactly as a week holding 2, so a denser slate never scores worse here. The preference for two over three is expressed only in the ORDER slates come back in — see matchScore."
+                                      },
+                                      "cadence": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "description": "1 when this slate runs at the cadence you requested, and also 1 when the only departure from it was a weekday substitution you authorised — cadenceRelaxation of DAYS_SUBSTITUTED or ALL_WORKING_DAYS, with allowWeekdaySubstitution true and no daysOfWeek sent. 0 when the cadence changed in a way you did not authorise, which includes every change to how OFTEN sessions occur (INTERVAL_TIGHTENED, DAYS_ADDED): allowing weekday substitution does not authorise a frequency change, and sending an explicit daysOfWeek withdraws the authorisation, because naming your weekdays says the weekdays are the point. Absent rather than 0 on a slate that follows no cadence at all — a DIRECT_FILL slate and a PARTIAL slate are both greedy fills that never consult your rrule, so how well they match a requested cadence is unanswerable rather than zero, and matchScore is the mean of the components that remain. Absent too when you sent no rrule."
+                                      }
+                                    },
+                                    "description": "How well this slate matches the requested schedule preferences, broken down by criterion. Only the criteria the caller supplied are scored here — matchScore is the mean of exactly these. Present but empty when the caller expressed no schedule preferences at all; see matchScore’s description for why that case is 1 here rather than an absent availabilityMatch. Also absent on a slate whose matchScore carries no recorded per-criterion breakdown. These names mirror the components object inside availabilityMatch on /availability/suppliers but NOT their meaning: there each ratio is measured over the supplier’s open availability, while here every ratio is measured over this slate’s own sessions — a slate of eight Friday sessions scores 1 on daysOfWeek because all eight sessions are Fridays, independent of what a supplier-level daysOfWeek would report."
                                   }
                                 },
                                 "required": [
@@ -15649,7 +16279,7 @@
                                 ]
                               },
                               "default": [],
-                              "description": "Complete N-session slates that fit the supplier’s real availability but do NOT follow the rrule you asked for — e.g. you requested weekly Fridays, no supplier has eight free Fridays, so this carries a Mon+Fri plan instead. Sorted closest-first by cadenceDistance. Always empty unless the request set cadenceFlexibility or guaranteeSlate. Each entry’s slateId is bookable exactly like primarySlate’s."
+                              "description": "Complete N-session slates that fit the supplier’s real availability but do NOT follow the rrule you asked for — e.g. you requested weekly Fridays, no supplier has eight free Fridays, so this carries a Mon+Fri plan instead. Sorted by cadenceDistance, closest first, when the request carries no sessionsPerWeek target; when it does, ranked by closeness to that target first and cadenceDistance only as the tiebreaker. Always empty unless the request set cadenceFlexibility or guaranteeSlate. Each entry’s slateId is bookable exactly like primarySlate’s."
                             },
                             "requestedCadence": {
                               "type": "string",
