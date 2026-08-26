@@ -28,6 +28,14 @@ not when it was created.
 Both are sent as part of the create call. A booking created without a supplier assigned sends only
 the client's.
 
+**A hold sends nothing — converting it is what sends these.** A hold only claims a supplier's time;
+no booking exists yet, so there is nobody to confirm anything to. `POST /holds/{reservationId}/convert`
+is the moment the booking is created, so that is when the client confirmation and the supplier notice
+go out, along with everything scheduled below. If your checkout holds time while the client pays, the
+client is mailed when your payment webhook converts — not when they reach the payment page. A
+duplicate webhook delivery that replays the same bookings does not re-send them. See
+[Hold slots during checkout](/guides/hold-slots-for-checkout).
+
 ### Before it happens
 
 | Email | Goes to | When |

@@ -453,6 +453,22 @@ de-duplicate this yourself.
 </Tip>
 
 <Note>
+**Convert is what sends the emails — holding sends nothing.** A hold has no
+booking attached to it, so nothing is mailed while the client is still on the
+payment page. The moment convert succeeds, MarketBox sends the client their
+booking confirmation and each assigned supplier their new-booking notice, and
+schedules the reminder and the rating requests that follow.
+
+So **don't send your own booking confirmation** from your webhook — the client
+will already have one. A multi-session package converts into a single
+confirmation covering every session, not one per session. A replayed convert
+does not re-send anything.
+
+See [Emails](/concepts/emails) for the full set and for the two things you can
+configure: the from name and the reply-to address.
+</Note>
+
+<Note>
 Convert too late and you get `409 HOLD_EXPIRED` — the hold stopped blocking
 at `heldUntil` and the time may have gone. If it's still free, hold it
 again and convert the new reservation; if someone took it, you'll see
