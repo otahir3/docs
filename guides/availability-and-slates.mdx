@@ -127,6 +127,9 @@ Each slate (`primarySlate`, entries in `alternates`, entries in
 | `startTimeConsistencyPercent` | How consistent the session start times are (0–100). |
 | `matchScore` | How well this slate matches the requested schedule preferences, `0`–`1` — the mean of the components in `matchComponents`. `1` with an empty `matchComponents` means no schedule preference was expressed, not a perfect match. See [How well a slate matches: `matchScore` and `matchComponents`](#how-well-a-slate-matches-matchscore-and-matchcomponents) below. |
 | `matchComponents` | The per-criterion breakdown behind `matchScore` — carries only the criteria you actually supplied and that were scoreable for this slate. Present on every fresh availability response, empty when nothing was asked; absent entirely only on a slate resolved from a pre-existing booking rather than a fresh call — see below. |
+| `cadenceSummary` | How often this plan actually runs, week by week, against the frequency you asked for: `requested`, `peak`, `average`, and a `byWeek` array. **Render `peak`, not `average`.** Present on every slate holding at least one session, on **every** request path — including the default `cadenceFlexibility: "NONE"` — and absent only for a slate with no sessions. See [How often a plan runs: `cadenceSummary`](#how-often-a-plan-runs-cadencesummary) below. |
+| `matchNotes` | **Why** this slate departs from what you asked for — an array of coded reasons, each with structured evidence and no English. **Always present**; `[]` means nothing departed. Not gated on `matchScore`. See [Why a slate departs from your request: `matchNotes`](#why-a-slate-departs-from-your-request-matchnotes) below. |
+| `advice` | An optional, **advisory** hint that starting later would help: `code` plus `earliestSustainedWeek`. It reports that supply exists from that week onward — not that a slate was built or would be bookable. Present only when one applies. See [A hint about starting later: `advice`](#a-hint-about-starting-later-advice) below. |
 | `totalTravelTimeMins` | Summed travel time across the plan's sessions. |
 | `slots[]` | The resolved sessions — see below. |
 
@@ -140,12 +143,16 @@ request opted into [cadence relaxation](#cadence-relaxation):
 | `matchesRequestedCadence` | `true` when `cadenceRrule` is the `rrule` you asked for. |
 | `cadenceRelaxation` | How the cadence was derived: `EXACT`, `INTERVAL_TIGHTENED` (same weekdays, run more often), `DAYS_ADDED` (every requested weekday kept, more added), `DAYS_SUBSTITUTED` (requested weekdays replaced with ones the supplier works), `ALL_WORKING_DAYS`, or `DIRECT_FILL`. |
 | `cadenceDistance` | How far this cadence sits from the requested one — `0` is exact, lower is closer. `cadenceAlternatives` is sorted by it — unless the request sent `sessionsPerWeek`, in which case closeness to that frequency target sorts first, and `cadenceDistance` only breaks ties within it. |
-| `sessionsPerWeek` | Average sessions per week across the plan — the number a UI renders as "2×/week". |
 
 <Note>
 Cadence provenance is **provenance**: it records how the slate was generated.
 It is not re-validated if a session is later rescheduled, so a booked plan can
 drift from its own `cadenceRrule`.
+
+[`cadenceSummary`](#how-often-a-plan-runs-cadencesummary) is deliberately
+**not** in this table. It's measured from the slate's own sessions rather than
+recorded from the request, so it isn't gated on relaxation and it isn't
+provenance — it arrives on every path and is recomputed on every rebuild.
 </Note>
 
 Each entry in `slots[]`:
@@ -184,7 +191,7 @@ all:
 | `startDate` | you sent `lookAheadStartDate` | how soon session one lands — `1` when it lands on the window's first day, lower the later it lands |
 | `timeOfDay` | you sent `preferredTimes` | fraction of this slate's sessions that fall at a preferred time |
 | `daysOfWeek` | you sent `daysOfWeek` | fraction of this slate's sessions that fall on a requested weekday |
-| `sessionsPerWeek` | you sent `sessionsPerWeek` | fraction of the window's whole weeks in which this slate holds **at least** the target number of sessions |
+| `sessionsPerWeek` | you sent `sessionsPerWeek` | fraction of the window's whole weeks in which this slate holds **at least** the target number of sessions — a ratio in `0`–`1`, never a count. For counts, read [`cadenceSummary`](#how-often-a-plan-runs-cadencesummary), which buckets weeks differently |
 | `cadence` | you sent `rrule` **and** the slate follows a cadence | see below |
 
 `excludeDates` is never a component — it's a hard filter, so it could only
@@ -235,6 +242,374 @@ delivering three sessions a week scores exactly the same as one delivering
 two — only the order distinguishes them. Re-sorting silently discards "two,
 not three".
 </Warning>
+
+### How often a plan runs: `cadenceSummary`
+
+`cadenceSummary` answers the one question a booking UI has to render — "how
+often is this plan?" — and it answers it week by week rather than as a single
+rate. It's on every slate holding at least one session, on **every** request
+path, including the default `cadenceFlexibility: "NONE"`. It's absent only for
+a slate with no sessions at all, which has no cadence to describe.
+
+```json
+{
+  "cadenceSummary": {
+    "requested": 4,
+    "peak": 4,
+    "average": 2.25,
+    "byWeek": [
+      { "weekStart": "2026-09-07", "sessions": 1 },
+      { "weekStart": "2026-09-14", "sessions": 0 },
+      { "weekStart": "2026-09-21", "sessions": 4 },
+      { "weekStart": "2026-09-28", "sessions": 4 }
+    ]
+  }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `requested` | The frequency you asked for, in sessions per week — your `sessionsPerWeek` target when you sent one, otherwise the number of weekdays your own `rrule` named (`FREQ=WEEKLY;BYDAY=MO,TU,WE,TH` is `4`). `null` when you expressed no frequency at all, and `null` too when the rule wasn't yours to count: a non-weekly `FREQ`, an `INTERVAL` other than `1`, a weekly rule naming no weekdays, or a cadence this API synthesised on your behalf. Reporting a frequency you never asked for is worse than reporting none. |
+| `peak` | The most sessions this plan holds in any single week. **This is the number to render.** |
+| `average` | Sessions divided by the number of entries in `byWeek`, to two decimal places. For capacity and reporting — not for client-facing copy. |
+| `byWeek` | Every **Monday-anchored** week from the first session's week through the last session's: ascending, contiguous, and including weeks holding `0` sessions. Never empty. |
+
+**Render `peak`, not `average`.** The nine sessions above run 1 / 0 / 4 / 4 —
+the supplier has a week off in the middle of the plan. Those four weeks
+average `2.25`, and not one week in the plan runs at `2.25`. An average is the
+one number that describes none of the weeks, which is how a nine-session plan
+that plainly runs at four a week wherever it runs ends up rendered as
+"1.67×/week". `peak` is the honest answer.
+
+`average` is still worth having, because it's verifiable: it is exactly the
+sum of `byWeek`'s `sessions` divided by `byWeek`'s length, so you can check it
+against the array in the same response. The weeks it divides by span the
+**plan** — the first session's week through the last session's, gap weeks
+included — never your whole look-ahead window, so asking for a wide window
+doesn't dilute it.
+
+The zero week is the most useful entry in `byWeek`. It's a week inside the
+plan where the supplier had nothing, not a hole in this data — and it's what
+lets you explain an uneven plan to a client ("week three is off, then you're
+back to four a week") instead of apologising for one.
+
+<Warning>
+**`cadenceSummary` and `matchComponents.sessionsPerWeek` count weeks
+differently, on purpose.** They are not two views of the same number:
+
+- `cadenceSummary.byWeek` buckets **Monday-anchored calendar weeks**, so every
+  `weekStart` is a real Monday and the buckets agree with how the
+  `maxSessionsPerWeek` cap counts.
+- `matchComponents.sessionsPerWeek` — the `0`–`1` ratio above, not a count —
+  buckets **consecutive 7-day blocks from your window's start**, so it stays
+  comparable with `availabilityMatch` on
+  [`POST /availability/suppliers`](/guides/search-suppliers-by-availability).
+
+They can therefore disagree, and both are right. `peak: 4` against a target of
+`4` while that component reads below `1` is exactly what a supplier's mid-plan
+break looks like: every week the plan runs, it runs at four — but the whole
+weeks of your window don't all hold four. Don't file that as a bug.
+</Warning>
+
+<Note>
+`cadenceSummary` behaves differently from its neighbours on a reschedule.
+`matchScore` and `matchComponents` are provenance and are never re-derived,
+but `peak`, `average` and `byWeek` are **recomputed from the slate's current
+sessions** every time the slate is rebuilt; only `requested` is snapshotted
+from the original request. So a slate can come back from a reschedule with an
+unchanged `matchScore` and a *changed* `cadenceSummary`.
+</Note>
+
+## Why a slate departs from your request: `matchNotes`
+
+`matchScore` says *how well* a slate matches. `matchComponents` says *which*
+criterion missed. `matchNotes` says **why** — one entry per reason, each a
+machine-readable code carrying the evidence behind it.
+
+```json
+{
+  "matchNotes": [
+    {
+      "code": "WEEK_SUPPLY_INSUFFICIENT",
+      "component": "sessionsPerWeek",
+      "weekStart": "2026-09-14",
+      "evidence": {
+        "sessionsPlaced": 0,
+        "sessionsTargeted": 4,
+        "openingsInPool": 0
+      }
+    }
+  ]
+}
+```
+
+That single note is the 1 / 0 / 4 / 4 plan from
+[`cadenceSummary`](#how-often-a-plan-runs-cadencesummary) above, explained: the
+`0` week is `2026-09-14`, you asked for four sessions in it, and the plan placed
+none. `openingsInPool: 0` is the part that tells you why — the supplier's
+candidate pool held nothing placeable that week, so waiting is the move and
+`advice` names the week to wait for.
+
+| Field | Meaning |
+| --- | --- |
+| `code` | Which reason this is — one of the nine below. The discriminator: each code carries its own `evidence` shape, so your generated types tell you exactly which fields are present rather than handing you a bag of optionals. |
+| `component` | The `matchComponents` criterion this note explains — `sessionsPerWeek`, `cadence`, `timeOfDay` or `startDate`. Group notes by it to caption a component directly. Present on eight of the nine codes; `PACKAGE_UNDERFILLED` has **no** `component`, because plan size isn't a scored criterion. A pointer, not a join key: the week-level codes bucket Monday-anchored calendar weeks while `matchComponents.sessionsPerWeek` buckets 7-day blocks from your window's start, so a note can name a short week for a criterion that component scores as met, and the reverse. |
+| `weekStart` | The Monday (`YYYY-MM-DD`, local) of the week this note is about. Only on the five week-level codes, and bucketed exactly like `cadenceSummary.byWeek`, so a note joins to a `byWeek` entry on this key. |
+| `evidence` | The numbers behind the code — counts, weekdays, dates. Its shape is fixed per code. |
+
+<Note>
+**There is deliberately no `message`.** No English ships in a note, so you keep
+your own voice and can localise: write the copy, and use `evidence` to fill in
+the week, the weekday or the count. A prewritten sentence would have to be
+translated by every integrator anyway, and it would tempt you to render our
+wording to a client instead of yours.
+</Note>
+
+`matchNotes` is **always present**. Nothing departed from your request means
+`[]`, not a missing key, so you can read `.length` without a null check. It is
+**not gated on `matchScore`** either: a `DIRECT_FILL` slate and a `PARTIAL`
+slate can both score `1` and still carry notes, and those are exactly the
+slates worth captioning.
+
+Weekday numbers anywhere in `evidence` are **`0` = Sunday … `6` = Saturday** —
+the same numbering request-level `daysOfWeek` uses.
+
+**Group the week-level notes by `code` before you render them.** One note is
+emitted per short week, so a Monday-only supplier against a target of two emits
+`WEEK_SUPPLY_INSUFFICIENT` on *every* week of the plan — a caption per note gives
+you four near-identical sentences. Collapse each group into one line that names
+the weeks: "four weeks come back short — 6, 13, 20 and 27 July".
+
+<Note>
+`matchNotes` and `advice` are **provenance**, like `cadenceRrule`: they record
+what was true when the slate was generated. Rescheduling a session recomputes
+`startTimeConsistencyPercent`, `totalTravelTimeMins` and `cadenceSummary`, but
+not these — so a rescheduled slate can come back carrying a note its current
+sessions no longer justify. Slates built before this shipped read back with
+`matchNotes: []` and no `advice`.
+</Note>
+
+### The nine codes
+
+| Code | `component` | Emitted when | What it licenses you to say |
+| --- | --- | --- | --- |
+| `SUPPLIER_UNAVAILABLE_WEEK` | `sessionsPerWeek` | The supplier works **none** of the weekdays that could have served this week — `evidence.supplierWorkdays` is `[]`. **Not currently emitted by the live engine** — see the section below before you build for it. | "This supplier doesn't work any of the days that week needed — the sessions moved to the weeks either side." Check `advice` for the earliest week supply resumes. |
+| `WEEK_EXCLUDED_BY_FILTERS` | `sessionsPerWeek` | Your own `daysOfWeek` or `excludeDates` cut this week's candidate days below your target, and the supplier's working **pattern** covers enough days in the week to have met it without your filter. `evidence.filter` names which one. Like `supplierWorkdays` everywhere else, that is a pattern fact, not a check of this calendar week — a supplier already booked solid across it reports this code too. | "Your day preferences are what's limiting this week — allowing one more weekday is the thing most likely to fill it." Say *likely*: loosening the filter is the best move the evidence supports, not a guarantee. |
+| `WEEK_SUPPLY_INSUFFICIENT` | `sessionsPerWeek` | The week is short and none of the more specific reasons could be **established**. This is the residual code: the supplier's working *pattern* is not empty (which is what rules out `SUPPLIER_UNAVAILABLE_WEEK` — a pattern fact, not a check of this calendar week), and the shortfall could not be attributed to one of your filters or to a cap you sent — which is not the same as those playing no part. | Don't lead with "the supplier didn't have enough open days" — compare `sessionsPlaced` and `sessionsTargeted` against `openingsInPool` first, and see the note below for the two cases where a filter or a cap *was* involved. |
+| `WEEK_CAPPED` | `sessionsPerWeek` | The week held at least `sessionsTargeted` placeable days, and a cap **you** sent puts a ceiling on the week below your target — so the target was unreachable there whatever the supplier had free. `evidence.cap` is `maxSessionsPerWeek` or `minGapDays`, with its `capValue`. It fires on the ceiling *existing*, not on the plan having filled up to it. | "That week is capped by your own settings — raise the cap for a denser week." Raising it is **necessary**; whether it's **sufficient** this note can't say. If `sessionsPlaced` sits below the ceiling the cap implies, all you know is that the plan didn't fill the week even to the ceiling — don't read a second cause into it. |
+| `SESSIONS_EXHAUSTED` | `sessionsPerWeek` | The week is short only because the package ran out of sessions. | Nothing apologetic — see the dedicated section below. |
+| `CADENCE_RELAXED` | `cadence` | The slate doesn't run at the `rrule` you sent. `evidence.cadenceRelaxation` says how the cadence was derived; `requestedDays` and `actualDays` let you show the swap. | "We moved your Tuesdays to Thursdays" / "this plan runs weekly rather than fortnightly." |
+| `SESSIONS_OUTSIDE_PREFERRED_TIMES` | `timeOfDay` | Some sessions fall outside every `preferredTimes` window you sent. `evidence.sessionIndexes` is **1-based** and matches `sessionIndex` on the slots; `localTimes` is aligned to it. **Both arrays can be empty** — when no session lands inside your requested window at all, the criterion definitely missed but there is no in-window session to name. | "Sessions 3 and 7 are at 08:00, outside your afternoon preference." Handle the empty case: caption it "outside your preferred times" with no session list, not as an error. |
+| `FIRST_SESSION_LATE` | `startDate` | The plan's first session is `evidence.dayOffset` whole days after your window start — always at least one. That offset is the fact; whether the plan started later than it *had* to is a separate question. | Branch on `evidence.earlierSupplyExisted`. `true`: the supplier *was* free earlier and the cadence couldn't use those days, so "we could have started on the 7th — loosening the cadence is the fix." `false`: no earlier opening existed in your window, so "the earliest this supplier opens is the 14th" — nothing was given up, and copy implying otherwise is wrong. |
+| `PACKAGE_UNDERFILLED` | *(none)* | Fewer sessions than the package holds credits for. | "We could only plan 6 of the 8 sessions." `completeness` says `PARTIAL` too. |
+
+<Note>
+**`WEEK_SUPPLY_INSUFFICIENT` is the residual code, not a finding about supply.**
+Reaching it means only that the supplier's working *pattern* is not empty — which
+is what rules out `SUPPLIER_UNAVAILABLE_WEEK`, and is a fact about the weekdays
+they work at all rather than a check of this calendar week — and that the
+shortfall could not be *attributed* to one of your filters or to a cap. It does
+not mean neither was involved. Two cases land here with one of them genuinely in
+play:
+
+- a filter removed a candidate day from a week the supplier's own pattern days
+  could never have met anyway (attribution is withheld because loosening the
+  filter provably could not have reached your target);
+- a cap applied to a week whose openings were already below your target
+  (`WEEK_CAPPED` is reserved for weeks that had enough openings to make the cap
+  the thing to raise).
+
+So read the evidence rather than assuming supply was the constraint. When
+`openingsInPool` is **below** `sessionsTargeted`, the placeable days genuinely
+weren't there. When it's **at or above** the target, the days were there and
+something else was in the way — look for `CADENCE_RELAXED` on the same slate,
+which reports a cadence that couldn't use them and is the better thing to tell a
+client. That pointer doesn't always land: `CADENCE_RELAXED` is only emitted when
+the cadence criterion scored below `1`, and an **authorised weekday
+substitution** scores a perfect cadence — so a days-were-there week can carry no
+cadence note at all. When it doesn't, say the week came back short and stop
+there rather than naming a cause.
+
+`openingsInPool` counts **placeable days**, not slots: a plan places at most one
+session per local date, so a day offering five start times counts once. That's
+what makes it directly comparable to `sessionsTargeted`.
+</Note>
+
+### "Wait a week" or "loosen your days"
+
+A week that comes back short of your target has two very different explanations,
+and they are **opposite calls to action**. One means the constraint is the
+supplier's and yours can't fix it; the other means the constraint is yours and
+one click fixes it. Tell a client the wrong one and you've either sent them away
+from a supplier who was available, or had them wait out a week that was never
+blocked. Getting this pair right is the reason `matchNotes` exists.
+
+<Warning>
+**`SUPPLIER_UNAVAILABLE_WEEK` is not currently emitted by the live engine.** It
+is part of the published contract and you should keep it in your `switch` — but
+it fires only when a supplier works no weekday at all, and a supplier like that
+produces no availability, so no candidate, so no slate for the note to attach
+to. Don't build your "waiting helps" copy on it: nothing will reach it today.
+
+**The supplier-break case reaches you as `WEEK_SUPPLY_INSUFFICIENT` with
+`openingsInPool: 0`.** That is the combination to key your "waiting may help"
+copy on, and `advice.earliestSustainedWeek` is the week to name.
+</Warning>
+
+So the pair you actually branch on is `WEEK_SUPPLY_INSUFFICIENT` with an empty
+pool against `WEEK_EXCLUDED_BY_FILTERS`.
+
+**The supplier had nothing open.** No `daysOfWeek` filter, a target of two a
+week, a Monday-to-Friday supplier whose diary is full across the week:
+
+```json
+{
+  "code": "WEEK_SUPPLY_INSUFFICIENT",
+  "component": "sessionsPerWeek",
+  "weekStart": "2026-07-06",
+  "evidence": {
+    "sessionsPlaced": 0,
+    "sessionsTargeted": 2,
+    "openingsInPool": 0
+  }
+}
+```
+
+`openingsInPool: 0` with no filter of yours named anywhere is as close as the
+API gets to "there was nothing to book that week". Waiting is the honest thing
+to say, and `advice` is where you look next.
+
+**Your own filter cut the week down.** `daysOfWeek: [1]` (Mondays only), the
+same target of two a week, a Monday-to-Friday supplier with one open Monday in
+the week:
+
+```json
+{
+  "code": "WEEK_EXCLUDED_BY_FILTERS",
+  "component": "sessionsPerWeek",
+  "weekStart": "2026-07-06",
+  "evidence": {
+    "sessionsPlaced": 1,
+    "sessionsTargeted": 2,
+    "filter": "daysOfWeek",
+    "supplierWorkdays": [1, 2, 3, 4, 5],
+    "requestedDays": [1]
+  }
+}
+```
+
+`supplierWorkdays: [1, 2, 3, 4, 5]` against `requestedDays: [1]` is the whole
+argument: one Monday a week can never make two sessions a week, and there are
+four other weekdays this supplier works. **Loosening `daysOfWeek` is the move
+here, and waiting is not.** `supplierWorkdays` is the pre-filter fact that makes
+this call possible at all — the candidate pool alone can't, because your
+`daysOfWeek` and `excludeDates` were already applied to it, so "no openings this
+week" looks identical whether the supplier had nothing or you removed
+everything.
+
+<Warning>
+**`supplierWorkdays` is a fact about the supplier's working *pattern*, not a
+check of that particular calendar week** — and this is true wherever it appears,
+on `WEEK_EXCLUDED_BY_FILTERS` as much as on `SUPPLIER_UNAVAILABLE_WEEK`. The API
+answers "which weekdays does this supplier work at all", never "was this
+specific week covered" — answering the second would mean re-expanding every
+recurrence rule on the booking hot path.
+
+Two consequences worth designing for. A supplier who works Mondays but happens
+to be booked out on *this* week's Monday reports `WEEK_SUPPLY_INSUFFICIENT`, not
+`SUPPLIER_UNAVAILABLE_WEEK`. And a Monday-to-Friday supplier who is booked solid
+across the week still reports `WEEK_EXCLUDED_BY_FILTERS` if your `daysOfWeek`
+narrowed it — the pattern days were there even though the openings weren't. So
+treat "loosen your filter" as the **most likely** fix rather than a guaranteed
+one; it is the best move the evidence supports, but the API has not checked that
+those extra weekdays were free.
+
+`WEEK_EXCLUDED_BY_FILTERS` is still only emitted when relaxing your filter could
+have helped: a week the supplier's own pattern could never have met is reported
+as `WEEK_SUPPLY_INSUFFICIENT` instead, and is not your filter's fault. The one
+exception is a `daysOfWeek` naming no day this supplier works at all, which
+leaves zero candidate days whatever your target.
+</Warning>
+
+### `SESSIONS_EXHAUSTED` means nothing went wrong
+
+Nine sessions at four a week leaves the last week holding one. That week *is*
+short of your target, and it is short for the most ordinary reason there is:
+the package ran out of credits. Nothing failed.
+
+```json
+{
+  "code": "SESSIONS_EXHAUSTED",
+  "component": "sessionsPerWeek",
+  "weekStart": "2026-07-20",
+  "evidence": {
+    "sessionsRequested": 3,
+    "sessionsPlacedBefore": 2
+  }
+}
+```
+
+`sessionsPlacedBefore` is how many of the package's sessions the earlier weeks
+already used — two of three here, so the final week could only ever hold one,
+whatever the supplier's diary looked like.
+
+<Warning>
+**Don't apologise for `SESSIONS_EXHAUSTED`, and don't surface it as a problem.**
+It outranks every supply code: when it's emitted for a week, no
+`SUPPLIER_UNAVAILABLE_WEEK`, `WEEK_EXCLUDED_BY_FILTERS`,
+`WEEK_SUPPLY_INSUFFICIENT` or `WEEK_CAPPED` is emitted for that same week. It
+exists precisely so a correctly-filled plan doesn't read as a supplier failure —
+without it, the tail week of every package looks like something went wrong.
+Render it as a plain fact if you render it at all ("the last week runs once —
+that's the eighth and final session"), or drop it.
+</Warning>
+
+### A hint about starting later: `advice`
+
+<Warning>
+**`advice` is advisory only.** It reports that the supplier has enough open
+**supply** from a given week onward to sustain the frequency you asked for. It
+does **not** mean a slate was built for that week, or that one would be
+bookable — holds, capacity, travel time and the cadence rules all still apply.
+Re-request with a later `lookAheadStartDate` to find out for real. Don't
+promise a client a schedule nobody has validated.
+</Warning>
+
+With that stated, the shape is small:
+
+```json
+{
+  "advice": {
+    "code": "LATER_START_IMPROVES_CADENCE",
+    "earliestSustainedWeek": "2026-09-21"
+  }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `code` | Always `LATER_START_IMPROVES_CADENCE` today. Branch on it anyway — it's an enum so more hints can be added without a breaking change. |
+| `earliestSustainedWeek` | The earliest Monday (`YYYY-MM-DD`, local) from which supply alone could sustain your requested frequency. |
+
+`advice` is **optional** — present only when a later start would actually help.
+It's absent when you expressed no frequency target, when no week fell short, and
+when no week in your window sustains the target from that point on. Absent is
+the honest answer in all three cases; the field never points at a week that
+doesn't hold up.
+
+"Sustain" is strict: every remaining whole week in your window, from
+`earliestSustainedWeek` to the end of the window, holds at least your target in
+open days — not just the named week itself. A week that meets the target and
+then dips below it a fortnight later is never returned, because you'd hang a
+client promise on it.
+
+Read it alongside a `WEEK_SUPPLY_INSUFFICIENT` note carrying
+`openingsInPool: 0`: that pairing says "waiting is the move", and this field
+names the week to wait for. In the 1 / 0 / 4 / 4 plan above, `2026-09-14` is the
+empty week and `earliestSustainedWeek` is `2026-09-21` — the Monday supply
+resumes and stays resumed. `earliestSustainedWeek` is always **strictly later**
+than the first week the notes reported as short, so it never names a week the
+same response has already called short.
 
 ## Cadence rules: `rrule` and `lookAheadStartDate`
 
@@ -466,7 +841,17 @@ eight-session plan on **Mondays and Fridays**:
       "matchesRequestedCadence": false,
       "cadenceRelaxation": "DAYS_ADDED",
       "cadenceDistance": 2,
-      "sessionsPerWeek": 2,
+      "cadenceSummary": {
+        "requested": 1,
+        "peak": 2,
+        "average": 2,
+        "byWeek": [
+          { "weekStart": "2026-07-06", "sessions": 2 },
+          { "weekStart": "2026-07-13", "sessions": 2 },
+          { "weekStart": "2026-07-20", "sessions": 2 },
+          { "weekStart": "2026-07-27", "sessions": 2 }
+        ]
+      },
       "slots": []
     }
   ]
@@ -484,6 +869,12 @@ inside the supplier's schedule, where eight Fridays would have needed until
 late August. `cadenceRelaxation` is `DAYS_ADDED` because Friday was *kept*
 and one weekday was added; `cadenceDistance: 2` ranks it as the closest
 answer available.
+
+`cadenceSummary` reads that same plan back as a cadence: `requested: 1`,
+because the `rrule` you sent named one weekday, against a `peak` of `2` — the
+number to put in front of a client. Here the plan runs at exactly two a week
+in all four of its weeks, so `average` matches `peak`; the two only part
+company when a week comes up short.
 
 <Note>
 Monday is chosen, not Wednesday or Thursday, because when the engine adds a
@@ -719,11 +1110,12 @@ With `cadenceFlexibility: "FALLBACK"` set, the response instead comes back:
 ```
 
 (`cadenceAlternatives[0].slots` abridged to `[]` here, the same convention
-as [Anatomy of a slate](#anatomy-of-a-slate) above. `cadenceDistance` and
-`sessionsPerWeek` — both present on a real response here, since they're
-stamped whenever relaxation was requested — are left out too: their exact
-numbers depend on which admissible cadence the engine actually picks, which
-the underlying test doesn't pin down. Every other field is real:
+as [Anatomy of a slate](#anatomy-of-a-slate) above. `cadenceDistance` — present
+on a real response here, since it's stamped whenever relaxation was requested —
+and [`cadenceSummary`](#how-often-a-plan-runs-cadencesummary), which is present
+on every response whether relaxation was requested or not, are left out too:
+their exact numbers depend on which admissible cadence the engine actually
+picks, which the underlying test doesn't pin down. Every other field is real:
 `reason` always carries that exact string whenever `status` is
 `ALTERNATIVE_CADENCE`; `suggestionRequestId` and `resolvableUntil` are
 present because `persist` defaults to `true`; `requestedCadence` is present
