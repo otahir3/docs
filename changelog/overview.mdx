@@ -3,6 +3,127 @@ title: "Changelog"
 description: "New features, updates, and fixes to the MarketBox API."
 ---
 
+<Update label="August 26, 2026" tags={["API"]}>
+
+## Every slate now says why it isn't a perfect match: `matchNotes` and `advice`
+
+`matchScore` told you how well a slate matched, and `matchComponents` told you which criterion missed. Neither told you **why** — so a booking UI could show "3 of 4 weeks" and had nothing to put underneath it. Slates now carry `matchNotes`: one coded reason per departure, each with the evidence behind it.
+
+**Purely additive.** No existing field changed shape, meaning, or gating. Every request valid before this release is still valid, and every response field you already read is unchanged. This one is safe to adopt at your own pace — unlike the `cadenceSummary` release below it, which removed a field.
+
+**New**
+
+- **`matchNotes` on every slate** (`PackageSlateDto`) — an array of `{ code, component, weekStart?, evidence }` objects. **Always present**: nothing departed from your request means `[]`, not a missing key, so `.length` is safe to read without a null check. It is **not** gated on `matchScore` — a `DIRECT_FILL` slate and a `PARTIAL` slate can both score `1` and still carry notes, and those are exactly the slates worth captioning.
+
+```json
+{
+  "matchNotes": [
+    {
+      "code": "WEEK_SUPPLY_INSUFFICIENT",
+      "component": "sessionsPerWeek",
+      "weekStart": "2026-09-14",
+      "evidence": {
+        "sessionsPlaced": 0,
+        "sessionsTargeted": 4,
+        "openingsInPool": 0
+      }
+    }
+  ],
+  "advice": {
+    "code": "LATER_START_IMPROVES_CADENCE",
+    "earliestSustainedWeek": "2026-09-21"
+  }
+}
+```
+
+- **Nine codes**, each with its own evidence shape, discriminated on `code` so your generated types tell you exactly which fields are present: `SUPPLIER_UNAVAILABLE_WEEK`, `WEEK_EXCLUDED_BY_FILTERS`, `WEEK_SUPPLY_INSUFFICIENT`, `WEEK_CAPPED`, `SESSIONS_EXHAUSTED`, `CADENCE_RELAXED`, `SESSIONS_OUTSIDE_PREFERRED_TIMES`, `FIRST_SESSION_LATE`, `PACKAGE_UNDERFILLED`.
+- **`advice` on every slate**, optional — a forward-looking hint naming `earliestSustainedWeek`, the earliest Monday from which supply alone could sustain the frequency you asked for.
+- Both fields appear at **all 17 slate positions** across the same four operations `cadenceSummary` reaches: `POST /v1/projects/{projectId}/availability/package-slate` (`200`), `POST /v1/projects/{projectId}/availability/package-options` (`200`), `POST /v1/projects/{projectId}/orders/{orderId}/package-bookings` (**`409`**, inside `freshSuggestions`), and `POST /v1/projects/{projectId}/suggestions/slots/{slotId}/reschedule` (`200` and **`409`**).
+
+**Why there is no message string**
+
+A note carries no English at all. You keep your own copy and can localise it; `evidence` exists so you can name the week, the weekday or the count in your own wording. Weekday numbers everywhere are `0` = Sunday through `6` = Saturday, matching request-level `daysOfWeek`.
+
+**What this means for you**
+
+- **"Wait a week" and "loosen your days" are opposite calls to action, and telling them apart is the point of the whole field.** The supplier-break case reaches you as `WEEK_SUPPLY_INSUFFICIENT` with `openingsInPool: 0` — nothing was open that week, relaxing your own filter cannot help, so "wait a week" is the honest thing to say and `advice` names which week. `WEEK_EXCLUDED_BY_FILTERS` is the reverse: the supplier's working pattern covers days in that week and your `daysOfWeek` or `excludeDates` cut them below your target, so "loosen your days" is the move. The candidate pool alone can't separate them, because your filters were already applied to it; `evidence.supplierWorkdays` is the pre-filter fact that can. Note it is a fact about the supplier's working **pattern**, not a check of that calendar week, so treat "loosen your filter" as the most likely fix rather than a guaranteed one.
+- **`SUPPLIER_UNAVAILABLE_WEEK` is published but not currently emitted by the live engine.** It fires only for a supplier who works no weekday at all, and such a supplier yields no availability and therefore no slate for a note to attach to. Keep it in your `switch` — it is part of the contract — but key your "waiting helps" copy on `WEEK_SUPPLY_INSUFFICIENT` with `openingsInPool: 0` instead.
+- **`SESSIONS_EXHAUSTED` means nothing went wrong — don't apologise for it.** Nine sessions at four a week leaves the last week holding one. That week is short because the package ran out of credits, not because anyone failed. It outranks every supply code, so when it's emitted for a week no supply code is emitted for that same week. Render it as a plain fact or drop it; surfacing it as a problem makes correct behaviour look broken.
+- **`advice` is advisory and nothing more.** It reports that open supply exists from `earliestSustainedWeek` onward — **not** that a slate was built for that week, and not that one would be bookable. Holds, capacity, travel time and the cadence rules all still apply. Re-request with a later `lookAheadStartDate` before promising a client anything.
+- **`matchNotes` explains `matchComponents`, it doesn't replace it.** Read `matchComponents` for *which* criterion missed and `matchNotes` for *why*; `component` on each note points at the criterion it explains. `PACKAGE_UNDERFILLED` is the one code with no `component`, because plan size isn't a scored criterion. That pointer is a guide, not a join key: the week-level codes bucket **Monday-anchored calendar weeks** while `matchComponents.sessionsPerWeek` buckets **consecutive 7-day blocks from your window's start**, so a note can name a short week for a criterion the component scores as met, and the reverse. Join notes to `cadenceSummary.byWeek` on `weekStart`, which shares their bucketing.
+- Slates persisted before this release read back with `matchNotes: []` and no `advice`. Both are provenance — recorded when the slate was built, not re-derived on a rebuild.
+
+Full walkthrough, with both sides of the supplier-versus-filter pair side by side: [Availability and slates → Why a slate departs from your request](/guides/availability-and-slates#why-a-slate-departs-from-your-request-matchnotes).
+
+</Update>
+
+<Update label="August 26, 2026" tags={["API"]}>
+
+## Slate cadence: `sessionsPerWeek` is gone, `cadenceSummary` replaces it
+
+Every slate now reports how often it actually runs, week by week, instead of a single averaged rate.
+
+**Breaking**
+
+`sessionsPerWeek` has been **removed from the slate object** (`PackageSlateDto`) and replaced by `cadenceSummary`. This is only the slate *response* field: the request field of the same name (integer `1`–`14`, the frequency target) and `matchComponents.sessionsPerWeek` (the `0`–`1` match ratio) are **unchanged and still present**.
+
+Before:
+
+```json
+{
+  "slateId": "slate_01kx16ejsqffc9rbgdcc591w2p",
+  "cadenceRrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH;COUNT=9",
+  "sessionsPerWeek": 1.67
+}
+```
+
+After:
+
+```json
+{
+  "slateId": "slate_01kx16ejsqffc9rbgdcc591w2p",
+  "cadenceRrule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH;COUNT=9",
+  "cadenceSummary": {
+    "requested": 4,
+    "peak": 4,
+    "average": 2.25,
+    "byWeek": [
+      { "weekStart": "2026-09-07", "sessions": 1 },
+      { "weekStart": "2026-09-14", "sessions": 0 },
+      { "weekStart": "2026-09-21", "sessions": 4 },
+      { "weekStart": "2026-09-28", "sessions": 4 }
+    ]
+  }
+}
+```
+
+**Why**
+
+The removed field was an average, and an average is the one number that describes none of the weeks. When a supplier takes a week off mid-plan, a nine-session plan lands 1 / 0 / 4 / 4 across four weeks — so the field reported `1.67`, and booking UIs rendered "1.67×/week" for a plan that runs at four a week wherever it runs at all. There was no way to recover the real cadence from that number, and no way to see *which* week was short.
+
+`cadenceSummary` publishes the week-by-week truth instead. `peak` is the most sessions in any one week and is **the number to render**. `average` is `byWeek`'s sessions divided by `byWeek`'s length to two decimal places, verifiable straight from the array, counted across the plan's own span (first session's week through last session's) rather than your whole look-ahead window, so a wide window doesn't dilute it. `byWeek` is Monday-anchored, ascending and contiguous, and **includes weeks holding `0` sessions** — the zero week is how you show a client why a plan looks uneven instead of apologising for it. `requested` echoes the frequency you asked for: your `sessionsPerWeek` target when you sent one, otherwise the number of weekdays your own `FREQ=WEEKLY` rule named in `BYDAY`, and `null` when the rule wasn't yours to count (a non-weekly `FREQ`, an `INTERVAL` other than `1`, a weekly rule naming no weekdays, or a cadence this API synthesised for you).
+
+**Changed**
+
+- **Gating is wider than the field it replaces.** `sessionsPerWeek` was stamped only when cadence relaxation had been requested, so a strict caller could not get a cadence number at all. `cadenceSummary` is present on **every** request path, including the default `cadenceFlexibility: "NONE"`. It is absent only for a slate holding no sessions, which has no cadence to describe.
+- **The swap spans 17 response positions across four operations**, not just the obvious one — every place a slate is published:
+  - `POST /v1/projects/{projectId}/availability/package-slate` — `200`: `primarySlate`, `alternates[]`, `partial`, `cadenceAlternatives[]`.
+  - `POST /v1/projects/{projectId}/availability/package-options` — `200`: the same four inside each entry of `data[]`.
+  - `POST /v1/projects/{projectId}/orders/{orderId}/package-bookings` — **`409`**: the same four inside `freshSuggestions`.
+  - `POST /v1/projects/{projectId}/suggestions/slots/{slotId}/reschedule` — `200`: `slate`. **`409`**: the same four inside `freshSuggestions`.
+
+**What this means for you**
+
+- **Read `cadenceSummary.peak` wherever you read `sessionsPerWeek`, and render `peak`.** Don't substitute `average` — that reproduces the bug this release fixes.
+- **Update the `409` paths too, not just the availability calls.** Those bodies fire mid-checkout, when a slot went stale while a client was paying, and their `freshSuggestions` carries full slates. A client that reads the removed field only on the happy path fails at the worst possible moment.
+- **`cadenceSummary` and `matchComponents.sessionsPerWeek` count weeks differently, deliberately.** `cadenceSummary` buckets Monday-anchored calendar weeks, so `weekStart` is always a real Monday and the buckets agree with the `maxSessionsPerWeek` cap. The `matchComponents` ratio buckets consecutive 7-day blocks from your window's start, so it stays comparable with `availabilityMatch` on `POST /availability/suppliers`. `peak: 4` against a target of `4` while that ratio reads below `1` is exactly the supplier-break case above, and both numbers are correct for what they measure — not a bug.
+- **Unlike its neighbours, `cadenceSummary` is not provenance.** `matchScore` and `matchComponents` are recorded once and never re-derived, but `peak`, `average` and `byWeek` recompute from the slate's current sessions on every rebuild; only `requested` is snapshotted. A slate can come back from a reschedule with an unchanged `matchScore` and a changed `cadenceSummary`.
+- Slates persisted before this release read back with `requested: null`; `peak`, `average` and `byWeek` are computed from their stored sessions, so they are correct.
+
+Full explanation, with the two week-bucketings side by side: [Availability and slates → How often a plan runs](/guides/availability-and-slates#how-often-a-plan-runs-cadencesummary).
+
+</Update>
+
 <Update label="July 14, 2026" tags={["API"]}>
 
 ## Package discovery, bookable package options, and a wider look-ahead window
