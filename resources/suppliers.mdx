@@ -1,82 +1,325 @@
 ---
 title: Suppliers
-description: The people or units that fulfill bookings in a project.
+description: The people or units that fulfill bookings in a project, and the two endpoints that describe them.
 ---
 
-A **supplier** is the entity that fulfills a booking — typically a
-person, but conceptually any unit of capacity (a stylist, a doctor,
-a tutor, a meeting room).
+A **supplier** is the entity that fulfills a booking — typically a person, but
+conceptually any unit of capacity (a stylist, a doctor, a tutor, a meeting room).
 
-The public API exposes suppliers as a **read-only**, list-only surface.
-Supplier management — creation, edits, soft-delete — lives in the
-MarketBox dashboard. The open API gives consumers what they need to
-build supplier-aware UIs and to assign bookings.
+There are two ways to read one, and picking the right one matters:
+
+| You are building | Call | You get |
+| --- | --- | --- |
+| A directory or picker | `GET /v1/projects/{projectId}/suppliers` | A page of suppliers, each with services, skills and locations |
+| One supplier's profile page | `GET /v1/projects/{projectId}/suppliers/{supplierId}` | The same shape, **plus** the supplier's rating and working hours |
+
+The detail endpoint is a superset. The list omits `rating` and `availability`
+on purpose — each costs an extra read per supplier, and a 200-row page should
+not pay for data a directory does not show.
+
+## Booking identity
+
+A supplier response is not just display content. These are the fields you need
+to actually book against a supplier, and where each one lives:
+
+| What you need | Field | Notes |
+| --- | --- | --- |
+| Stable supplier id | `supplierId` | Send as `supplierId` when creating a booking or a hold. |
+| Whether they take bookings | `active` | See the warning below — `active: true` alone does not mean bookable. |
+| What they can deliver | `services[].serviceId` + `services[].name` | Ids to book with, and localized labels to render. |
+| Timezone | `timezone` | Their own IANA zone. May be absent — see [Timezone](#timezone). |
+| Where they work | `locations[].locationId` | Includes travel zones. This is the id you send as `locationId`. |
+| Country and market | `country`, `state`, `postalcode` | The inputs [regional price rules](/concepts/regional-pricing) resolve against. |
+| Public profile | `firstName`, `lastName`, `bio`, `avatarUrl`, `languages`, `locales` | Everything a card renders. |
+| Reputation | `rating.averageRating`, `rating.reviewCount` | Detail endpoint only. |
+| Working hours | `availability.schedules[]` | Detail endpoint only. **Not** bookable times. |
+
+<Warning>
+  `active` and bookability are set independently. A supplier can be `active:
+  true` and still be impossible to book, because they have no active schedule.
+  The reliable check is `availability.schedules.length > 0`, and the only
+  authoritative one is asking the availability engine for real times.
+</Warning>
 
 ## Anatomy
 
-A supplier response combines two layers:
+Every supplier response — list row or detail — carries these.
 
-**Supplier profile fields** (selected from the full supplier record):
+**Profile fields**, selected from the full supplier record:
 
-| Field            | Notes                                                       |
-| ---------------- | ----------------------------------------------------------- |
-| `supplierId`     | Stable identifier.                                          |
-| `firstName`, `lastName` | Display name.                                        |
-| `email`, `phone` | Contact details.                                            |
-| `addressoneline`, `city`, `state`, `country`, `postalcode` | Address. |
-| `longitude`, `latitude` | Geolocation for mobile / travel-time logic.         |
-| `bio`            | Free-form bio text.                                         |
-| `maxTravelTime`  | For mobile suppliers — max travel time they'll accept.      |
-| `active`         | Whether the supplier is taking bookings.                    |
-| `externalId`, `externalData` | Pass-through fields for your own ids/metadata.  |
-| `updatedAt`      | Last modification timestamp.                                |
+| Field | Notes |
+| --- | --- |
+| `supplierId` | Stable identifier. |
+| `firstName`, `lastName` | Display name. |
+| `email`, `phone` | Contact details. |
+| `addressoneline`, `city`, `state`, `country`, `postalcode` | Address. Note the lowercase spelling of `addressoneline`. |
+| `longitude`, `latitude` | Geolocation for travel-time logic. |
+| `timezone` | IANA timezone. Absent when unset on the profile. |
+| `bio` | Free-form bio text. |
+| `avatarUrl` | Ready-to-use image URL, or `null` when no avatar is set. |
+| `languages` | ISO 639-1 codes the supplier speaks, e.g. `["en","fr"]`. |
+| `locales` | Server-derived from `languages` × `country`, e.g. `["en-CA","fr-CA"]`. |
+| `maxTravelTime` | For mobile suppliers — maximum travel time they will accept, in minutes. |
+| `active` | Whether the supplier is taking bookings. |
+| `externalId`, `externalData` | Pass-through fields for your own ids and metadata. |
+| `updatedAt` | Last modification timestamp. |
 
-**Enriched mappings** — what the supplier can do and where, joined
-against the project's catalog and schedules:
+**Enriched mappings**, joined against the project's catalog and schedules:
 
-| Field       | Shape                                                              |
-| ----------- | ------------------------------------------------------------------ |
-| `services`  | Array of `{ serviceId, name: { en, fr, ... } }`.                   |
-| `skills`    | Array of `{ skillId, name: { en, fr, ... } }`.                     |
-| `locations` | Array of location records the supplier delivers services at. See [Locations](#locations). |
+| Field | Shape |
+| --- | --- |
+| `services` | Array of `{ serviceId, name: { en, fr, … } }`. |
+| `skills` | Array of `{ skillId, name: { en, fr, … } }`. |
+| `locations` | Array of location records. See [Locations](#locations). |
 
-Both `services` and `skills` carry **localized name maps**. If your
-project's services are named in multiple languages, the response
-contains all of them — pick the locale you want client-side.
+Both `services` and `skills` carry **localized name maps**. If your project's
+services are named in several languages, the response contains all of them —
+pick the locale you want client-side.
 
-If a supplier has a service or skill that no longer exists in the
-catalog (deleted or never present), the `name` map will be empty
-rather than dropping the id.
+<Note>
+  Only bookable catalog is joined in. A mapping to a service that is not `LIVE`,
+  or to an inactive skill, is **dropped from the array entirely** rather than
+  returned with a blank name. So `services` is what this supplier can actually
+  be booked for today, not a historical record of what they were ever assigned.
+</Note>
+
+## Timezone
+
+`timezone` is the supplier's own IANA zone, and it is **optional on the
+profile** — a project whose suppliers all work in one place often leaves it
+unset.
+
+The list endpoint returns it as-is, absent and all. The detail endpoint
+additionally resolves it for you:
+
+```json
+"availability": {
+  "timezone": "America/Toronto",
+  "timezoneSource": "SUPPLIER"
+}
+```
+
+`timezoneSource` tells you whether that value is real. `SUPPLIER` means it came
+from the profile. `PROJECT` means the profile had none and the project default
+was substituted — a sensible display default, but not a statement about where
+this supplier works. Do not derive travel logic from a `PROJECT`-sourced zone.
+
+See [Timezones](/concepts/timezones) for how booking times are rendered.
 
 ## Locations
 
-The `locations[]` array is **derived from the supplier's schedules** —
-not stored directly on the supplier record. Each schedule attached to
-the supplier contributes one or more locations via three reference
-shapes:
+The `locations[]` array is **derived from the supplier's schedules** — not
+stored on the supplier record. A location nobody is scheduled at is not
+somewhere you can book, so it does not appear.
 
-| Source on the schedule                         | Resolves against |
-| ---------------------------------------------- | ---------------- |
-| `locationRefs[]`                               | Locations table  |
-| `physicalLocationIdsInsideTravelZone[]`        | Locations table  |
-| `travelZoneRef` (tags the schedule's own travel zone) | TravelZones table |
+Each schedule contributes locations through three reference shapes:
 
-Locations are **deduped by `locationId`**. References that don't
-resolve (deleted location, missing travel zone) are skipped silently
-rather than surfaced as nulls.
+| Source on the schedule | Resolves against |
+| --- | --- |
+| `locationRefs[]` | Locations |
+| `physicalLocationIdsInsideTravelZone[]` | Locations |
+| `travelZoneRef` | The schedule's own travel zone |
+
+Locations are **deduped by `locationId`**. References that do not resolve (a
+deleted location, a missing travel zone) are skipped silently rather than
+surfaced as nulls.
 
 Each location record:
 
-| Field            | Notes                                                       |
-| ---------------- | ----------------------------------------------------------- |
-| `locationId`     | Stable identifier. For travel zones, this is the `supplierTravelZoneId`. |
-| `locationType`   | `PHYSICAL`, `VIRTUAL`, or `TRAVEL_ZONE`.                    |
-| `name`           | Display name.                                               |
+| Field | Notes |
+| --- | --- |
+| `locationId` | Stable identifier. For a supplier-owned travel zone this is the `stz_` id. |
+| `locationType` | `PHYSICAL`, `VIRTUAL`, or `TRAVEL_ZONE`. |
+| `name` | Display name. |
 | `country`, `state`, `city`, `street`, `addressOneLine` | Address fields. Any may be `null`. |
-| `latitude`, `longitude` | Geolocation. May be `null`.                          |
+| `latitude`, `longitude` | Geolocation. May be `null`. |
 | `travelZoneType` | `CIRCULAR` or `DRAWN`. Only set on `TRAVEL_ZONE` locations. |
 
-A supplier with no active schedules will have `locations: []`.
+A supplier with no active schedules has `locations: []`.
+
+## Reading one supplier
+
+```
+GET /v1/projects/{projectId}/suppliers/{supplierId}
+```
+
+```bash
+curl "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/suppliers/sup_01kv60qgnef2kt3pvqgwmkbzfr" \
+  -H "x-api-key: $MARKETBOX_API_KEY"
+```
+
+```json
+{
+  "data": {
+    "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+    "firstName": "Jane",
+    "lastName": "Okonkwo",
+    "email": "jane@example.com",
+    "phone": "+1-416-555-0142",
+    "addressoneline": "120 Adelaide St W, Toronto, ON",
+    "city": "Toronto",
+    "state": "CA-ON",
+    "country": "CA",
+    "postalcode": "M5H 1T1",
+    "latitude": 43.6489,
+    "longitude": -79.3839,
+    "timezone": "America/Toronto",
+    "bio": "Fifteen years of clinical massage therapy.",
+    "avatarUrl": "https://example.com/media/suppliers/sup_01kv60qgnef2kt3pvqgwmkbzfr/256.webp",
+    "languages": ["en", "fr"],
+    "locales": ["en-CA", "fr-CA"],
+    "maxTravelTime": 45,
+    "active": true,
+    "updatedAt": "2026-08-01T14:22:10.000Z",
+    "services": [
+      { "serviceId": "srv_01kv60qg12e82acr78edfnjhvv", "name": { "en": "Deep tissue massage" } }
+    ],
+    "skills": [{ "skillId": "skl_01kv60qg44f01bzz51gjmqp8tt", "name": { "en": "Prenatal" } }],
+    "locations": [
+      {
+        "locationId": "stz_01kv60qgnef2kt3pvqgwmkbzfr",
+        "locationType": "TRAVEL_ZONE",
+        "name": "Downtown Toronto",
+        "country": "CA",
+        "state": "CA-ON",
+        "city": "Toronto",
+        "travelZoneType": "CIRCULAR"
+      }
+    ],
+    "rating": {
+      "averageRating": 4.7,
+      "reviewCount": 128,
+      "recent": [
+        {
+          "reviewId": "rev_01kv7q41n2hbqxwm03ymn7bxl9",
+          "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+          "clientId": "cli_01kv6r83j9fmquwl81xkm5bwj6",
+          "ratingStars": 5,
+          "reviewText": "Booked twice already.",
+          "direction": "CLIENT_TO_SUPPLIER",
+          "subjectType": "SUPPLIER",
+          "subjectId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+          "createdAt": "2026-08-20T18:04:00.000Z"
+        }
+      ]
+    },
+    "availability": {
+      "timezone": "America/Toronto",
+      "timezoneSource": "SUPPLIER",
+      "schedules": [
+        {
+          "scheduleId": "sch_01kv60qgnef2kt3pvqgwmkbzfr",
+          "timezone": "America/Toronto",
+          "startDate": "2026-01-01",
+          "endDate": "2026-12-31",
+          "rrule": "FREQ=WEEKLY;INTERVAL=1",
+          "exdates": ["2026-07-01"],
+          "weeklyHours": [
+            { "dayOfWeek": "MO", "startTime": "09:00", "endTime": "17:00", "crossesMidnight": false },
+            { "dayOfWeek": "WE", "startTime": "09:00", "endTime": "17:00", "crossesMidnight": false }
+          ],
+          "appliesToAllOfferings": true,
+          "offeringIds": [],
+          "locationIds": [],
+          "travelZone": {
+            "locationId": "stz_01kv60qgnef2kt3pvqgwmkbzfr",
+            "source": "SUPPLIER_TRAVEL_ZONE"
+          },
+          "summary": {
+            "days": "Mon, Wed",
+            "times": "9:00 AM – 5:00 PM",
+            "dateRange": "Jan 1 – Dec 31, 2026",
+            "coverageArea": "Downtown Toronto",
+            "offerings": "All offerings"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+An **inactive** supplier is returned, with `active: false`, so a profile page
+for a paused supplier still renders. This differs from the list, which hides
+them. A `404` means the id is unknown in this project, belongs to another
+project, or has been deleted — those three are not distinguished.
+
+## Rating and reviews
+
+`rating` is read from an aggregate maintained in the same atomic write that
+records each review, so it never disagrees with the rows behind it.
+
+| Field | Notes |
+| --- | --- |
+| `averageRating` | Mean stars, rounded to one decimal place. |
+| `reviewCount` | How many reviews the average is based on. |
+| `recent` | The five newest reviews, for a profile card. |
+
+A supplier nobody has reviewed returns `averageRating: 0` and `reviewCount: 0`
+— check `reviewCount` before rendering stars, or an unrated supplier displays
+as a zero-star one.
+
+`recent` is a **preview, not the full set**. To page through every review, call
+`GET /v1/projects/{projectId}/reviews` with `supplierId`. See
+[Reviews](/resources/reviews). No email address is returned for either party.
+
+If the rating badge is all you need and you are not rendering a whole profile,
+`GET /v1/projects/{projectId}/suppliers/{supplierId}/review-summary` returns
+just the aggregate.
+
+## Availability is a pattern, not a list of times
+
+This is the single most expensive thing to get wrong on this endpoint.
+
+`availability.schedules[]` describes **when and where this supplier works**. It
+is the recurring pattern an operator configured. It knows nothing about:
+
+- bookings already on the calendar,
+- time off,
+- how long the offering you want to sell actually takes.
+
+So it cannot tell you a time is free. **Never present a time built from
+`weeklyHours` as available.** For times you can genuinely book, call
+`POST /v1/projects/{projectId}/availability/suppliers` with a service, an
+offering and a location — see
+[Search suppliers by availability](/guides/search-suppliers-by-availability).
+
+What the pattern is good for: rendering "Mon, Wed 9–5" on a profile, deciding
+whether to show a supplier at all, and telling a client the earliest week worth
+asking about.
+
+### Reading a schedule
+
+| Field | Notes |
+| --- | --- |
+| `scheduleId` | Stable identifier. |
+| `timezone` | The zone **this schedule's** times are in. Usually matches the parent `availability.timezone`, but a supplier working across zones can differ — always read against this one. |
+| `startDate`, `endDate` | The window the schedule is in effect, `YYYY-MM-DD`. |
+| `rrule` | Which weeks inside that window it runs. `FREQ=WEEKLY;INTERVAL=1` is every week, `INTERVAL=2` fortnightly. |
+| `exdates` | Individual excluded dates — holidays, one-off closures. |
+| `weeklyHours` | The working windows that repeat each covered week. |
+| `appliesToAllOfferings` | When `true`, `offeringIds` is empty and the schedule covers everything. |
+| `offeringIds` | The offerings covered. Empty means **all**, not none — read `appliesToAllOfferings` first. |
+| `locationIds` | Fixed locations worked at. Each also appears in `locations[]` with its address. |
+| `travelZone` | `{ locationId, source }`, or `null` for a fixed-location schedule. |
+| `summary` | Pre-rendered English display strings. Not localized — build your own from the structured fields if you serve several locales. |
+
+Two traps in `weeklyHours`:
+
+- **The weekdays come from `weeklyHours`, not from `rrule`.** The rule decides
+  which weeks; the array decides which days. A weekday absent from the array is
+  a day this supplier does not work.
+- **`crossesMidnight` must be checked before comparing times.** A night shift is
+  `startTime: "22:00"`, `endTime: "02:00"`, `crossesMidnight: true`. Compare the
+  two strings without it and you get a negative-length day.
+
+`travelZone.source` distinguishes a zone drawn for this supplier alone
+(`SUPPLIER_TRAVEL_ZONE`, an `stz_` id) from a project-wide zone several
+suppliers share (`PROJECT_LOCATION`, a `loc_` id). Both are booked the same
+way; the distinction only matters if you draw a coverage map.
+
+Only **active** schedules are returned. `schedules: []` means the supplier
+cannot currently be booked at all, whatever `active` says.
 
 ## Listing suppliers
 
@@ -84,25 +327,63 @@ A supplier with no active schedules will have `locations: []`.
 GET /v1/projects/{projectId}/suppliers
 ```
 
-| Param     | Default     | Notes                                              |
-| --------- | ----------- | -------------------------------------------------- |
-| `limit`   | 50          | Page size. Max 200.                                |
-| `cursor`  | —           | Pagination cursor. See [Pagination](/concepts/pagination). |
+| Param | Default | Notes |
+| --- | --- | --- |
+| `limit` | 50 | Page size. Max 200. |
+| `cursor` | — | Pagination cursor. See [Pagination](/concepts/pagination). |
+| `services` | — | Comma-separated service ids. |
+| `skills` | — | Comma-separated skill ids. |
+| `country` | — | ISO 3166-1 alpha-2, e.g. `CA`. |
+| `state` | — | ISO 3166-2, `CA-ON` or `ON`. Requires `country`. |
+| `city` | — | Requires `country` and `state`. |
 
-Suppliers are returned in the project index's natural ordering (by
-name). The response includes the full enriched payload — suppliers,
-their services, skills, and locations — in a single round trip.
+Every filter is **AND**, both within a parameter and across them.
+`services=srv_a,srv_b` means a supplier offering *both*, never either.
+
+The location filter is **hierarchical**, and each level requires the one above:
+`state` without `country` is a `400`, as is `city` without both.
 
 <Note>
-  Each list response performs the service/skill name join and the
-  schedule-to-locations resolution across the whole page. If you only
-  need supplier ids and basic fields, you'll still get the joined
-  response — the API does not currently offer a "lite" projection.
+  The location filter matches the regions a supplier **serves** — derived from
+  the travel zones and physical locations on their active schedules — not the
+  address on their profile. A mobile supplier based in Barrie whose travel zone
+  covers Toronto matches `city=Toronto`. A supplier with an address but no
+  active schedule matches nothing, because they cannot be booked.
 </Note>
 
-## Booking against a supplier
+Only active suppliers are listed; inactive and deleted ones never appear, on
+any combination of filters. Results are ordered by supplier id, not by name.
 
-To list bookings assigned to one supplier, use the bookings endpoint:
+Treat `nextCursor: null` as the **only** end-of-results signal — never stop on
+a page that merely looks short. A cursor is valid only against the filter set
+that produced it; change a filter mid-walk and restart.
+
+## Managing suppliers
+
+Supplier management is normally done in the MarketBox dashboard, but the public
+API exposes it too, so you can keep a roster in sync from your own system:
+
+| Operation | Endpoint |
+| --- | --- |
+| Create | `POST /v1/projects/{projectId}/suppliers` |
+| Update | `PUT /v1/projects/{projectId}/suppliers/{supplierId}` |
+| Soft-delete | `DELETE /v1/projects/{projectId}/suppliers/{supplierId}` |
+| Add a service | `POST /v1/projects/{projectId}/suppliers/{supplierId}/services/{serviceId}` |
+| Remove a service | `DELETE /v1/projects/{projectId}/suppliers/{supplierId}/services/{serviceId}` |
+| Add a skill | `POST /v1/projects/{projectId}/suppliers/{supplierId}/skills/{skillId}` |
+| Remove a skill | `DELETE /v1/projects/{projectId}/suppliers/{supplierId}/skills/{skillId}` |
+| Get an avatar upload URL | `POST /v1/projects/{projectId}/suppliers/{supplierId}/avatar/upload-url` |
+| Attach an uploaded avatar | `PUT /v1/projects/{projectId}/suppliers/{supplierId}/avatar` |
+| Remove an avatar | `DELETE /v1/projects/{projectId}/suppliers/{supplierId}/avatar` |
+
+Use `externalId` to carry your own primary key onto the supplier, so you can
+reconcile without storing a second id map.
+
+Schedules are **not** writable through the public API. A supplier created here
+has no schedule, so `availability.schedules` is `[]` and they cannot be booked
+until an operator sets working hours in the dashboard.
+
+## Bookings for one supplier
 
 ```
 GET /v1/projects/{projectId}/suppliers/{supplierId}/bookings
@@ -113,3 +394,17 @@ See [Bookings](/resources/bookings).
 ## Endpoint index
 
 - `GET /v1/projects/{projectId}/suppliers`
+- `GET /v1/projects/{projectId}/suppliers/{supplierId}`
+- `POST /v1/projects/{projectId}/suppliers`
+- `PUT /v1/projects/{projectId}/suppliers/{supplierId}`
+- `DELETE /v1/projects/{projectId}/suppliers/{supplierId}`
+- `GET /v1/projects/{projectId}/suppliers/{supplierId}/bookings`
+- `GET /v1/projects/{projectId}/suppliers/{supplierId}/review-summary`
+- `POST /v1/projects/{projectId}/suppliers/{supplierId}/services/{serviceId}`
+- `DELETE /v1/projects/{projectId}/suppliers/{supplierId}/services/{serviceId}`
+- `POST /v1/projects/{projectId}/suppliers/{supplierId}/skills/{skillId}`
+- `DELETE /v1/projects/{projectId}/suppliers/{supplierId}/skills/{skillId}`
+- `POST /v1/projects/{projectId}/suppliers/{supplierId}/avatar/upload-url`
+- `PUT /v1/projects/{projectId}/suppliers/{supplierId}/avatar`
+- `DELETE /v1/projects/{projectId}/suppliers/{supplierId}/avatar`
+- `POST /v1/projects/{projectId}/availability/suppliers`

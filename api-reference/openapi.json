@@ -10807,6 +10807,11 @@
                           "updatedAt": {
                             "type": "string"
                           },
+                          "timezone": {
+                            "type": "string",
+                            "description": "The supplier's own IANA timezone. Absent when none is set on the profile, in which case fall back to the project's default timezone rather than the caller's. Every `*Local` time this API renders for this supplier is in this zone.",
+                            "example": "America/Toronto"
+                          },
                           "avatarUrl": {
                             "type": "string",
                             "nullable": true,
@@ -11172,6 +11177,11 @@
                         "updatedAt": {
                           "type": "string"
                         },
+                        "timezone": {
+                          "type": "string",
+                          "description": "The supplier's own IANA timezone. Absent when none is set on the profile, in which case fall back to the project's default timezone rather than the caller's. Every `*Local` time this API renders for this supplier is in this zone.",
+                          "example": "America/Toronto"
+                        },
                         "avatarUrl": {
                           "type": "string",
                           "nullable": true,
@@ -11343,6 +11353,562 @@
       }
     },
     "/v1/projects/{projectId}/suppliers/{supplierId}": {
+      "get": {
+        "tags": ["Suppliers"],
+        "summary": "One supplier in full: profile, services, skills, locations, rating and working hours",
+        "description": "Everything about one supplier in a single call — the same shape `GET /suppliers` returns for a row, plus two blocks the list deliberately omits because they cost a read each: `rating` and `availability`. Use it for a supplier profile page; use the list for a directory.\n\nThe response carries the full booking identity, not just display content: `supplierId` to book against, `active` for whether they take bookings at all, `services[]` with ids AND localized labels, `timezone` for rendering their hours, `country`/`state`/`postalcode` (the inputs regional price rules resolve against), and every `locations[].locationId` — including travel zones, which is the id you send as `locationId` when you book a mobile service.\n\n`availability` is the recurring pattern of WHEN AND WHERE THIS SUPPLIER WORKS. It is not a list of bookable times: it ignores existing bookings, time off, and how long an offering takes, so never present a slot built from it as available. For times you can actually book, call `POST /availability/suppliers` with a service, an offering and a location. Only ACTIVE schedules appear, so `availability.schedules: []` means this supplier cannot currently be booked at all — which can be true even when `active` is `true`, because the two are set independently.\n\nUnlike the list, this endpoint DOES return an inactive supplier, with `active: false`, so a profile page for a paused supplier still renders. A 404 means the id is unknown in this project, belongs to another project, or has been deleted — those three are not distinguished.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+              "example": "prj_01kv60qgnef2kt3pvqgwmkbzfr"
+            },
+            "required": true,
+            "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The supplier — the person or resource delivering the service.",
+              "example": "sup_01kv60qh1k5xylm7r0c1qj8zpa"
+            },
+            "required": true,
+            "description": "The supplier — the person or resource delivering the service.",
+            "name": "supplierId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The supplier",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "supplierId": {
+                          "type": "string"
+                        },
+                        "firstName": {
+                          "type": "string"
+                        },
+                        "lastName": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "phone": {
+                          "type": "string"
+                        },
+                        "addressoneline": {
+                          "type": "string"
+                        },
+                        "longitude": {
+                          "type": "number"
+                        },
+                        "latitude": {
+                          "type": "number"
+                        },
+                        "city": {
+                          "type": "string"
+                        },
+                        "state": {
+                          "type": "string"
+                        },
+                        "country": {
+                          "type": "string"
+                        },
+                        "postalcode": {
+                          "type": "string"
+                        },
+                        "bio": {
+                          "type": "string"
+                        },
+                        "maxTravelTime": {
+                          "type": "number"
+                        },
+                        "externalId": {
+                          "type": "string"
+                        },
+                        "externalData": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "nullable": true
+                          }
+                        },
+                        "active": {
+                          "type": "boolean"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "description": "The supplier's own IANA timezone. Absent when none is set on the profile, in which case fall back to the project's default timezone rather than the caller's. Every `*Local` time this API renders for this supplier is in this zone.",
+                          "example": "America/Toronto"
+                        },
+                        "avatarUrl": {
+                          "type": "string",
+                          "nullable": true,
+                          "format": "uri"
+                        },
+                        "services": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "serviceId": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "required": ["serviceId", "name"]
+                          }
+                        },
+                        "skills": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "skillId": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "required": ["skillId", "name"]
+                          }
+                        },
+                        "locations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "locationId": {
+                                "type": "string"
+                              },
+                              "locationType": {
+                                "type": "string",
+                                "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "country": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "state": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "city": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "addressOneLine": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "street": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "latitude": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "longitude": {
+                                "type": "number",
+                                "nullable": true
+                              },
+                              "travelZoneType": {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": ["CIRCULAR", "DRAWN", null]
+                              }
+                            },
+                            "required": ["locationId", "locationType", "name"]
+                          }
+                        },
+                        "languages": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "locales": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "rating": {
+                          "type": "object",
+                          "properties": {
+                            "averageRating": {
+                              "type": "number",
+                              "description": "Mean star rating across every review of this supplier, rounded to one decimal place. Maintained in the same atomic write that records each review, so it never disagrees with the rows behind it. `0` when there are no reviews — check `reviewCount` before rendering a rating, or an unrated supplier displays as zero stars.",
+                              "example": 4.7
+                            },
+                            "reviewCount": {
+                              "type": "integer",
+                              "description": "How many reviews the average is based on.",
+                              "example": 128
+                            },
+                            "recent": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "reviewId": {
+                                    "type": "string"
+                                  },
+                                  "supplierId": {
+                                    "type": "string"
+                                  },
+                                  "clientId": {
+                                    "type": "string"
+                                  },
+                                  "projectId": {
+                                    "type": "string"
+                                  },
+                                  "ratingStars": {
+                                    "type": "integer"
+                                  },
+                                  "reviewText": {
+                                    "type": "string"
+                                  },
+                                  "reviewerId": {
+                                    "type": "string"
+                                  },
+                                  "bookingId": {
+                                    "type": "string"
+                                  },
+                                  "direction": {
+                                    "type": "string",
+                                    "enum": [
+                                      "CLIENT_TO_SUPPLIER",
+                                      "SUPPLIER_TO_CLIENT"
+                                    ]
+                                  },
+                                  "subjectType": {
+                                    "type": "string",
+                                    "enum": ["SUPPLIER", "CLIENT"]
+                                  },
+                                  "subjectId": {
+                                    "type": "string"
+                                  },
+                                  "createdAt": {
+                                    "type": "string"
+                                  },
+                                  "supplierName": {
+                                    "type": "string"
+                                  },
+                                  "clientName": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "reviewId",
+                                  "supplierId",
+                                  "projectId",
+                                  "ratingStars",
+                                  "direction",
+                                  "subjectType",
+                                  "subjectId",
+                                  "createdAt"
+                                ]
+                              },
+                              "description": "The 5 newest reviews, for a profile card. This is a preview, not the full set — page `GET /reviews?supplierId=…` for that. Empty when the supplier has no reviews. No email address is returned for either party."
+                            }
+                          },
+                          "required": [
+                            "averageRating",
+                            "reviewCount",
+                            "recent"
+                          ],
+                          "description": "This supplier's star rating, plus a preview of the newest reviews."
+                        },
+                        "availability": {
+                          "type": "object",
+                          "properties": {
+                            "timezone": {
+                              "type": "string",
+                              "description": "The timezone to read this supplier's working hours in — their own if set, otherwise the project default. Check `timezoneSource` before treating it as the supplier's own.",
+                              "example": "America/Toronto"
+                            },
+                            "timezoneSource": {
+                              "type": "string",
+                              "enum": ["SUPPLIER", "PROJECT"],
+                              "description": "Where `timezone` came from. `SUPPLIER` means it is set on the supplier profile. `PROJECT` means the profile has none and the project default was substituted — a reasonable display default, but not a statement about where this supplier actually works.",
+                              "example": "SUPPLIER"
+                            },
+                            "schedules": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "scheduleId": {
+                                    "type": "string",
+                                    "description": "Stable id for this schedule.",
+                                    "example": "sch_01kv60qgnef2kt3pvqgwmkbzfr"
+                                  },
+                                  "timezone": {
+                                    "type": "string",
+                                    "description": "The IANA timezone every `HH:mm` and date on THIS schedule is expressed in. Usually the same as `availability.timezone`, but a supplier working across zones can have schedules that differ — always read the times against this field, not the parent one.",
+                                    "example": "America/Toronto"
+                                  },
+                                  "startDate": {
+                                    "type": "string",
+                                    "description": "First date this schedule is in effect, `YYYY-MM-DD` in its `timezone`.",
+                                    "example": "2026-01-01"
+                                  },
+                                  "endDate": {
+                                    "type": "string",
+                                    "description": "Last date this schedule is in effect, `YYYY-MM-DD` in its `timezone`.",
+                                    "example": "2026-12-31"
+                                  },
+                                  "rrule": {
+                                    "type": "string",
+                                    "description": "The recurrence rule (RFC 5545) that decides which weeks inside `startDate`–`endDate` the schedule runs. `FREQ=WEEKLY;INTERVAL=1` is every week; `INTERVAL=2` is fortnightly. The weekdays come from `weeklyHours`, not from this string.",
+                                    "example": "FREQ=WEEKLY;INTERVAL=1"
+                                  },
+                                  "exdates": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "Individual dates excluded from the recurrence (`YYYY-MM-DD`) — holidays and one-off closures. Empty when there are none.",
+                                    "example": ["2026-07-01"]
+                                  },
+                                  "weeklyHours": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "dayOfWeek": {
+                                          "type": "string",
+                                          "enum": [
+                                            "MO",
+                                            "TU",
+                                            "WE",
+                                            "TH",
+                                            "FR",
+                                            "SA",
+                                            "SU"
+                                          ],
+                                          "description": "The weekday this range falls on, as a two-letter iCalendar code — the same codes an RRULE BYDAY uses.",
+                                          "example": "MO"
+                                        },
+                                        "startTime": {
+                                          "type": "string",
+                                          "description": "Start of the working window, 24-hour `HH:mm` in the schedule's `timezone`.",
+                                          "example": "09:00"
+                                        },
+                                        "endTime": {
+                                          "type": "string",
+                                          "description": "End of the working window, 24-hour `HH:mm` in the schedule's `timezone`. Earlier than `startTime` when the range runs past midnight — see `crossesMidnight`.",
+                                          "example": "17:00"
+                                        },
+                                        "crossesMidnight": {
+                                          "type": "boolean",
+                                          "description": "True when the range runs into the next calendar day (`endTime` \u003C= `startTime`), e.g. 22:00–02:00. Do not compare the two strings numerically without checking this first, or a night shift reads as a negative-length day.",
+                                          "example": false
+                                        }
+                                      },
+                                      "required": [
+                                        "dayOfWeek",
+                                        "startTime",
+                                        "endTime",
+                                        "crossesMidnight"
+                                      ]
+                                    },
+                                    "description": "The working windows that repeat each covered week. A weekday absent from this array is a day the supplier does not work under this schedule. Never empty."
+                                  },
+                                  "appliesToAllOfferings": {
+                                    "type": "boolean",
+                                    "description": "True when this schedule covers every offering the supplier can deliver, in which case `offeringIds` is empty. False means it covers only the ids in `offeringIds`.",
+                                    "example": true
+                                  },
+                                  "offeringIds": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "The offerings this schedule covers. Empty when `appliesToAllOfferings` is true — an empty array there means \"all\", not \"none\".",
+                                    "example": []
+                                  },
+                                  "locationIds": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "Physical and virtual locations this schedule is worked at. Each id also appears in the supplier's `locations[]` with its full address. Excludes the travel zone, which has its own field.",
+                                    "example": [
+                                      "loc_01kv60qg12e82acr78edfnjhvv"
+                                    ]
+                                  },
+                                  "travelZone": {
+                                    "type": "object",
+                                    "nullable": true,
+                                    "properties": {
+                                      "locationId": {
+                                        "type": "string",
+                                        "description": "The travel zone this schedule covers. This is the id to send as `locationId` when you book, and it also appears in the supplier's `locations[]` with `locationType: \"TRAVEL_ZONE\"`.",
+                                        "example": "stz_01kv60qgnef2kt3pvqgwmkbzfr"
+                                      },
+                                      "source": {
+                                        "type": "string",
+                                        "enum": [
+                                          "PROJECT_LOCATION",
+                                          "SUPPLIER_TRAVEL_ZONE"
+                                        ],
+                                        "description": "Who owns the zone. `SUPPLIER_TRAVEL_ZONE` is a zone drawn for this supplier alone (id prefix `stz_`); `PROJECT_LOCATION` is a project-wide zone shared by several suppliers (id prefix `loc_`). Both are booked the same way — the distinction only matters if you render a coverage map.",
+                                        "example": "SUPPLIER_TRAVEL_ZONE"
+                                      }
+                                    },
+                                    "required": ["locationId", "source"],
+                                    "description": "The travel zone this schedule covers, or `null` for a fixed-location schedule."
+                                  },
+                                  "summary": {
+                                    "type": "object",
+                                    "properties": {
+                                      "days": {
+                                        "type": "string",
+                                        "description": "Human-readable weekdays, e.g. \"Mon, Wed, Fri\".",
+                                        "example": "Mon, Wed, Fri"
+                                      },
+                                      "times": {
+                                        "type": "string",
+                                        "description": "Human-readable hours, e.g. \"9:00 AM – 5:00 PM\".",
+                                        "example": "9:00 AM – 5:00 PM"
+                                      },
+                                      "dateRange": {
+                                        "type": "string",
+                                        "description": "Human-readable effective period, e.g. \"Jan 1 – Dec 31, 2026\".",
+                                        "example": "Jan 1 – Dec 31, 2026"
+                                      },
+                                      "coverageArea": {
+                                        "type": "string",
+                                        "description": "Human-readable description of where this schedule applies.",
+                                        "example": "Toronto travel zone"
+                                      },
+                                      "offerings": {
+                                        "type": "string",
+                                        "description": "Human-readable description of which offerings this schedule covers.",
+                                        "example": "All offerings"
+                                      }
+                                    },
+                                    "required": [
+                                      "days",
+                                      "times",
+                                      "dateRange",
+                                      "coverageArea",
+                                      "offerings"
+                                    ],
+                                    "description": "Pre-rendered display strings for this schedule, built by MarketBox and shown in its dashboard. Convenient for a profile page; they are English and not localized, so build your own from the structured fields above if you serve multiple locales."
+                                  }
+                                },
+                                "required": [
+                                  "scheduleId",
+                                  "timezone",
+                                  "startDate",
+                                  "endDate",
+                                  "rrule",
+                                  "exdates",
+                                  "weeklyHours",
+                                  "appliesToAllOfferings",
+                                  "offeringIds",
+                                  "locationIds",
+                                  "travelZone",
+                                  "summary"
+                                ]
+                              },
+                              "description": "The supplier's ACTIVE schedules — the recurring pattern of when and where they work. Inactive and deleted schedules never appear, so `[]` means this supplier currently has no working hours at all and cannot be booked, whatever `active` says."
+                            }
+                          },
+                          "required": [
+                            "timezone",
+                            "timezoneSource",
+                            "schedules"
+                          ],
+                          "description": "When and where this supplier WORKS — their recurring schedule pattern. This is not a list of bookable times: it ignores existing bookings, time off, and how long an offering takes. For times you can actually book, call `POST /availability/suppliers` with a service, an offering and a location."
+                        }
+                      },
+                      "required": [
+                        "supplierId",
+                        "firstName",
+                        "lastName",
+                        "email",
+                        "active",
+                        "updatedAt",
+                        "avatarUrl",
+                        "services",
+                        "skills",
+                        "locations",
+                        "languages",
+                        "locales",
+                        "rating",
+                        "availability"
+                      ]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key cannot access this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Supplier not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        }
+      },
       "put": {
         "tags": ["Suppliers"],
         "summary": "Update a supplier; sync its service/skill mappings when arrays are supplied",
@@ -11550,6 +12116,11 @@
                         },
                         "updatedAt": {
                           "type": "string"
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "description": "The supplier's own IANA timezone. Absent when none is set on the profile, in which case fall back to the project's default timezone rather than the caller's. Every `*Local` time this API renders for this supplier is in this zone.",
+                          "example": "America/Toronto"
                         },
                         "avatarUrl": {
                           "type": "string",
@@ -11907,6 +12478,11 @@
                         },
                         "updatedAt": {
                           "type": "string"
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "description": "The supplier's own IANA timezone. Absent when none is set on the profile, in which case fall back to the project's default timezone rather than the caller's. Every `*Local` time this API renders for this supplier is in this zone.",
+                          "example": "America/Toronto"
                         },
                         "avatarUrl": {
                           "type": "string",
@@ -12266,6 +12842,11 @@
                         },
                         "updatedAt": {
                           "type": "string"
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "description": "The supplier's own IANA timezone. Absent when none is set on the profile, in which case fall back to the project's default timezone rather than the caller's. Every `*Local` time this API renders for this supplier is in this zone.",
+                          "example": "America/Toronto"
                         },
                         "avatarUrl": {
                           "type": "string",
@@ -12783,6 +13364,11 @@
                         },
                         "updatedAt": {
                           "type": "string"
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "description": "The supplier's own IANA timezone. Absent when none is set on the profile, in which case fall back to the project's default timezone rather than the caller's. Every `*Local` time this API renders for this supplier is in this zone.",
+                          "example": "America/Toronto"
                         },
                         "avatarUrl": {
                           "type": "string",
@@ -14440,6 +15026,11 @@
                               },
                               "updatedAt": {
                                 "type": "string"
+                              },
+                              "timezone": {
+                                "type": "string",
+                                "description": "The supplier's own IANA timezone. Absent when none is set on the profile, in which case fall back to the project's default timezone rather than the caller's. Every `*Local` time this API renders for this supplier is in this zone.",
+                                "example": "America/Toronto"
                               },
                               "avatarUrl": {
                                 "type": "string",
