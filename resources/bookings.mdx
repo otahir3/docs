@@ -68,6 +68,11 @@ services in one transaction. The body carries:
   offering at create time and **snapshotted** into the booking.
 - **`notes`** — optional initial notes.
 
+The response also carries **`locale`** — the locale the funding order was
+placed in, copied onto the booking automatically. It's **server-derived
+and read-only: do not send it on create.** See
+[Locales](/concepts/locales).
+
 The server validates:
 
 - `bookingEndUtc > bookingStartUtc`.

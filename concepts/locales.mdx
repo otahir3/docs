@@ -1,0 +1,139 @@
+---
+title: Locales
+description: The language a purchase was made in, how it flows onto bookings and review links, and how it differs from a supplier's spoken languages.
+---
+
+A **locale** in MarketBox is the language your buyer completed a purchase
+in — typically the language segment of your storefront URL. It exists to
+answer one question later: "what language should this person's link, page
+or email be in?"
+
+MarketBox never infers it. There is no Accept-Language sniffing and no
+guessing from a country code — you supply it, or it is absent.
+
+## Format
+
+Locales are canonical BCP-47 tags: `language[-Script][-REGION]`. The API
+normalizes whatever you send on write, so casing differences collapse into
+one value — `en-us` is stored and returned as `en-US`.
+
+A tag that doesn't parse is rejected with a `400`:
+
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "message": "locale: Must be a BCP-47 locale tag: a 2-3 letter language, optionally -Script and -REGION (e.g. en-US, fr-CA, pt, zh-Hant-TW).",
+  "statusCode": 400,
+  "requestId": "7a2e9c4f-1b6d-4a3e-8f52-0d9c7b1e4a68"
+}
+```
+
+## Where you supply it
+
+The only place you ever set a locale directly is order creation —
+`POST /v1/projects/{projectId}/orders`, field `locale`:
+
+```bash
+curl -X POST "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/orders" \
+  -H "x-api-key: $MARKETBOX_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{
+    "clientId": "cli_456",
+    "currency": "CAD",
+    "locale": "en-us",
+    "items": []
+  }'
+```
+
+The response carries it back normalized: `"locale": "en-US"`.
+
+`locale` is optional. Omit it and the order simply carries no locale —
+nothing downstream is inferred to fill the gap.
+
+## Where it goes
+
+Everything past order creation is server-derived. You never set any of the
+rows below directly:
+
+| Field | Set by | Changes later? |
+| --- | --- | --- |
+| `Order.locale` | you, at create | no — immutable |
+| `Booking.locale` | the server, from the order | no — a snapshot |
+| `Client.defaultLocale` | the server, from each booking | yes — latest booking wins |
+| `Supplier.defaultLocale` | staff, in the backoffice | only by hand |
+
+`Order.locale` is set once, the same way `currency` and `pricingRegion` are —
+there is no `PATCH` field for it. The server copies it onto every booking the
+order funds, and separately points the client's profile at it as their
+current default (overwriting even a value staff set by hand — the client's
+*next* booking always wins).
+
+`Supplier.defaultLocale` is the odd one out: it is never touched by a
+booking. See "The `Supplier.defaultLocale` vs `locales` distinction" below.
+
+## Why the booking keeps its own copy
+
+`Booking.locale` is **read-only and server-derived** — do not send it on
+create. It is not a live pointer to "whatever the client's locale is now";
+it is a snapshot of the order's locale, taken once, at the moment the
+booking was created.
+
+That distinction matters because of when review emails actually go out.
+MarketBox mails a rating request an hour after a booking ends, then follows
+up 3, 6 and 9 days later — see [Emails](/concepts/emails). A client who
+buys in French today and switches their storefront to English next week
+must not have that change reach into last week's booking and rewrite the
+link on an email that's about to go out. Each booking's `locale` is frozen
+at creation specifically so a language change never retroactively touches
+a booking that already happened.
+
+## Review URL tokens
+
+If your project has a review redirect URL configured, MarketBox substitutes
+four tokens anywhere they appear in it: `{bookingId}`, `{clientLocale}`,
+`{supplierLocale}`, and `{bookingLocale}`.
+
+The three locale tokens are independent — the client's language, the
+supplier's language, and the language a specific booking was made in
+routinely disagree, and your page may need any of them. Each one falls
+back **only** to your project's own default locale, never to one of the
+other two tokens — so `{supplierLocale}` can never silently render the
+client's language, and no token can ever render empty.
+
+Worked example — a review URL configured as:
+
+```
+https://example.com/{clientLocale}/review
+```
+
+resolves, for a client whose `defaultLocale` is `en-US`, to:
+
+```
+https://example.com/en-US/review?bookingId=bk_01kv60qge5eh59ap0gw0pqrrys&role=client
+```
+
+`bookingId` is appended as a query parameter regardless of whether you
+templated it into the path too — see [Emails](/concepts/emails) for the
+full contract, including `role`.
+
+## The `Supplier.defaultLocale` vs `locales` distinction
+
+These fields sit next to each other on a supplier record and mean
+different things:
+
+- **`languages`** — the ISO 639-1 codes a supplier speaks, e.g.
+  `["en", "fr"]`. Staff-set.
+- **`locales`** — server-derived from `languages` × the supplier's
+  `country`, e.g. `["en-CA", "fr-CA"]`. You never set this directly.
+- **`defaultLocale`** — a single, staff-set preferred locale, e.g.
+  `"fr-CA"`. It is not derived from anything, and it is never touched by a
+  booking — only a human, in the backoffice, sets or changes it.
+
+Plainly: `languages` and `locales` describe what a supplier *can* speak.
+`defaultLocale` is what they *prefer*, chosen by staff, and it is the
+field the `{supplierLocale}` review-link token reads — not `languages` or
+`locales`. Leave it unset and `{supplierLocale}` falls back to your
+project's default locale instead, the same as any other locale token with
+nothing to read.
+
+See [Suppliers](/resources/suppliers) for the full field reference.

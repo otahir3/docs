@@ -39,6 +39,7 @@
               "concepts/emails",
               "concepts/versioning",
               "concepts/timezones",
+              "concepts/locales",
               "concepts/concurrency"
             ]
           },

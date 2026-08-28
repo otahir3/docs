@@ -59,6 +59,7 @@ Every supplier response — list row or detail — carries these.
 | `avatarUrl` | Ready-to-use image URL, or `null` when no avatar is set. |
 | `languages` | ISO 639-1 codes the supplier speaks, e.g. `["en","fr"]`. |
 | `locales` | Server-derived from `languages` × `country`, e.g. `["en-CA","fr-CA"]`. |
+| `defaultLocale` | The supplier's own **single** preferred locale, set by staff in the backoffice. Distinct from `locales` above, which is a server-derived array of `languages` × `country` — this one is not derived from anything, and no booking ever writes to it. |
 | `maxTravelTime` | For mobile suppliers — maximum travel time they will accept, in minutes. |
 | `active` | Whether the supplier is taking bookings. |
 | `externalId`, `externalData` | Pass-through fields for your own ids and metadata. |

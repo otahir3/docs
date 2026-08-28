@@ -86,6 +86,9 @@
           "bookingLocalEndDate": {
             "type": "string"
           },
+          "locale": {
+            "type": "string"
+          },
           "locationType": {
             "type": "string",
             "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
@@ -420,6 +423,9 @@
                 "nullable": true
               }
             }
+          },
+          "locale": {
+            "type": "string"
           },
           "deleted": {
             "type": "boolean"
@@ -905,6 +911,9 @@
               }
             },
             "required": ["type", "brand", "last4", "paidAt"]
+          },
+          "defaultLocale": {
+            "type": "string"
           },
           "active": {
             "type": "boolean"
@@ -4634,6 +4643,11 @@
                     "maxLength": 3,
                     "description": "ISO 4217 currency you quoted the buyer. Verified against the price the server resolves for this order's region; a mismatch is a 400.",
                     "example": "CAD"
+                  },
+                  "locale": {
+                    "type": "string",
+                    "description": "The locale your buyer completed this purchase in — typically the language segment of your storefront URL. Normalized to canonical BCP-47 on write, so `en-us` is stored as `en-US`. It is copied onto every booking this order funds and saved as the client's default locale.",
+                    "example": "en-US"
                   },
                   "reservationId": {
                     "type": "string",
@@ -10916,6 +10930,9 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "defaultLocale": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -11102,6 +11119,11 @@
                       ]
                     },
                     "default": []
+                  },
+                  "defaultLocale": {
+                    "type": "string",
+                    "description": "The supplier's own preferred locale (BCP-47, e.g. 'fr-CA'). Staff-set only — never inferred from a booking. Omit to inherit the project default.",
+                    "example": "fr-CA"
                   }
                 },
                 "required": ["firstName", "lastName", "email"]
@@ -11286,6 +11308,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -11560,6 +11585,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         },
                         "rating": {
                           "type": "object",
@@ -12043,6 +12071,11 @@
                         "vi"
                       ]
                     }
+                  },
+                  "defaultLocale": {
+                    "type": "string",
+                    "description": "The supplier's own preferred locale (BCP-47, e.g. 'fr-CA'). Staff-set only — never inferred from a booking. Omit to leave the current value unchanged.",
+                    "example": "fr-CA"
                   }
                 }
               }
@@ -12226,6 +12259,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -12588,6 +12624,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -12952,6 +12991,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -13474,6 +13516,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -15144,6 +15189,9 @@
                                 "items": {
                                   "type": "string"
                                 }
+                              },
+                              "defaultLocale": {
+                                "type": "string"
                               }
                             },
                             "required": [

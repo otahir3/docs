@@ -29,7 +29,7 @@ the order is hidden from lists but its data is retained.
 
 An order is two things stored together:
 
-- **The order**: client, currency, tax, status, totals, audit metadata.
+- **The order**: client, currency, locale, tax, status, totals, audit metadata.
 - **The items**: line-by-line, each referencing one offering with a
   frozen `unitPrice` and a `quantity`.
 
@@ -66,6 +66,18 @@ price — a mismatch here more often means the order didn't resolve the
 region you expected than that the price data is wrong. See
 [Regional pricing](/concepts/regional-pricing).
 </Note>
+
+## Locale is set once
+
+`locale` is the locale this purchase was made in. Normalized to canonical
+BCP-47 on write — `en-us` is stored and returned as `en-US`; a malformed
+tag is rejected with a `400`. Like `currency`, it is **set at create and
+immutable** thereafter — there is no `PATCH` field for it.
+
+`locale` is optional and never inferred: leave it out and the order simply
+carries none. When set, it's copied onto every booking the order funds and
+becomes the client's new default locale. See [Locales](/concepts/locales)
+for the full picture, including how review-link tokens use it.
 
 ## Creating an order
 
