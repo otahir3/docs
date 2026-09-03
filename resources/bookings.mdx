@@ -82,6 +82,16 @@ The server validates:
   against the existing `bookingId`.
 </Note>
 
+<Note>
+  **`locale` is derived, not sent.** A booking carries `locale`, the language
+  the funding order was placed in, copied from the order at create time —
+  through `POST /bookings`, `POST /orders/{orderId}/package-bookings` and hold
+  conversion alike. It is a snapshot: a client who books in `fr-CA` and later in
+  `en-US` keeps `fr-CA` on the first booking, so a review link mailed nine days
+  later still lands on the right page. Absent when the order had none. Set it on
+  the order — see [Orders](/resources/orders#creating-an-order).
+</Note>
+
 ## Rescheduling
 
 `PATCH /v1/projects/{projectId}/bookings/{bookingId}` updates time and
@@ -91,7 +101,8 @@ core fields. The body may include any subset of:
 - `supplierId`, `clientId`
 - `capacity`
 
-You cannot send the four `bookingLocal*` fields — they're server-derived.
+You cannot send the four `bookingLocal*` fields or `locale` — they're
+server-derived.
 
 If you change any time field, the server recomputes all four local
 fields against the (possibly new) `bookingTz`.

@@ -29,7 +29,7 @@ the order is hidden from lists but its data is retained.
 
 An order is two things stored together:
 
-- **The order**: client, currency, tax, status, totals, audit metadata.
+- **The order**: client, currency, locale, tax, status, totals, audit metadata.
 - **The items**: line-by-line, each referencing one offering with a
   frozen `unitPrice` and a `quantity`.
 
@@ -59,6 +59,8 @@ enforces this at add-item time and at create-time:
 This rule eliminates the order/item currency desync that plagues most
 naive commerce schemas.
 
+`locale` follows the same rule: set at create, immutable thereafter.
+
 <Note>
 An item's `unitPrice` is resolved from the offering's (or package's)
 regional price rules against the order's region, not from a single fixed
@@ -78,6 +80,7 @@ or the `DEFAULT` rule; see [Regional pricing](/concepts/regional-pricing):
 {
   "clientId": "cli_456",
   "currency": "USD",
+  "locale": "en-US",
   "locationId": "loc_01kx16f2a0h8a2my9u3f4tv0sp",
   "items": [
     {
@@ -91,6 +94,16 @@ or the `DEFAULT` rule; see [Regional pricing](/concepts/regional-pricing):
 ```
 
 You can also create an order with `items: []` and add items afterwards.
+
+Pass `locale` — the language the buyer completed the purchase in, typically the
+language segment of your storefront URL — and MarketBox records it three times:
+on the order, as a snapshot on every booking this order funds, and as the
+client's `defaultLocale` (latest booking wins). It is normalized to canonical
+BCP-47 on write, so `en-us` is stored as `en-US`; a tag that is not
+`language[-Script][-REGION]` is a `400 VALIDATION_ERROR`. You do not send it on
+`POST /bookings` — the booking copies it from the order. The recorded values
+drive the `{clientLocale}` and `{bookingLocale}` tokens in your review-page
+URL; see [Emails](/concepts/emails#where-the-rating-links-go).
 
 The server pulls each offering's current price into the item as the
 frozen `unitPrice`. From then on, the line's price is decoupled from
@@ -120,7 +133,7 @@ The snapshot pattern is deliberate: an order is a historical record of
 ## Updating an order
 
 `PATCH /v1/projects/{projectId}/orders/{orderId}` accepts a narrow set
-of mutable fields — currently just `tax`. Client and currency are not
+of mutable fields — currently just `tax`. Client, currency and locale are not
 mutable. To change them, cancel the order and create a new one.
 
 Sending `tax` also **rewrites the order's stored `total`**, recomputed as

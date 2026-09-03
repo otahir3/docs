@@ -29,6 +29,7 @@ to actually book against a supplier, and where each one lives:
 | What they can deliver | `services[].serviceId` + `services[].name` | Ids to book with, and localized labels to render. |
 | Timezone | `timezone` | Their own IANA zone. May be absent — see [Timezone](#timezone). |
 | Where they work | `locations[].locationId` | Includes travel zones. This is the id you send as `locationId`. |
+| Regions served | `servedRegions` | The exact set the list's `country`/`state`/`city` filter matches against. See [Regions served](#regions-served). |
 | Country and market | `country`, `state`, `postalcode` | The inputs [regional price rules](/concepts/regional-pricing) resolve against. |
 | Public profile | `firstName`, `lastName`, `bio`, `avatarUrl`, `languages`, `locales` | Everything a card renders. |
 | Reputation | `rating.averageRating`, `rating.reviewCount` | Detail endpoint only. |
@@ -36,7 +37,7 @@ to actually book against a supplier, and where each one lives:
 
 <Warning>
   `active` and bookability are set independently. A supplier can be `active:
-  true` and still be impossible to book, because they have no active schedule.
+  true` and still be impossible to book, because they have no live schedule.
   The reliable check is `availability.schedules.length > 0`, and the only
   authoritative one is asking the availability engine for real times.
 </Warning>
@@ -51,7 +52,7 @@ Every supplier response — list row or detail — carries these.
 | --- | --- |
 | `supplierId` | Stable identifier. |
 | `firstName`, `lastName` | Display name. |
-| `email`, `phone` | Contact details. |
+| `email`, `phone` | Contact details. `phone` is stored as E.164 (`+14165550134`) for any supplier created or edited through the API since September 2026; rows that predate that hold whatever was typed until they are next edited. |
 | `addressoneline`, `city`, `state`, `country`, `postalcode` | Address. Note the lowercase spelling of `addressoneline`. |
 | `longitude`, `latitude` | Geolocation for travel-time logic. |
 | `timezone` | IANA timezone. Absent when unset on the profile. |
@@ -59,6 +60,7 @@ Every supplier response — list row or detail — carries these.
 | `avatarUrl` | Ready-to-use image URL, or `null` when no avatar is set. |
 | `languages` | ISO 639-1 codes the supplier speaks, e.g. `["en","fr"]`. |
 | `locales` | Server-derived from `languages` × `country`, e.g. `["en-CA","fr-CA"]`. |
+| `defaultLocale` | The supplier's own preferred locale, BCP-47 (`fr-CA`). Staff-set, never inferred from a booking. **Absent when unset** — fall back to your project default. One tag, unlike the derived `locales` array. |
 | `maxTravelTime` | For mobile suppliers — maximum travel time they will accept, in minutes. |
 | `active` | Whether the supplier is taking bookings. |
 | `externalId`, `externalData` | Pass-through fields for your own ids and metadata. |
@@ -71,6 +73,7 @@ Every supplier response — list row or detail — carries these.
 | `services` | Array of `{ serviceId, name: { en, fr, … } }`. |
 | `skills` | Array of `{ skillId, name: { en, fr, … } }`. |
 | `locations` | Array of location records. See [Locations](#locations). |
+| `servedRegions` | Array of slug region paths, e.g. `["ca/","ca/on/","ca/on/toronto/"]`. See [Regions served](#regions-served). |
 
 Both `services` and `skills` carry **localized name maps**. If your project's
 services are named in several languages, the response contains all of them —
@@ -135,7 +138,43 @@ Each location record:
 | `latitude`, `longitude` | Geolocation. May be `null`. |
 | `travelZoneType` | `CIRCULAR` or `DRAWN`. Only set on `TRAVEL_ZONE` locations. |
 
-A supplier with no active schedules has `locations: []`.
+Only **live** schedules contribute. A schedule is live when it is `ACTIVE`, not
+deleted, and its `endDate` has not passed in the schedule's own timezone. That is
+the same rule the list's region filter, `servedRegions` and the detail endpoint's
+`availability.schedules` use, so the four never disagree about whether a
+supplier can be booked. A supplier with no live schedule has `locations: []` —
+including one whose only schedule ended last week.
+
+## Regions served
+
+`servedRegions` is the answer to "why is this supplier (not) returned by
+`country=CA&state=ON&city=Toronto`?". It is the list of region paths the
+supplier is indexed under — the **same set** the list's location filter
+matches against, so a supplier is returned by that filter exactly when the
+query's path is in this array.
+
+```json
+"servedRegions": ["ca/", "ca/on/", "ca/on/scarborough/", "ca/on/toronto/"]
+```
+
+- Slug paths at **every level** of the hierarchy, sorted. A zone in Toronto
+  contributes `ca/`, `ca/on/` and `ca/on/toronto/`, so `country=CA` alone
+  matches it.
+- Derived from the travel zones and physical locations on the supplier's
+  **live** schedules — the same sources as `locations[]`.
+- A zone inside a borough is indexed under the locality, the borough **and**
+  the wider municipality. A Scarborough zone carries both
+  `ca/on/scarborough/` and `ca/on/toronto/`, so `city=Scarborough` and
+  `city=Toronto` both return it.
+- `[]` when the supplier has no live schedule with a geocodable zone.
+
+<Note>
+  `locations[]` is evaluated on every request; `servedRegions` is maintained by
+  an index that a daily sweep prunes. For up to a day after a schedule's
+  `endDate` passes, a supplier can therefore still carry the region in
+  `servedRegions` (and still match the filter) while `locations[]` has already
+  dropped it. Treat `locations[]` as the fresher of the two.
+</Note>
 
 ## Reading one supplier
 
@@ -155,7 +194,7 @@ curl "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/suppliers/sup_01kv60q
     "firstName": "Jane",
     "lastName": "Okonkwo",
     "email": "jane@example.com",
-    "phone": "+1-416-555-0142",
+    "phone": "+14165550142",
     "addressoneline": "120 Adelaide St W, Toronto, ON",
     "city": "Toronto",
     "state": "CA-ON",
@@ -168,6 +207,7 @@ curl "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/suppliers/sup_01kv60q
     "avatarUrl": "https://example.com/media/suppliers/sup_01kv60qgnef2kt3pvqgwmkbzfr/256.webp",
     "languages": ["en", "fr"],
     "locales": ["en-CA", "fr-CA"],
+    "defaultLocale": "en-CA",
     "maxTravelTime": 45,
     "active": true,
     "updatedAt": "2026-08-01T14:22:10.000Z",
@@ -186,6 +226,7 @@ curl "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/suppliers/sup_01kv60q
         "travelZoneType": "CIRCULAR"
       }
     ],
+    "servedRegions": ["ca/", "ca/on/", "ca/on/toronto/"],
     "rating": {
       "averageRating": 4.7,
       "reviewCount": 128,
@@ -318,7 +359,8 @@ Two traps in `weeklyHours`:
 suppliers share (`PROJECT_LOCATION`, a `loc_` id). Both are booked the same
 way; the distinction only matters if you draw a coverage map.
 
-Only **active** schedules are returned. `schedules: []` means the supplier
+Only **live** schedules are returned — `ACTIVE`, not deleted, and `endDate` not
+yet passed in the schedule's own `timezone`. `schedules: []` means the supplier
 cannot currently be booked at all, whatever `active` says.
 
 ## Listing suppliers
@@ -336,20 +378,49 @@ GET /v1/projects/{projectId}/suppliers
 | `country` | — | ISO 3166-1 alpha-2, e.g. `CA`. |
 | `state` | — | ISO 3166-2, `CA-ON` or `ON`. Requires `country`. |
 | `city` | — | Requires `country` and `state`. |
+| `lat` | — | Latitude of a point to be covered, decimal degrees. Requires `lng`. |
+| `lng` | — | Longitude of that point. Requires `lat`. |
 
 Every filter is **AND**, both within a parameter and across them.
 `services=srv_a,srv_b` means a supplier offering *both*, never either.
 
-The location filter is **hierarchical**, and each level requires the one above:
-`state` without `country` is a `400`, as is `city` without both.
+There are two ways to filter by place, and they are **exclusive**:
+
+- **By region** — `country`, then `state`, then `city`. Hierarchical, and each
+  level requires the one above: `state` without `country` is a `400`, as is
+  `city` without both.
+- **By point** — `lat` + `lng`, both or neither. Returns every supplier whose
+  live travel zone **contains that point**, tested against the zone's actual
+  polygon or radius rather than a place name, and AND-combined with
+  `services`/`skills`.
+
+Sending `lat`/`lng` together with any of `country`/`state`/`city` is a `400`.
+
+```bash
+# who covers this address in Scarborough?
+curl "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/suppliers?lat=43.7462&lng=-79.2191&services=srv_01kv60qg12e82acr78edfnjhvv" \
+  -H "x-api-key: $MARKETBOX_API_KEY"
+```
 
 <Note>
-  The location filter matches the regions a supplier **serves** — derived from
-  the travel zones and physical locations on their active schedules — not the
-  address on their profile. A mobile supplier based in Barrie whose travel zone
-  covers Toronto matches `city=Toronto`. A supplier with an address but no
-  active schedule matches nothing, because they cannot be booked.
+  Both filters match the regions a supplier **serves** — derived from the travel
+  zones and physical locations on their **live** schedules — not the address on
+  their profile. A mobile supplier based in Barrie whose travel zone covers
+  Toronto matches `city=Toronto`. A supplier with an address but no live
+  schedule matches nothing, because they cannot be booked. Coverage resolves to
+  the locality, its borough and the wider municipality, so a Scarborough zone is
+  returned by `city=Scarborough` and by `city=Toronto`. Each row's
+  `servedRegions` is the exact list the region filter checked — see
+  [Regions served](#regions-served).
 </Note>
+
+<Warning>
+  A point only matches **travel zones**. A supplier whose live schedules are all
+  at fixed locations has no zone and is never returned by `lat`/`lng`, even if
+  the point is their own studio. Use the region filter, or
+  `POST /v1/projects/{projectId}/availability/suppliers` with a `locationId`,
+  for fixed-location suppliers.
+</Warning>
 
 Only active suppliers are listed; inactive and deleted ones never appear, on
 any combination of filters. Results are ordered by supplier id, not by name.
@@ -378,6 +449,17 @@ API exposes it too, so you can keep a roster in sync from your own system:
 
 Use `externalId` to carry your own primary key onto the supplier, so you can
 reconcile without storing a second id map.
+
+Two profile fields have write rules worth knowing:
+
+| Field | On `POST` | On `PUT` |
+| --- | --- | --- |
+| `phone` | Optional. E.164 or a national NANP number (`(416) 555-0134`); stored as E.164 (`+14165550134`). Numbers outside North America must carry `+` and a country code. | Omit to keep, `null` to clear, anything else is validated and normalized. |
+| `defaultLocale` | Optional BCP-47 tag (`fr-CA`), normalized (`fr-ca` is stored as `fr-CA`). Omit to inherit the project default. | Omit to keep, `null` to clear. |
+
+An unparseable phone or a malformed locale is a `400 VALIDATION_ERROR` — the
+row is not written. A `PUT` with `"phone": "(416) 555-0134"` reads back as
+`"phone": "+14165550134"`.
 
 Schedules are **not** writable through the public API. A supplier created here
 has no schedule, so `availability.schedules` is `[]` and they cannot be booked

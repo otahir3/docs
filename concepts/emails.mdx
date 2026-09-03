@@ -105,15 +105,34 @@ project's notification settings in the MarketBox dashboard. Every rating link th
 instead, with the booking identified in the query string:
 
 ```
-https://yourdomain.com/review?bookingId=bk_01kv60qge5eh59ap0gw0pqrrys&role=client&rating=4
+https://example.com/review?bookingId=bk_01kv60qge5eh59ap0gw0pqrrys&role=client&rating=4
 ```
 
 - `bookingId` — always appended, whatever URL you configure
 - `role` — `client` or `supplier`, so one page can serve both
 - `rating` — present only on the star links, carrying the star that was clicked
 
-You can also template the path — `https://yourdomain.com/review/{bookingId}` substitutes the id and
-still appends the query parameter, so either style works.
+You can also template the URL. Four tokens are substituted anywhere in the configured string,
+and the query parameters above are still appended:
+
+| Token | Resolves to | Falls back to |
+| --- | --- | --- |
+| `{bookingId}` | the booking's id | — |
+| `{bookingLocale}` | the language the booking was purchased in (`locale` on the booking, copied from its order) | the project's default locale |
+| `{clientLocale}` | the client's `defaultLocale` — the language of their most recent booking, or a value staff set | the project's default locale |
+| `{supplierLocale}` | the supplier's `defaultLocale`, staff-set | the project's default locale |
+
+```
+configured:  https://example.com/{clientLocale}/review/{bookingId}
+sent:        https://example.com/fr-CA/review/bk_01kv60qge5eh59ap0gw0pqrrys?bookingId=bk_01kv60qge5eh59ap0gw0pqrrys&role=client
+```
+
+Each locale token falls back **only** to the project default, never to one of the other two —
+`{supplierLocale}` can never quietly render the client's language, which is why there are three.
+A token never renders empty: the project default always exists. Values are URL-encoded before
+substitution, so a locale cannot inject path or query structure. Locales are recorded by sending
+`locale` on `POST /v1/projects/{projectId}/orders`; see
+[Orders](/resources/orders#creating-an-order).
 
 <Tip>
 Ignore query parameters you do not recognise. More may be added, and a page that validates strictly

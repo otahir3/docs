@@ -72,12 +72,16 @@ If your URL contains the literal token `{bookingId}`, MarketBox substitutes it *
 the `bookingId` parameter**. You get the id twice on purpose — parse whichever you prefer.
 
 ```
-configured:  https://acme.example/review/{bookingId}
-sent:        https://acme.example/review/bk_123?bookingId=bk_123&role=client
+configured:  https://example.com/review/{bookingId}
+sent:        https://example.com/review/bk_123?bookingId=bk_123&role=client
 
-configured:  https://acme.example/feedback?src=mb
-sent:        https://acme.example/feedback?src=mb&bookingId=bk_123&role=supplier&rating=4
+configured:  https://example.com/feedback?src=mb
+sent:        https://example.com/feedback?src=mb&bookingId=bk_123&role=supplier&rating=4
 ```
+
+Three more tokens, `{bookingLocale}`, `{clientLocale}` and `{supplierLocale}`, are substituted
+the same way and each falls back to the project's default locale. See
+[Emails](/concepts/emails#where-the-rating-links-go) for what each one resolves to.
 
 #### `role` tells you who is standing in front of you
 

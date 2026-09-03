@@ -26,7 +26,7 @@ different questions — pick by what you're rendering:
 | `POST .../availability/search` | "What **slots** exist for this service here?" | Slot-centric — two flat arrays (`timeSlots`, `openSlots`), supplier as a field inside each slot. See [Availability and slates](/guides/availability-and-slates). |
 | `POST .../availability/package-slate` | "Give me one supplier's **N-session plan** for a package." | A slate. See [Create a package booking](/guides/create-a-package-booking). |
 | `POST .../availability/package-options` | "Which of this service's **packages** can I actually book, and how?" | Every ACTIVE package of the service, each with a ready-to-book slate. Use it when rendering a package storefront and you want one call instead of a fan-out. Always `200` — an unbookable package carries its own `status` + `reason`. |
-| `GET .../suppliers` | "Who exists (regardless of availability)?" | The supplier catalogue, filterable by service/skill/location. See [Suppliers](/resources/suppliers). |
+| `GET .../suppliers` | "Who exists (regardless of availability)?" | The supplier catalogue, filterable by service/skill/region, or by a `lat`/`lng` point against live travel zones. See [Suppliers](/resources/suppliers). |
 
 <Note>
 `/availability/suppliers` and `/availability/search` run the **same open-slot
@@ -111,7 +111,7 @@ time you could book this person," not a ranked shortlist.
 | Field | Meaning |
 | --- | --- |
 | `data[]` | Suppliers on this page, in a stable order across pages. |
-| `data[].supplier` | The **full enriched supplier** — the exact shape `GET /suppliers` returns (profile, `avatarUrl`, `services`, `skills`, `locations`). Enough to render a card with no follow-up call. |
+| `data[].supplier` | The **full enriched supplier** — the exact shape `GET /suppliers` returns (profile, `avatarUrl`, `services`, `skills`, `locations`, `servedRegions`). Enough to render a card with no follow-up call. |
 | `data[].days[]` | Days that have open slots, ascending by `date`. Empty (`[]`) for a supplier who matches but has nothing open in the window — see the note below. |
 | `data[].days[].date` | Local calendar date (`YYYY-MM-DD`) in the request `timezone`. Bucket key for a day column. |
 | `data[].days[].slots[]` | Open slots on that day, ascending by `startUtc`. |
@@ -514,8 +514,10 @@ day columns, always send the viewer's `timezone`.
 <Note>
 **No matching suppliers is a `200`, not an error.** If no supplier serves the
 service at that location, you get `{ "data": [], "nextCursor": null }`. Widen
-the location or the window, or check the service is offered there via
-[`GET /suppliers`](/resources/suppliers).
+the location or the window, or check who covers the point with
+[`GET /suppliers?lat=…&lng=…`](/resources/suppliers#listing-suppliers) — it
+needs no service or offering, so it separates "nobody serves here" from
+"nobody is free this week".
 </Note>
 
 ## Reference
@@ -527,7 +529,7 @@ the location or the window, or check the service is offered there via
 | `/v1/projects/{projectId}/availability/suppliers` | `POST` | `x-api-key` | Supplier-centric availability. Returns a page of suppliers, each with open slots grouped by day. `limit` max 50, opaque `cursor`. |
 | `/v1/projects/{projectId}/bookings` | `POST` | `x-api-key` | Book a chosen slot. Uses the slot's `startUtc`/`endUtc` and the supplier's id. See [Create a single booking](/guides/create-a-single-booking). |
 | `/v1/projects/{projectId}/availability/search` | `POST` | `x-api-key` | Slot-centric alternative — same computation, flat arrays. Full reference: [Availability](/resources/availability). |
-| `/v1/projects/{projectId}/suppliers` | `GET` | `x-api-key` | The supplier catalogue (availability-independent), filterable by service/skill/location. |
+| `/v1/projects/{projectId}/suppliers` | `GET` | `x-api-key` | The supplier catalogue (availability-independent), filterable by service/skill/region or by `lat`/`lng` point. |
 
 ### Request fields
 
@@ -564,7 +566,7 @@ the location or the window, or check the service is offered there via
 | `limit` out of range (`< 1` or `> 50`) | `VALIDATION_ERROR` | `400` | Use 1–50. Pages are small because each supplier is computed on demand. |
 | Malformed `cursor` | `BAD_REQUEST` | `400` | Only pass back a `nextCursor` you were given; don't hand-build the token. |
 | `serviceId`/`offeringId` doesn't resolve to an offering | `INTERNAL_ERROR` | `500` | Make sure both ids are correct and from this project — an unknown offering can't be searched. |
-| No supplier serves the service at that location | — | `200` | Not an error: `data` is `[]`. Widen the location/window, or verify coverage via `GET /suppliers`. |
+| No supplier serves the service at that location | — | `200` | Not an error: `data` is `[]`. Widen the location/window, or verify coverage via `GET /suppliers?lat=&lng=` with the same point. |
 | Supplier matches but is fully booked in the window | — | `200` | Not an error: that supplier is returned with `days: []`. Filter client-side if you only want bookable cards. |
 | API key can't access this project | — | `403` | Use a key scoped to `{projectId}`. See [Projects and scope](/concepts/projects-and-scope). |
 

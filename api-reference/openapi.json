@@ -86,6 +86,9 @@
           "bookingLocalEndDate": {
             "type": "string"
           },
+          "locale": {
+            "type": "string"
+          },
           "locationType": {
             "type": "string",
             "enum": ["PHYSICAL", "VIRTUAL", "TRAVEL_ZONE"]
@@ -420,6 +423,9 @@
                 "nullable": true
               }
             }
+          },
+          "locale": {
+            "type": "string"
           },
           "deleted": {
             "type": "boolean"
@@ -905,6 +911,9 @@
               }
             },
             "required": ["type", "brand", "last4", "paidAt"]
+          },
+          "defaultLocale": {
+            "type": "string"
           },
           "active": {
             "type": "boolean"
@@ -4634,6 +4643,11 @@
                     "maxLength": 3,
                     "description": "ISO 4217 currency you quoted the buyer. Verified against the price the server resolves for this order's region; a mismatch is a 400.",
                     "example": "CAD"
+                  },
+                  "locale": {
+                    "type": "string",
+                    "description": "The locale your buyer completed this purchase in — typically the language segment of your storefront URL. Normalized to canonical BCP-47 on write, so `en-us` is stored as `en-US`. It is copied onto every booking this order funds and saved as the client's default locale.",
+                    "example": "en-US"
                   },
                   "reservationId": {
                     "type": "string",
@@ -10647,8 +10661,8 @@
     "/v1/projects/{projectId}/suppliers": {
       "get": {
         "tags": ["Suppliers"],
-        "summary": "List suppliers for a project, enriched with services and skills; filter by service/skill/location",
-        "description": "The supplier directory, each row already carrying its resolved `services` and `skills`, so a \"who can do X, near Y\" page needs one call. Every filter is AND, both within a parameter and across parameters: `services=a,b` means a supplier offering BOTH, never either. The location filter is hierarchical and each level requires the one above — `state` without `country` is a 400, as is `city` without both. Use ISO codes: `country` as 3166-1 alpha-2, `state` as 3166-2 in either form (\"CA-ON\" or \"ON\").\n\nOnly active suppliers are listed; inactive and soft-deleted ones never appear, on any combination of filters.\n\nTwo behaviours to plan for. A page holds `limit` rows whenever that many remain, on every combination of filters.\n\nThe location filter matches the regions a supplier SERVES — derived from the travel zones and physical locations on their active schedules — not the address on their profile. A mobile supplier based in Barrie whose travel zone covers Toronto matches `city=Toronto`, while a supplier with an address but no active schedule matches nothing, because they cannot be booked. Coverage resolves to both the locality and the wider municipality, so either name matches. Results are ordered by supplier id, not by name.\n\nA short page is possible but uncommon, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short. And a cursor is only valid against the filter set that produced it; changing any filter mid-walk gives undefined results, so restart the walk instead.",
+        "summary": "List suppliers for a project, enriched with services and skills; filter by service/skill/region/point",
+        "description": "The supplier directory, each row already carrying its resolved `services` and `skills`, so a \"who can do X, near Y\" page needs one call. Every filter is AND, both within a parameter and across parameters: `services=a,b` means a supplier offering BOTH, never either. The location filter is hierarchical and each level requires the one above — `state` without `country` is a 400, as is `city` without both. Use ISO codes: `country` as 3166-1 alpha-2, `state` as 3166-2 in either form (\"CA-ON\" or \"ON\").\n\nOnly active suppliers are listed; inactive and soft-deleted ones never appear, on any combination of filters.\n\nTwo behaviours to plan for. A page holds `limit` rows whenever that many remain, on every combination of filters.\n\nThe location filter matches the regions a supplier SERVES — derived from the travel zones and physical locations on their LIVE schedules — not the address on their profile. A schedule is live when it is ACTIVE, not deleted, and its `endDate` has not passed in the schedule's own timezone; each row's `locations[]` is derived with the same rule, so a supplier is returned by `country`/`state`/`city` exactly when one of their `locations` covers it. A mobile supplier based in Barrie whose travel zone covers Toronto matches `city=Toronto`, while a supplier with an address but no live schedule matches nothing (and has `locations: []`), because they cannot be booked. Coverage resolves to the locality, its borough where one exists, and the wider municipality, so any of those names matches: a zone in Scarborough is returned by `city=Scarborough` and by `city=Toronto`. Results are ordered by supplier id, not by name.\n\nFor a specific address, pass `lat` and `lng` instead of a region: the result is every supplier whose live travel zone contains that point, tested against the zone's actual polygon or radius rather than a place name, and AND-combined with `services`/`skills`. The two location styles are exclusive — `lat`/`lng` with `country`/`state`/`city` is a 400. Suppliers whose live schedules are only at fixed locations have no zone and are not matched by a point; use the region filter or `POST /availability/suppliers` for those.\n\nA short page is possible but uncommon, so treat `nextCursor: null` as the only end-of-results signal and never stop on a page that merely looks short. And a cursor is only valid against the filter set that produced it; changing any filter mid-walk gives undefined results, so restart the walk instead.",
         "parameters": [
           {
             "schema": {
@@ -10734,6 +10748,28 @@
             "required": false,
             "description": "City to filter by. Requires both `country` and `state`.",
             "name": "city",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Latitude of a point to be covered, decimal degrees in [-90, 90]. With `lng`, returns only suppliers whose live travel zone contains the point (exact polygon/radius test, not a region name). Requires `lng`; cannot be combined with `country`/`state`/`city`.",
+              "example": "43.7462"
+            },
+            "required": false,
+            "description": "Latitude of a point to be covered, decimal degrees in [-90, 90]. With `lng`, returns only suppliers whose live travel zone contains the point (exact polygon/radius test, not a region name). Requires `lng`; cannot be combined with `country`/`state`/`city`.",
+            "name": "lat",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Longitude of the point, decimal degrees in [-180, 180]. Requires `lat`.",
+              "example": "-79.2191"
+            },
+            "required": false,
+            "description": "Longitude of the point, decimal degrees in [-180, 180]. Requires `lat`.",
+            "name": "lng",
             "in": "query"
           }
         ],
@@ -10905,6 +10941,19 @@
                               "required": ["locationId", "locationType", "name"]
                             }
                           },
+                          "servedRegions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "The region paths this supplier is indexed under — the SAME set the `country`/`state`/`city` filter on `GET /suppliers` matches against, so a supplier is returned by that filter exactly when the query's path is in this list. Slug paths at every hierarchy level, sorted: `ca/`, `ca/on/`, `ca/on/toronto/`, `ca/on/scarborough/`. Derived from the travel zones and physical locations on their live schedules (see `locations`), resolved to the locality, its borough and the wider municipality. Empty when the supplier has no live schedule with a geocodable zone. Region rows are pruned by a daily sweep, so this can lag a schedule's `endDate` by up to a day, whereas `locations` is evaluated on every request.",
+                            "example": [
+                              "ca/",
+                              "ca/on/",
+                              "ca/on/scarborough/",
+                              "ca/on/toronto/"
+                            ]
+                          },
                           "languages": {
                             "type": "array",
                             "items": {
@@ -10916,6 +10965,9 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "defaultLocale": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -10929,6 +10981,7 @@
                           "services",
                           "skills",
                           "locations",
+                          "servedRegions",
                           "languages",
                           "locales"
                         ]
@@ -11015,7 +11068,9 @@
                     "format": "email"
                   },
                   "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Phone number. Accepts E.164 or a national NANP number; stored as E.164 (e.g. +14165550134)."
                   },
                   "addressoneline": {
                     "type": "string"
@@ -11102,6 +11157,11 @@
                       ]
                     },
                     "default": []
+                  },
+                  "defaultLocale": {
+                    "type": "string",
+                    "description": "The supplier's own preferred locale (BCP-47, e.g. 'fr-CA'). Staff-set only — never inferred from a booking. Omit to inherit the project default.",
+                    "example": "fr-CA"
                   }
                 },
                 "required": ["firstName", "lastName", "email"]
@@ -11275,6 +11335,19 @@
                             "required": ["locationId", "locationType", "name"]
                           }
                         },
+                        "servedRegions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The region paths this supplier is indexed under — the SAME set the `country`/`state`/`city` filter on `GET /suppliers` matches against, so a supplier is returned by that filter exactly when the query's path is in this list. Slug paths at every hierarchy level, sorted: `ca/`, `ca/on/`, `ca/on/toronto/`, `ca/on/scarborough/`. Derived from the travel zones and physical locations on their live schedules (see `locations`), resolved to the locality, its borough and the wider municipality. Empty when the supplier has no live schedule with a geocodable zone. Region rows are pruned by a daily sweep, so this can lag a schedule's `endDate` by up to a day, whereas `locations` is evaluated on every request.",
+                          "example": [
+                            "ca/",
+                            "ca/on/",
+                            "ca/on/scarborough/",
+                            "ca/on/toronto/"
+                          ]
+                        },
                         "languages": {
                           "type": "array",
                           "items": {
@@ -11286,6 +11359,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -11299,6 +11375,7 @@
                         "services",
                         "skills",
                         "locations",
+                        "servedRegions",
                         "languages",
                         "locales"
                       ]
@@ -11549,6 +11626,19 @@
                             "required": ["locationId", "locationType", "name"]
                           }
                         },
+                        "servedRegions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The region paths this supplier is indexed under — the SAME set the `country`/`state`/`city` filter on `GET /suppliers` matches against, so a supplier is returned by that filter exactly when the query's path is in this list. Slug paths at every hierarchy level, sorted: `ca/`, `ca/on/`, `ca/on/toronto/`, `ca/on/scarborough/`. Derived from the travel zones and physical locations on their live schedules (see `locations`), resolved to the locality, its borough and the wider municipality. Empty when the supplier has no live schedule with a geocodable zone. Region rows are pruned by a daily sweep, so this can lag a schedule's `endDate` by up to a day, whereas `locations` is evaluated on every request.",
+                          "example": [
+                            "ca/",
+                            "ca/on/",
+                            "ca/on/scarborough/",
+                            "ca/on/toronto/"
+                          ]
+                        },
                         "languages": {
                           "type": "array",
                           "items": {
@@ -11560,6 +11650,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         },
                         "rating": {
                           "type": "object",
@@ -11843,7 +11936,7 @@
                                   "summary"
                                 ]
                               },
-                              "description": "The supplier's ACTIVE schedules — the recurring pattern of when and where they work. Inactive and deleted schedules never appear, so `[]` means this supplier currently has no working hours at all and cannot be booked, whatever `active` says."
+                              "description": "The supplier's LIVE schedules — the recurring pattern of when and where they work. A schedule is live when it is ACTIVE, not deleted, and its `endDate` has not passed in its own `timezone`; that is the same rule the `GET /suppliers` location filter and `locations[]` use. Inactive, deleted and ended schedules never appear, so `[]` means this supplier currently has no working hours at all and cannot be booked, whatever `active` says."
                             }
                           },
                           "required": [
@@ -11865,6 +11958,7 @@
                         "services",
                         "skills",
                         "locations",
+                        "servedRegions",
                         "languages",
                         "locales",
                         "rating",
@@ -11960,7 +12054,9 @@
                     "format": "email"
                   },
                   "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Phone number. Accepts E.164 or a national NANP number; stored as E.164 (e.g. +14165550134)."
                   },
                   "addressoneline": {
                     "type": "string"
@@ -12043,6 +12139,12 @@
                         "vi"
                       ]
                     }
+                  },
+                  "defaultLocale": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "The supplier's own preferred locale (BCP-47, e.g. 'fr-CA'). Staff-set only — never inferred from a booking. Omit to leave the current value unchanged; pass null to clear it.",
+                    "example": "fr-CA"
                   }
                 }
               }
@@ -12215,6 +12317,19 @@
                             "required": ["locationId", "locationType", "name"]
                           }
                         },
+                        "servedRegions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The region paths this supplier is indexed under — the SAME set the `country`/`state`/`city` filter on `GET /suppliers` matches against, so a supplier is returned by that filter exactly when the query's path is in this list. Slug paths at every hierarchy level, sorted: `ca/`, `ca/on/`, `ca/on/toronto/`, `ca/on/scarborough/`. Derived from the travel zones and physical locations on their live schedules (see `locations`), resolved to the locality, its borough and the wider municipality. Empty when the supplier has no live schedule with a geocodable zone. Region rows are pruned by a daily sweep, so this can lag a schedule's `endDate` by up to a day, whereas `locations` is evaluated on every request.",
+                          "example": [
+                            "ca/",
+                            "ca/on/",
+                            "ca/on/scarborough/",
+                            "ca/on/toronto/"
+                          ]
+                        },
                         "languages": {
                           "type": "array",
                           "items": {
@@ -12226,6 +12341,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -12239,6 +12357,7 @@
                         "services",
                         "skills",
                         "locations",
+                        "servedRegions",
                         "languages",
                         "locales"
                       ]
@@ -12577,6 +12696,19 @@
                             "required": ["locationId", "locationType", "name"]
                           }
                         },
+                        "servedRegions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The region paths this supplier is indexed under — the SAME set the `country`/`state`/`city` filter on `GET /suppliers` matches against, so a supplier is returned by that filter exactly when the query's path is in this list. Slug paths at every hierarchy level, sorted: `ca/`, `ca/on/`, `ca/on/toronto/`, `ca/on/scarborough/`. Derived from the travel zones and physical locations on their live schedules (see `locations`), resolved to the locality, its borough and the wider municipality. Empty when the supplier has no live schedule with a geocodable zone. Region rows are pruned by a daily sweep, so this can lag a schedule's `endDate` by up to a day, whereas `locations` is evaluated on every request.",
+                          "example": [
+                            "ca/",
+                            "ca/on/",
+                            "ca/on/scarborough/",
+                            "ca/on/toronto/"
+                          ]
+                        },
                         "languages": {
                           "type": "array",
                           "items": {
@@ -12588,6 +12720,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -12601,6 +12736,7 @@
                         "services",
                         "skills",
                         "locations",
+                        "servedRegions",
                         "languages",
                         "locales"
                       ]
@@ -12941,6 +13077,19 @@
                             "required": ["locationId", "locationType", "name"]
                           }
                         },
+                        "servedRegions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The region paths this supplier is indexed under — the SAME set the `country`/`state`/`city` filter on `GET /suppliers` matches against, so a supplier is returned by that filter exactly when the query's path is in this list. Slug paths at every hierarchy level, sorted: `ca/`, `ca/on/`, `ca/on/toronto/`, `ca/on/scarborough/`. Derived from the travel zones and physical locations on their live schedules (see `locations`), resolved to the locality, its borough and the wider municipality. Empty when the supplier has no live schedule with a geocodable zone. Region rows are pruned by a daily sweep, so this can lag a schedule's `endDate` by up to a day, whereas `locations` is evaluated on every request.",
+                          "example": [
+                            "ca/",
+                            "ca/on/",
+                            "ca/on/scarborough/",
+                            "ca/on/toronto/"
+                          ]
+                        },
                         "languages": {
                           "type": "array",
                           "items": {
@@ -12952,6 +13101,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -12965,6 +13117,7 @@
                         "services",
                         "skills",
                         "locations",
+                        "servedRegions",
                         "languages",
                         "locales"
                       ]
@@ -13463,6 +13616,19 @@
                             "required": ["locationId", "locationType", "name"]
                           }
                         },
+                        "servedRegions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The region paths this supplier is indexed under — the SAME set the `country`/`state`/`city` filter on `GET /suppliers` matches against, so a supplier is returned by that filter exactly when the query's path is in this list. Slug paths at every hierarchy level, sorted: `ca/`, `ca/on/`, `ca/on/toronto/`, `ca/on/scarborough/`. Derived from the travel zones and physical locations on their live schedules (see `locations`), resolved to the locality, its borough and the wider municipality. Empty when the supplier has no live schedule with a geocodable zone. Region rows are pruned by a daily sweep, so this can lag a schedule's `endDate` by up to a day, whereas `locations` is evaluated on every request.",
+                          "example": [
+                            "ca/",
+                            "ca/on/",
+                            "ca/on/scarborough/",
+                            "ca/on/toronto/"
+                          ]
+                        },
                         "languages": {
                           "type": "array",
                           "items": {
@@ -13474,6 +13640,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "defaultLocale": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -13487,6 +13656,7 @@
                         "services",
                         "skills",
                         "locations",
+                        "servedRegions",
                         "languages",
                         "locales"
                       ]
@@ -15133,6 +15303,19 @@
                                   ]
                                 }
                               },
+                              "servedRegions": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "The region paths this supplier is indexed under — the SAME set the `country`/`state`/`city` filter on `GET /suppliers` matches against, so a supplier is returned by that filter exactly when the query's path is in this list. Slug paths at every hierarchy level, sorted: `ca/`, `ca/on/`, `ca/on/toronto/`, `ca/on/scarborough/`. Derived from the travel zones and physical locations on their live schedules (see `locations`), resolved to the locality, its borough and the wider municipality. Empty when the supplier has no live schedule with a geocodable zone. Region rows are pruned by a daily sweep, so this can lag a schedule's `endDate` by up to a day, whereas `locations` is evaluated on every request.",
+                                "example": [
+                                  "ca/",
+                                  "ca/on/",
+                                  "ca/on/scarborough/",
+                                  "ca/on/toronto/"
+                                ]
+                              },
                               "languages": {
                                 "type": "array",
                                 "items": {
@@ -15144,6 +15327,9 @@
                                 "items": {
                                   "type": "string"
                                 }
+                              },
+                              "defaultLocale": {
+                                "type": "string"
                               }
                             },
                             "required": [
@@ -15157,6 +15343,7 @@
                               "services",
                               "skills",
                               "locations",
+                              "servedRegions",
                               "languages",
                               "locales"
                             ],

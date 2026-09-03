@@ -3,6 +3,53 @@ title: "Changelog"
 description: "New features, updates, and fixes to the MarketBox API."
 ---
 
+<Update label="September 3, 2026" tags={["API"]}>
+
+## Supplier directory: `servedRegions`, point search, one liveness rule — plus booking locale and E.164 phones
+
+You can now see exactly why a supplier does or does not match the region filter, search the directory by coordinate, and record the language a purchase was made in.
+
+**Purely additive on the wire, with one behaviour change.** No field was removed or renamed and every request valid before this release is still valid. `servedRegions` is a **new required field** on every supplier response, so strict response decoders need a regeneration. The liveness change below can make `locations[]` shorter than it was.
+
+**New**
+
+- **`servedRegions` on every supplier response** — the rows of `GET /v1/projects/{projectId}/suppliers`, the detail endpoint, the create, update, services, skills and avatar responses, and `data[].supplier` on `POST /v1/projects/{projectId}/availability/suppliers`. Sorted slug region paths at every hierarchy level — the **same set** the `country`/`state`/`city` filter matches against, so membership is explainable from the record. `[]` when there is no live schedule with a geocodable zone. This is a response shape:
+
+```json
+{
+  "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+  "phone": "+14165550142",
+  "locations": [
+    { "locationId": "stz_01kv60qgnef2kt3pvqgwmkbzfr", "locationType": "TRAVEL_ZONE", "name": "Scarborough" }
+  ],
+  "servedRegions": ["ca/", "ca/on/", "ca/on/scarborough/", "ca/on/toronto/"],
+  "defaultLocale": "fr-CA"
+}
+```
+
+- **`lat` + `lng` on `GET /v1/projects/{projectId}/suppliers`** — both or neither. Returns suppliers whose **live travel zone contains the point**, tested against the real polygon or radius, AND-combined with `services`/`skills`. Exclusive with `country`/`state`/`city` (`400`). Fixed-location-only suppliers have no zone and are not matched by a point. The first way to ask "who covers this address?" without a service and an offering.
+- **Borough matching.** Coverage now resolves to the locality, its borough and the wider municipality, so a Scarborough zone is returned by `city=Scarborough` **and** `city=Toronto`. Previously only the municipality matched.
+- **`locale` on `POST /v1/projects/{projectId}/orders`** — optional, the language the buyer completed the purchase in. Normalized to canonical BCP-47 (`en-us` → `en-US`); malformed is a `400 VALIDATION_ERROR`. Immutable on the order, snapshotted as `locale` onto every booking the order funds (never accepted on `POST /bookings`), and saved as the client's `defaultLocale` (latest booking wins). Suppliers gain a staff-set `defaultLocale` on create and update (`null` clears on update) and in every response — distinct from the existing `languages` and derived `locales`.
+- **Three review-URL tokens** beside `{bookingId}`: `{bookingLocale}`, `{clientLocale}`, `{supplierLocale}`. Each falls back only to the project default, never to another token. See [Emails](/concepts/emails#where-the-rating-links-go).
+
+**Changed**
+
+- **One schedule-liveness rule.** A schedule is live when it is `ACTIVE`, not deleted, **and its `endDate` has not passed in the schedule's own timezone**. `locations[]`, the region filter, `servedRegions` and the detail endpoint's `availability.schedules` all use it. Before this release `locations[]` and `availability.schedules` ignored `endDate`, so a supplier whose only schedule had ended still advertised a travel zone the filter no longer matched — in one real project, 80 records carried `country: "CA"` on their profile while `?country=CA` returned 49 rows. **`locations[]` and `availability.schedules` can now be shorter, including `[]`, for suppliers you saw as bookable yesterday.**
+- **Supplier `phone` is validated and normalized.** Create and update accept E.164 or a national NANP number and store E.164 (`+14165550134`); anything unparseable is a `400 VALIDATION_ERROR`. Update accepts `null` to clear. Rows written before this release keep whatever was typed until next edited.
+
+**What this means for you**
+
+- **Regenerate response types.** `servedRegions: string[]` is required everywhere a supplier is returned.
+- **Stop deriving "does this supplier serve Toronto?" from profile `city`/`state`.** Read `servedRegions`, or use the filter — they agree by construction. `locations[]` is per-request; `servedRegions` is swept daily and can lag a schedule's `endDate` by up to a day.
+- **If you filter by `city`, expect more rows** where boroughs exist. Nothing you matched before stopped matching.
+- **If you cached `locations[]` to decide bookability**, refresh: a schedule past its `endDate` no longer contributes. `schedules: []` on the detail endpoint now really means "cannot be booked".
+- **Send `locale` on order create** if your storefront is localized and you use a review redirect URL — it is the only way MarketBox can learn the language, and the tokens fall back to the project default without it.
+- **Don't pre-format phones**, and don't assume the stored value matches what you sent — read it back.
+
+Full detail: [Suppliers → Regions served](/resources/suppliers#regions-served), [Listing suppliers](/resources/suppliers#listing-suppliers), [Orders → Creating an order](/resources/orders#creating-an-order).
+
+</Update>
+
 <Update label="August 26, 2026" tags={["API"]}>
 
 ## Every slate now says why it isn't a perfect match: `matchNotes` and `advice`
