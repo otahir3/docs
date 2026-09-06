@@ -125,15 +125,43 @@ Your page then posts to the API from your own server, using your API key. See
 
 ## Sender identity
 
-Two settings, both in your project's notification settings in the dashboard:
+Three settings, all in your project's notification settings in the dashboard:
 
 | Setting | Effect |
 | --- | --- |
 | From name | The display name on every email from this project. Defaults to the project name. |
-| Reply-to address | Where replies go. Unset means replies go to the platform default. |
+| Reply-to address | Where replies go. Defaults to your project's first admin, so replies reach a person even if you set nothing. |
+| Blind copies | Addresses that quietly receive a copy of the emails you send. Off unless you add one. |
 
-Neither is stored on the email itself — they are resolved when each message is sent, so renaming
-your project changes the name on the next send, including for bookings made before the change.
+**Who your emails come from.** The from name is what recipients see in their inbox. Leave it blank
+and it is your project name.
+
+**Where replies go.** When someone hits reply, the message goes to your reply-to address. You do
+not have to set one up: with the field empty, replies go to your project's first admin
+automatically. Fill the field in to send them somewhere else instead — a shared support inbox, say —
+and that address takes over for every email. The only case where replies go nowhere useful is a
+project with no admin and no address set: those land on the sending address, which nobody reads.
+
+**Who gets blind-copied.** You can list up to ten addresses to receive a silent copy of every email
+your project sends — handy for keeping a support or operations inbox in the loop. Recipients cannot
+see these addresses, and they are not part of the conversation: replies still go to your reply-to
+address.
+
+You can also override the list for individual emails: give one kind of email its own set of
+addresses, or turn blind copies off for it entirely, while everything else keeps using the main
+list. Use it to keep the daily supplier agenda out of a busy inbox, or to send booking
+confirmations to your accounts team instead of the main list.
+
+<Note>
+Invitation emails are never blind-copied, and this cannot be changed. The link in an invitation is
+what lets someone join your project — a copy of it sitting in a shared inbox would let anyone who
+can read that inbox accept the invitation.
+</Note>
+
+None of this is stored on the email itself — it is all resolved when each message is sent, so
+renaming your project changes the name on the next send, including for bookings made before the
+change. The same goes for changing where replies go or who is copied: it applies from the next
+email onwards and does not rewrite anything already sent.
 
 ## Limits worth knowing
 
