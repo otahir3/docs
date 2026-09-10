@@ -2,6 +2,7 @@
   "baseUrl": "https://rtgic12qk9.execute-api.us-east-1.amazonaws.com/dev",
   "hostAllowlist": ["rtgic12qk9.execute-api.us-east-1.amazonaws.com"],
   "idPrefixes": [
+    "act",
     "alloc",
     "app",
     "attr",

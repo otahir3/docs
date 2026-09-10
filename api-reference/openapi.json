@@ -129,14 +129,25 @@
             "enum": [
               "SCHEDULED",
               "STARTED",
+              "AWAITING_CONFIRMATION",
+              "DISPUTED",
               "COMPLETED",
               "CANCELLED",
+              "CLIENT_NO_SHOW",
+              "SUPPLIER_NO_SHOW",
               "NO_SHOW"
             ]
           },
           "statusUpdatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "statusUpdatedBy": {
+            "type": "string"
+          },
+          "statusUpdatedByCapacity": {
+            "type": "string",
+            "enum": ["ADMIN", "SUPPLIER", "CLIENT", "SYSTEM", "API"]
           },
           "cancellationReason": {
             "type": "string",
@@ -1453,8 +1464,12 @@
               "enum": [
                 "SCHEDULED",
                 "STARTED",
+                "AWAITING_CONFIRMATION",
+                "DISPUTED",
                 "COMPLETED",
                 "CANCELLED",
+                "CLIENT_NO_SHOW",
+                "SUPPLIER_NO_SHOW",
                 "NO_SHOW"
               ]
             },
@@ -2339,7 +2354,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Change a booking status",
-        "description": "Moves the booking through its lifecycle. Only these transitions are allowed, and anything else is a 400:\n\n- `SCHEDULED` -\u003E `STARTED`, `CANCELLED`, `NO_SHOW`\n- `STARTED` -\u003E `COMPLETED`, `CANCELLED`\n- `COMPLETED`, `CANCELLED`, `NO_SHOW` -\u003E nothing\n\nThe last three are terminal: a completed, cancelled or no-showed booking cannot be reopened, so create a new booking instead. Cancelling releases the supplier time; for a package session it also returns the credit to the order item. Returns 409 if the booking changed underneath you.",
+        "description": "Moves the booking through its lifecycle. The `status` enum on the request body is the authoritative list of what a caller may ASK for — it is narrower than the `status` on the response, because `SCHEDULED` and `DISPUTED` are states a booking is put into by the platform and can only be observed, never requested.\n\nWhich of the settable statuses your key may actually use also depends on where the booking is now and on the capacity of the caller. An API key cannot resolve a dispute, and cannot reverse a settled booking back to `AWAITING_CONFIRMATION`: both decide between two accounts of what happened, and are reserved for an operator in the MarketBox console.\n\n`NO_SHOW` is deprecated in favour of `CLIENT_NO_SHOW` and `SUPPLIER_NO_SHOW`, which record which side was absent. It is accepted for now and will be removed in a later version.\n\nA transition the booking cannot make from where it currently stands is a 400 naming that current status, so a rejection tells you what to retry from. Cancelling releases the supplier time; for a package session it also returns the credit to the order item. Returns 409 if the booking changed underneath you.",
         "parameters": [
           {
             "schema": {
@@ -2377,10 +2392,12 @@
                   "status": {
                     "type": "string",
                     "enum": [
-                      "SCHEDULED",
                       "STARTED",
+                      "AWAITING_CONFIRMATION",
                       "COMPLETED",
                       "CANCELLED",
+                      "CLIENT_NO_SHOW",
+                      "SUPPLIER_NO_SHOW",
                       "NO_SHOW"
                     ]
                   },
@@ -2518,8 +2535,12 @@
               "enum": [
                 "SCHEDULED",
                 "STARTED",
+                "AWAITING_CONFIRMATION",
+                "DISPUTED",
                 "COMPLETED",
                 "CANCELLED",
+                "CLIENT_NO_SHOW",
+                "SUPPLIER_NO_SHOW",
                 "NO_SHOW"
               ]
             },
@@ -2663,8 +2684,12 @@
               "enum": [
                 "SCHEDULED",
                 "STARTED",
+                "AWAITING_CONFIRMATION",
+                "DISPUTED",
                 "COMPLETED",
                 "CANCELLED",
+                "CLIENT_NO_SHOW",
+                "SUPPLIER_NO_SHOW",
                 "NO_SHOW"
               ]
             },
@@ -11097,7 +11122,9 @@
                     "type": "number"
                   },
                   "timezone": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "IANA timezone the supplier works in. Drives when their daily agenda email fires: it is used verbatim as the EventBridge schedule timezone, so a value the scheduler rejects means no agenda email at all. Unset inherits the project’s defaultTimezone.",
+                    "example": "America/Toronto"
                   },
                   "bio": {
                     "type": "string"
@@ -12083,7 +12110,9 @@
                     "type": "number"
                   },
                   "timezone": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "IANA timezone the supplier works in. Drives when their daily agenda email fires: it is used verbatim as the EventBridge schedule timezone, so a value the scheduler rejects means no agenda email at all. Unset inherits the project’s defaultTimezone.",
+                    "example": "America/Toronto"
                   },
                   "bio": {
                     "type": "string"
@@ -14478,7 +14507,7 @@
       "post": {
         "tags": ["Availability"],
         "summary": "Find suppliers + suggested/open slots for a service, location and window",
-        "description": "The main \"when can this be booked\" call. Returns two parallel, slot-centric arrays: `timeSlots`, the engine's ranked suggestions with travel between jobs taken into account, and `openSlots`, every free interval at `interval` granularity with no ranking. Show `timeSlots` to clients and keep `openSlots` for a \"more times\" view; they overlap by design. Identify the place with `locationId`, or with both `lat` and `lng` for in-home and travel-zone discovery — one or the other is required. `durationMinutes` is honoured only for FLEXIBLE offerings and is otherwise ignored in favour of the offering's own duration.\n\nFailures come back inside a 200. The body carries `status` and an `errors` array, so an empty `timeSlots` with a non-empty `errors` means the search broke, not that nobody is free — check `errors` before telling a client there is no availability.\n\nSetting `bookingType: \"recurring\"` changes what `timeSlots` contains: recurring time patterns rather than individual slots, so do not parse the two the same way. That branch adds three requirements, each a 400 and each guarding an input that used to return silence instead of an error — `rrule` is required, it must carry a bounded positive COUNT (e.g. \"FREQ=WEEKLY;BYDAY=TU;COUNT=3\"), and `lookAheadStartDate` must carry a numeric offset like \"+00:00\" rather than a \"Z\" suffix.",
+        "description": "The main \"when can this be booked\" call. Returns two parallel, slot-centric arrays: `timeSlots`, the engine's ranked suggestions with travel between jobs taken into account, and `openSlots`, every free interval at `interval` granularity with no ranking. Show `timeSlots` to clients and keep `openSlots` for a \"more times\" view; they overlap by design. Identify the place with `locationId`, or with both `lat` and `lng` for in-home and travel-zone discovery — one or the other is required. `durationMinutes` is honoured only for FLEXIBLE offerings and is otherwise ignored in favour of the offering's own duration.\n\nFailures come back inside a 200. The body carries `status` and an `errors` array, so an empty `timeSlots` with a non-empty `errors` means the search broke, not that nobody is free — check `errors` before telling a client there is no availability.\n\nSetting `bookingType: \"recurring\"` changes what `timeSlots` contains: recurring time patterns rather than individual slots, so do not parse the two the same way. That branch adds two requirements, each a 400 and each guarding an input that used to return silence instead of an error — `rrule` is required, and it must carry a bounded positive COUNT (e.g. \"FREQ=WEEKLY;BYDAY=TU;COUNT=3\"). `lookAheadStartDate` is any ISO-8601 instant: a \"Z\" suffix and a numeric offset like \"-04:00\" are equally valid.",
         "parameters": [
           {
             "schema": {
@@ -14546,7 +14575,8 @@
                     "exclusiveMinimum": true
                   },
                   "timezone": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                   },
                   "distanceUnit": {
                     "type": "string",
@@ -14662,16 +14692,29 @@
                       "items": {
                         "nullable": true
                       },
-                      "description": "Suggested slots, or recurring time patterns when bookingType=recurring"
+                      "description": "Suggested slots, or recurring time patterns when bookingType=recurring. Each entry carries `timeSlotDateAndTime` (the slot instant rendered in the response `timezone`, with that zone's offset at that instant — R-30) and `timeSlotStartUtc` (the same instant in UTC, `Z` — R-31, always present, always the same instant as `timeSlotDateAndTime`). Prefer `timeSlotStartUtc` as the booking anchor."
                     },
                     "openSlots": {
                       "type": "array",
                       "items": {
                         "nullable": true
-                      }
+                      },
+                      "description": "Every free interval at `interval` granularity, unranked. Each entry carries `timeSlotDateAndTime` (the slot instant rendered in the response `timezone`, with that zone's offset at that instant — R-30) and `timeSlotStartUtc` (the same instant in UTC, `Z` — R-31, always present, always the same instant as `timeSlotDateAndTime`). Prefer `timeSlotStartUtc` as the booking anchor."
                     },
                     "timezone": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "The IANA timezone actually used to render `timeSlotDateAndTime` and bucket days (R-32) — the request `timezone`, or the project default.",
+                      "example": "America/Chicago"
+                    },
+                    "supplierZones": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "description": "IANA profile zone of each supplier that appears in `timeSlots`/`openSlots`, keyed by supplierId. Use it as the R-10 fallback for `bookingTz` on a virtual booking (location zone wins when there is one). Absent key = the supplier has no profile zone; use the project default.",
+                      "example": {
+                        "sup_01abc": "America/Toronto"
+                      }
                     },
                     "errors": {
                       "type": "array",
@@ -14795,6 +14838,9 @@
                                 },
                                 "minItems": 2,
                                 "maxItems": 2
+                              },
+                              "timezone": {
+                                "type": "string"
                               }
                             },
                             "required": ["startDateAndTime", "endDateAndTime"]
@@ -14856,6 +14902,9 @@
                         "maxTravelTimeToEndGeoLocationMins": {
                           "type": "number",
                           "nullable": true
+                        },
+                        "timezone": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -14887,7 +14936,7 @@
                       "items": {
                         "nullable": true
                       },
-                      "description": "Clustered suggested slots"
+                      "description": "Clustered suggested slots. Each entry carries `timeSlotDateAndTime` (the slot instant rendered in the response `timezone`, with that zone's offset at that instant — R-30) and `timeSlotStartUtc` (the same instant in UTC, `Z` — R-31, always present, always the same instant as `timeSlotDateAndTime`). Prefer `timeSlotStartUtc` as the booking anchor."
                     },
                     "errors": {
                       "type": "array",
@@ -15029,7 +15078,8 @@
                   },
                   "timezone": {
                     "type": "string",
-                    "description": "IANA timezone governing day bucketing and every `*Local` field in the response. Defaults to the project timezone.",
+                    "minLength": 1,
+                    "description": "IANA timezone governing day bucketing and every `*Local` field in the response (R-32). Defaults to the project timezone.",
                     "example": "America/Chicago"
                   },
                   "distanceUnit": {
@@ -15371,12 +15421,12 @@
                                       },
                                       "startUtc": {
                                         "type": "string",
-                                        "description": "Slot start as a UTC instant (ISO-8601, Z). Use this as the booking start anchor.",
+                                        "description": "Slot start as a UTC instant (ISO-8601, Z) — the engine's `timeSlotStartUtc` verbatim (R-31). Prefer this over `startLocal` as the booking start anchor.",
                                         "example": "2025-07-07T14:00:00.000Z"
                                       },
                                       "startLocal": {
                                         "type": "string",
-                                        "description": "Slot start rendered in the request `timezone` (ISO-8601 with numeric offset). For display.",
+                                        "description": "The slot start as a local clock in the request `timezone`, with that zone's offset at that instant (ISO-8601, R-30) — e.g. `2025-07-07T09:00:00-05:00`. Always denotes the same instant as `startUtc` (the engine's `timeSlotStartUtc`). For display.",
                                         "example": "2025-07-07T09:00:00-05:00"
                                       },
                                       "endUtc": {
@@ -15457,7 +15507,7 @@
                     },
                     "timezone": {
                       "type": "string",
-                      "description": "The IANA timezone used for day bucketing and every `*Local` field (the request `timezone`, or the project default).",
+                      "description": "The IANA timezone actually used for day bucketing and every `*Local` field (the request `timezone`, or the project default) — R-32.",
                       "example": "America/Chicago"
                     },
                     "nextCursor": {
@@ -18977,6 +19027,7 @@
                   },
                   "timezone": {
                     "type": "string",
+                    "minLength": 1,
                     "description": "IANA timezone. Defaults to the project's defaultTimezone."
                   },
                   "rrule": {

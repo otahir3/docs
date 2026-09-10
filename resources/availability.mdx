@@ -55,7 +55,7 @@ slots, open slots, and (for recurring requests) recurrence patterns.
 | `durationMinutes`      | Override the offering duration (FLEXIBLE offerings).                  |
 | `lookAheadStartDate`   | ISO start of the search window.                                       |
 | `lookAheadDays`        | Window length in days.                                                |
-| `timezone`             | IANA timezone for the returned local times.                          |
+| `timezone`             | IANA identifier (`America/Toronto`) for the returned local times. Abbreviations and offsets (`EST`, `GMT+5`) are a `400`. |
 | `distanceUnit`         | `km` or `mi`.                                                         |
 | `interval`             | Open-slot granularity in minutes.                                    |
 | `timeSuggestionsLimit` | Cap on suggested slots returned.                                     |
@@ -82,16 +82,37 @@ The response envelope:
 {
   "status": "success",
   "timeSlots": [
-    { "supplierId": "sup_…", "timeSlotDateAndTime": "2026-06-23T10:00:00+00:00", "travelType": "TO-NEXT-BOOKING", "travelTimeMins": 8 }
+    { "supplierId": "sup_…", "timeSlotDateAndTime": "2026-06-23T10:00:00-04:00", "timeSlotStartUtc": "2026-06-23T14:00:00.000Z", "travelType": "TO-NEXT-BOOKING", "travelTimeMins": 8 }
   ],
-  "openSlots": [ { "supplierId": "sup_…", "start": "…", "end": "…" } ],
-  "timezone": "UTC",
+  "openSlots": [ { "supplierId": "sup_…", "timeSlotId": "…", "timeSlotDateAndTime": "2026-06-23T09:15:00-04:00", "timeSlotStartUtc": "2026-06-23T13:15:00.000Z" } ],
+  "timezone": "America/Toronto",
+  "supplierZones": { "sup_…": "America/Toronto" },
   "errors": []
 }
 ```
 
 No matching suppliers returns the same envelope with empty
 `timeSlots` / `openSlots` and `errors: []`.
+
+### Slot times and zones
+
+Every slot in `timeSlots[]` and `openSlots[]` carries the same instant twice:
+
+| Field | Meaning |
+| --- | --- |
+| `timeSlotStartUtc` | The slot start as a UTC instant, always `Z`-suffixed. **Use this as the booking anchor** — it is what `bookingStartUtc` expects, and it needs no zone-aware parsing. |
+| `timeSlotDateAndTime` | The same instant as a local clock in the response `timezone`, with that zone's offset **at that instant** — so a slot on the far side of a daylight-saving change carries the offset for its own day. For display. |
+
+The envelope's `timezone` is the zone actually used to render
+`timeSlotDateAndTime` and to bucket days: the request `timezone`, or the
+project default when you sent none. If your code reads the clock digits
+rather than parsing the whole string, send `timezone` explicitly.
+
+`supplierZones` maps each supplier that appears in the slot arrays to their
+own profile zone. Use it as the `bookingTz` for a **virtual** booking with no
+service location — the location's zone wins when there is one, then the
+supplier's, then the project default. A supplier missing from the map has no
+profile zone; fall back to the project default.
 
 ## Recurring search
 
@@ -100,15 +121,7 @@ and pass an `rrule`. The recurring branch returns **pattern objects**
 (`mostAvailableStartTime`, `startTimeConsistencyPercent`) in
 `timeSlots[]` rather than individual slots.
 
-Recurring requests have two strict requirements — each returns a
-`400 VALIDATION_ERROR` if not met:
-
-<Warning>
-  **`lookAheadStartDate` must carry a numeric timezone offset** (e.g.
-  `2026-06-23T00:00:00+00:00`), **not** a `Z` suffix. The recurring
-  builder derives the request's offset from the last six characters of
-  the string, so `Z` yields a garbage offset and no results.
-</Warning>
+Recurring requests have one strict requirement, a `400` if not met:
 
 <Warning>
   **`rrule` must include a bounded `COUNT`** (e.g.
@@ -116,6 +129,12 @@ Recurring requests have two strict requirements — each returns a
   set to `COUNT` dates and needs a slot on every one; an unbounded rule
   defaults to 10 occurrences and almost always returns nothing.
 </Warning>
+
+`lookAheadStartDate` is any ISO-8601 instant — a `Z` suffix and a numeric
+offset are equally valid. The window and the recurrence anchor are resolved
+on the **local date in the request `timezone`**, so a midnight-UTC start
+against a zone west of Greenwich anchors on the previous local day. A value
+that does not parse is a `400`.
 
 ```json
 {
@@ -126,9 +145,9 @@ Recurring requests have two strict requirements — each returns a
   "bookingType": "recurring",
   "rrule": "FREQ=WEEKLY;INTERVAL=1;BYDAY=TU;COUNT=3",
   "daysOfWeek": [2],
-  "lookAheadStartDate": "2026-06-23T00:00:00+00:00",
+  "lookAheadStartDate": "2026-06-23T04:00:00Z",
   "lookAheadDays": 16,
-  "timezone": "UTC"
+  "timezone": "America/Toronto"
 }
 ```
 
@@ -190,7 +209,8 @@ Notes that catch people out:
 - Paginate with `limit` (max 50) plus the opaque `cursor`. `nextCursor` is
   `null` on the last page.
 - Each slot carries a UTC anchor (`startUtc` / `endUtc`) **plus** `*Local`
-  strings rendered in the request `timezone`.
+  strings rendered in the request `timezone`, with that zone's offset at
+  that instant. `startUtc` is the engine's `timeSlotStartUtc` verbatim.
 
 ### Rank suppliers by fit: `availabilityMatch`
 
@@ -252,14 +272,18 @@ POST /v1/projects/{projectId}/availability/package-slate
 
 Builds a **slate** — a complete N-session plan for a package, from a single
 supplier's availability. Pass a `packageId` (the session count, service and
-offering are derived from it), a location, a `timezone`, a
+offering are derived from it), a location, an IANA `timezone`, a
 `lookAheadStartDate` carrying a numeric offset, and an `rrule` with a bounded
 `COUNT`. The returned `primarySlate.slateId` books the whole plan in one call
 via `POST /v1/projects/{projectId}/orders/{orderId}/package-bookings`.
 
-The same two cadence guards as recurring search apply, and for the same
-reasons: `lookAheadStartDate` must carry a numeric offset, and `rrule` must
-carry a bounded, positive `COUNT`. Both are `400 VALIDATION_ERROR`.
+Two cadence guards apply, each a `400 VALIDATION_ERROR`: `lookAheadStartDate`
+must carry a numeric `±HH:MM` offset rather than a `Z` suffix (the slate
+builder reads the offset from the last six characters — unlike recurring
+search, which now accepts either form), and `rrule` must carry a bounded,
+positive `COUNT`. Every session in the returned slate is stamped with
+`bookingTz` equal to its **home zone** — the service location's zone, else
+the supplier's, else the project default — not the `timezone` you sent.
 
 Responses are `200` when anything is bookable and `422` when nothing is —
 specifically, when `primarySlate`, `partial` **and** `cadenceAlternatives`
@@ -295,7 +319,7 @@ whole request.
 
 | Status | When                                                                 |
 | ------ | -------------------------------------------------------------------- |
-| `400`  | Missing location, missing `rrule` on a recurring request, recurring `lookAheadStartDate` using `Z`, recurring `rrule` without `COUNT`, or `time-slots` without `suppliers`. |
+| `400`  | Missing location, missing `rrule` on a recurring request, recurring `rrule` without `COUNT`, a `timezone` that is not an IANA identifier, a `lookAheadStartDate` that does not parse, a package `lookAheadStartDate` using `Z`, or `time-slots` without `suppliers`. |
 | `403`  | Missing or unrecognised API key — rejected at the edge, before any scope check — or a key that cannot access this project. |
 | `404`  | `package-options` only — the service doesn't exist in this project.  |
 | `422`  | `package-slate` only — nothing bookable: no `primarySlate`, no `partial`, and no `cadenceAlternatives`. The `code` is `NO_COMPLETE_SLATE` or `NO_AVAILABILITY`. |

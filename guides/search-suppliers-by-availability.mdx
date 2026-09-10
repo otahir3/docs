@@ -125,7 +125,7 @@ Each slot carries both a UTC anchor and pre-formatted local strings:
 | --- | --- |
 | `slotId` | Opaque id for the slot. Handy as a React key; not a hold (see the warning below). |
 | `startUtc` / `endUtc` | The slot as UTC instants. **Use these as the booking anchors.** `endUtc` is `startUtc` + the resolved service duration. |
-| `startLocal` / `endLocal` | The same times rendered in the request `timezone` (ISO-8601 with offset). **For display** — don't re-parse them for the booking call, use the UTC pair. |
+| `startLocal` / `endLocal` | The same times rendered in the request `timezone` (ISO-8601 with that zone's offset at that instant). **For display** — don't re-parse them for the booking call, use the UTC pair. |
 
 <Note>
 **Busy suppliers are still returned, with `days: []`.** A supplier who serves
@@ -539,7 +539,7 @@ needs no service or offering, so it separates "nobody serves here" from
 | `locationId` **or** `lat` + `lng` | Yes (one way) | Stored Location id, **or** a coordinate pair for travel-zone discovery. Neither → `400`. |
 | `lookAheadStartDate` | No | ISO-8601 start of the window. Defaults to now. |
 | `lookAheadDays` | No | Days forward to search. Defaults to the engine's window. |
-| `timezone` | No | IANA zone for day bucketing + `*Local` fields. Defaults to the project timezone. |
+| `timezone` | No | IANA zone (`America/Toronto`) for day bucketing + `*Local` fields. Defaults to the project timezone. Abbreviations and offsets (`EST`, `GMT+5`) are a `400`. |
 | `interval` | No | Open-slot granularity in minutes (e.g. `30`). Defaults to 15. |
 | `durationMinutes` | No | Override the booked duration — **FLEXIBLE offerings only**; otherwise the offering's own duration is used. |
 | `distanceUnit` | No | `km` or `mi` for travel calculations. |

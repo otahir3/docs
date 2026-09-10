@@ -77,19 +77,53 @@ longest expected booking duration if you need to catch overnight or
 multi-day bookings.
 </Note>
 
-## Invalid timezones
+## Availability slot times
 
-If `bookingTz` is not a recognized IANA identifier (e.g. `EST`, `PST`,
-`UTC+5`), the API rejects the request with:
+Availability responses describe each slot's start twice, and both fields
+always denote the same instant:
+
+| Field | Meaning |
+| --- | --- |
+| `timeSlotStartUtc` | The slot start in UTC, always `Z`-suffixed. Use it as `bookingStartUtc` when you book. |
+| `timeSlotDateAndTime` | The same instant as a local clock in the response `timezone`, with that zone's offset **at that instant**. For display. |
+
+The response `timezone` is the zone actually used for rendering and day
+bucketing — the request `timezone`, or the project default when you sent
+none. `POST …/availability/suppliers` uses `startUtc` / `startLocal` for the
+same pair. Around a daylight-saving change a supplier's weekly schedule keeps
+its local wall clock (a 9:00 lesson stays 9:00 in the supplier's zone) and
+the UTC instant shifts; that is correct, so do not "fix" it on your side.
+See [Availability → Slot times and zones](/resources/availability#slot-times-and-zones).
+
+## Valid timezones
+
+Every zone field on a write is validated the same way. Accepted: any IANA
+identifier containing a `/` (`America/Toronto`, `Australia/Sydney`,
+`Asia/Kolkata`) and the literal `UTC`. Deprecated aliases that contain a `/`
+(`US/Pacific`, `Canada/Eastern`) still pass. **Rejected with a `400`:**
+abbreviations (`EST`, `PST`, `IST`, `CET`), legacy names without a `/`
+(`Hongkong`, `Japan`, `Zulu`), numeric offsets (`-05:00`, `UTC+5`), and
+values with leading or trailing whitespace.
+
+| Endpoint | Field |
+| --- | --- |
+| `POST …/availability/search`, `…/suppliers`, `…/package-slate`, `…/package-options` | `timezone` |
+| `POST …/bookings`, `PATCH …/bookings/{bookingId}` | `bookingTz` |
+| `POST …/holds` | `intervals[].bookingTz` |
+| `POST …/orders/{orderId}/package-bookings` | `bookingTz` |
+| `POST …/suppliers`, `PUT …/suppliers/{supplierId}` | `timezone` |
+
+The error envelope names the field in its message:
 
 ```json
 {
   "code": "VALIDATION_ERROR",
-  "message": "Invalid bookingTz: EST",
+  "message": "bookingTz: Must be an IANA timezone identifier such as America/Toronto (abbreviations like EST are not accepted)",
   "statusCode": 400,
   "requestId": "e21d9f4a-6b8c-4e3d-a175-2c9f6b0d8a53"
 }
 ```
 
 Use the canonical zone name — `America/New_York`, not `EST`;
-`Europe/London`, not `BST`.
+`Europe/London`, not `BST`. Values already stored are not re-validated on
+read.

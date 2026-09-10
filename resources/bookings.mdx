@@ -9,16 +9,63 @@ service offerings, with optional notes and participants.
 
 ## The booking lifecycle
 
+A booking is created as `SCHEDULED` and settles into one of the outcomes
+on the right. The middle column is where the platform decides what happened
+after the session ended.
+
 ```
-PENDING ─┬─► CONFIRMED ──► COMPLETED
-         │
-         └─► CANCELLED
+SCHEDULED ──► STARTED ──► AWAITING_CONFIRMATION ──► COMPLETED
+    │            │                 │                CLIENT_NO_SHOW
+    │            │                 └──► DISPUTED ──► SUPPLIER_NO_SHOW
+    └────────────┴──────────────────────────────────► CANCELLED
 ```
 
-You move a booking through these states with
-`POST /v1/projects/{projectId}/bookings/{bookingId}/status`. Not every
-transition is allowed — a disallowed one returns `400 BAD_REQUEST`. See
+`status` on every booking response is one of nine values:
+
+| Status | Meaning | Who puts a booking here |
+| --- | --- | --- |
+| `SCHEDULED` | Created, not yet started. The only start state. | Booking creation. Nothing transitions *into* it. |
+| `STARTED` | The session is under way. | Your key, or the supplier, once `bookingStartUtc` has passed. |
+| `AWAITING_CONFIRMATION` | The session has ended and MarketBox is waiting on the two parties' attendance reports. | The platform, when `bookingEndUtc` passes. An operator can also reverse a settled booking back here within a window. |
+| `DISPUTED` | The client and supplier reported different things about attendance. | The platform only. Resolved by an operator in the MarketBox console. |
+| `COMPLETED` | Delivered. | The platform (both attended, or the confirmation window timed out), or your key. |
+| `CLIENT_NO_SHOW` | The client did not attend. | The platform (from the supplier's report), your key, or the supplier — after a grace period past the start. |
+| `SUPPLIER_NO_SHOW` | The supplier did not attend. | The platform (from the client's report), your key, or the client — after the same grace period. |
+| `CANCELLED` | Called off. **Hard-terminal**: money may have moved, so nothing leaves this state. | Your key, or either party, before `bookingEndUtc`. |
+| `NO_SHOW` | **Deprecated.** The pre-split no-show, which does not say which side was absent. Nothing transitions out of it. | Still accepted on the status endpoint for now; will be removed. |
+
+You move a booking with
+`POST /v1/projects/{projectId}/bookings/{bookingId}/status`. The request
+body's `status` enum is narrower than the response's: `SCHEDULED` and
+`DISPUTED` can be observed but never requested, so they are not in it.
+
+<Note>
+  **What an API key may do.** A key carries every transition an operator
+  has, except the ones that need a human to decide between two accounts of
+  what happened: it cannot resolve a `DISPUTED` booking, and it cannot
+  reverse a settled booking (`COMPLETED`, `CLIENT_NO_SHOW`,
+  `SUPPLIER_NO_SHOW`) back to `AWAITING_CONFIRMATION`. Both are reserved for
+  the MarketBox console. Which transitions are open also depends on the
+  clock — a booking cannot be started before `bookingStartUtc`, or marked a
+  no-show until a grace period after it.
+</Note>
+
+A transition the booking cannot make from where it stands is a
+`400 BAD_REQUEST` whose `message` names the booking's **current** status, so a
+rejection tells you what to retry from. `409 VERSION_CONFLICT` means the
+booking changed underneath you — re-read it and decide again. Prefer
+`CLIENT_NO_SHOW` / `SUPPLIER_NO_SHOW` over the deprecated `NO_SHOW`: they
+record which side was absent, and `NO_SHOW` will stop being accepted in a
+later version. Cancelling releases the supplier's time; for a package session
+it also returns the credit to the order item. See
 [Errors](/concepts/errors).
+
+Every booking also records who last moved it. `statusUpdatedAt` is the
+instant, `statusUpdatedBy` is the actor, and `statusUpdatedByCapacity` is one
+of `ADMIN`, `SUPPLIER`, `CLIENT`, `SYSTEM` or `API`. A change made through
+the public API is attributed to the **API key** that made it, in the `API`
+capacity — the key is what gets rotated or revoked, so "which key did this"
+is the question an incident asks.
 
 A booking is **soft-deleted** with
 `DELETE /v1/projects/{projectId}/bookings/{bookingId}`. Soft-deleted

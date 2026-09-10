@@ -3,6 +3,77 @@ title: "Changelog"
 description: "New features, updates, and fixes to the MarketBox API."
 ---
 
+<Update label="September 10, 2026" tags={["API"]}>
+
+## Every slot time is one instant, every zone is IANA, and bookings say who moved them
+
+Availability slots used to take their clock digits from the supplier's own zone and their offset from the `timezone` you passed, so when the two differed the string described a different moment than the one the supplier was free at — a Toronto supplier viewed with `timezone: "America/Los_Angeles"` was three hours off. Recurring schedules also used one fixed offset for their whole span and drifted an hour after a daylight-saving change. Both are fixed, and the booking lifecycle now carries the statuses the platform has been using internally.
+
+**Additive on the wire, with one breaking validation change.** No field was removed or renamed. A request that previously sent an abbreviated timezone will now be rejected — see **Breaking** below. Strict response decoders need a regeneration for the new booking statuses and the new slot and envelope fields.
+
+**New**
+
+- **`timeSlotStartUtc` on every slot** in `timeSlots[]` and `openSlots[]` from `POST /v1/projects/{projectId}/availability/search` and `…/time-slots`. The slot start in UTC, always `Z`-suffixed, always the same instant as `timeSlotDateAndTime`. Prefer it as the booking anchor. Package slates derive each session's `bookingStartUtc` from it. This is a response shape:
+
+```json
+{
+  "supplierId": "sup_01kv60qgnef2kt3pvqgwmkbzfr",
+  "timeSlotDateAndTime": "2026-11-08T09:00:00-05:00",
+  "timeSlotStartUtc": "2026-11-08T14:00:00.000Z"
+}
+```
+
+- **`supplierZones` on `POST /v1/projects/{projectId}/availability/search`** — each returned supplier's own profile zone, keyed by `supplierId`. The recommended `bookingTz` for a virtual booking with no service location: location zone, else supplier zone, else project default. A supplier missing from the map has no profile zone.
+- **Four booking statuses**: `AWAITING_CONFIRMATION`, `DISPUTED`, `CLIENT_NO_SHOW`, `SUPPLIER_NO_SHOW` — on every booking response and on the `status` filter of the three list endpoints. `AWAITING_CONFIRMATION` and `DISPUTED` are entered by the platform after a session ends and can only be observed. `CLIENT_NO_SHOW` / `SUPPLIER_NO_SHOW` replace `NO_SHOW`, which no longer said which side was absent. See [Bookings → The booking lifecycle](/resources/bookings#the-booking-lifecycle).
+- **`statusUpdatedBy` and `statusUpdatedByCapacity` on every booking** — who last changed the status and in what capacity (`ADMIN`, `SUPPLIER`, `CLIENT`, `SYSTEM`, `API`). A change made through the public API is attributed to the API key that made it, in the `API` capacity.
+- **`lookAheadStartDate` accepts a `Z` instant on recurring `…/availability/search`.** A `Z` suffix and a numeric offset are equally valid there; the "must carry a numeric offset" `400` is gone from that endpoint. `…/package-slate` and `…/package-options` still require a numeric offset.
+
+**Changed**
+
+- **Corrected slot times.** `timeSlotDateAndTime` keeps its name and now renders the slot instant in the response `timezone` with that zone's offset **at that instant**, so digits and offset always agree and the string always parses to `timeSlotStartUtc`. If your code parses the whole string you will simply see correct times. If it reads only the clock digits, pass `timezone` explicitly to keep receiving that zone's clock. On `…/availability/suppliers`, `startUtc` is now the engine instant verbatim and `startLocal` is rendered in the response `timezone`.
+- **Daylight saving.** A supplier's weekly schedule now keeps its local wall clock across a transition (a 9:00 lesson stays 9:00 in the supplier's zone) and the UTC instant shifts. That is correct; do not "fix" it on your side.
+- **Package sessions are stamped with the home zone.** Slots from `…/package-slate` and `…/package-options`, and the bookings created from them, carry `bookingTz` equal to the session's home zone — the service location's zone, else the supplier's, else the project default — instead of the `timezone` you sent. `bookingStartUtc` is unchanged.
+- **Recurring search windows resolve on the local date.** On recurring `…/availability/search`, the window and the recurrence anchor are read on the local date in the request `timezone`, so a midnight-UTC `lookAheadStartDate` against a zone west of Greenwich anchors one day earlier than before. A value that does not parse is a `400` in the standard error envelope rather than a raw validation payload.
+- **`POST …/bookings/{bookingId}/status` request enum is narrower than the response.** `SCHEDULED` and `DISPUTED` are no longer advertised as settable — they were always rejected. `NO_SHOW` is **deprecated**, still accepted, and will be removed in a later version. An API key can request every transition an operator can except resolving a dispute or reversing a settled booking back to `AWAITING_CONFIRMATION`. A transition the booking cannot make is a `400` naming the booking's current status.
+- **Supplier `timezone` drives the daily agenda email.** It is used verbatim as the schedule zone for the supplier's 07:00 agenda; unset inherits the project default.
+
+**Breaking: timezone values must be IANA identifiers**
+
+Every zone field is validated on write. Accepted: any IANA identifier containing a `/` (`America/Toronto`, `Australia/Sydney`, `Asia/Kolkata`) and the literal `UTC`; deprecated aliases with a `/` (`US/Pacific`) still pass. **Rejected with `400 VALIDATION_ERROR`:** abbreviations (`EST`, `PST`, `IST`, `CET`), legacy names without a `/` (`Hongkong`, `Japan`), numeric offsets (`-05:00`), and values with surrounding whitespace. The message names the field:
+
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "message": "bookingTz: Must be an IANA timezone identifier such as America/Toronto (abbreviations like EST are not accepted)",
+  "statusCode": 400,
+  "requestId": "e21d9f4a-6b8c-4e3d-a175-2c9f6b0d8a53"
+}
+```
+
+| Endpoint | Field |
+| --- | --- |
+| `POST …/availability/search`, `…/suppliers`, `…/package-slate`, `…/package-options` | `timezone` |
+| `POST …/bookings`, `PATCH …/bookings/{bookingId}` | `bookingTz` |
+| `POST …/holds` | `intervals[].bookingTz` |
+| `POST …/orders/{orderId}/package-bookings` | `bookingTz` |
+| `POST …/suppliers`, `PUT …/suppliers/{supplierId}` | `timezone` |
+
+Stored values are not re-validated on read.
+
+**What this means for you**
+
+- **Search your code for hard-coded zone strings** sent to the API and replace abbreviations with IANA ids: `EST` → `America/Toronto` or `America/New_York`, `PST` → `America/Los_Angeles`, `IST` → `Asia/Kolkata`.
+- **Prefer `timeSlotStartUtc`** for anything that computes with a slot time; treat `timeSlotDateAndTime` as a display convenience.
+- **If you rely on the clock digits** in `timeSlotDateAndTime`, pass `timezone` explicitly on every availability request.
+- **If you display package sessions using `bookingTz`**, expect the home zone rather than your request zone.
+- **Regenerate response types** for the four new statuses, `statusUpdatedBy`, `statusUpdatedByCapacity`, `timeSlotStartUtc` and `supplierZones`. Handle `AWAITING_CONFIRMATION` and `DISPUTED` as in-flight, not failed.
+- **Stop sending `NO_SHOW`.** Send `CLIENT_NO_SHOW` or `SUPPLIER_NO_SHOW` instead.
+- **A "no `Z`" guard on `lookAheadStartDate` is now only needed for the package endpoints**, not for recurring search.
+
+Full detail: [Timezones](/concepts/timezones), [Availability → Slot times and zones](/resources/availability#slot-times-and-zones), [Bookings → The booking lifecycle](/resources/bookings#the-booking-lifecycle).
+
+</Update>
+
 <Update label="September 3, 2026" tags={["API"]}>
 
 ## Supplier directory: `servedRegions`, point search, one liveness rule — plus booking locale and E.164 phones

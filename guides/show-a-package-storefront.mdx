@@ -203,7 +203,9 @@ export async function POST(request: Request) {
 
 <Warning>
 `lookAheadStartDate` must carry a **numeric `±HH:MM` offset** (e.g.
-`-04:00`) — a `Z` suffix is rejected with a `400`.
+`-04:00`) — a `Z` suffix is rejected with a `400`. `timezone` must be an
+**IANA identifier** (`America/Toronto`, never `EST`) — anything else is also
+a `400`.
 </Warning>
 
 `rrule` is optional. Omit it and the cadence **defaults to
@@ -327,6 +329,7 @@ two values.
 | A package's derived (or explicit) cadence needs more than the 120-day look-ahead ceiling | `NO_COMPLETE_SLATE` | `200`, per entry | Not a request-level error — that entry's `status` is `NO_COMPLETE_SLATE` and `reason` names the window required. Render the other `OK` entries normally; see [Availability and slates](/guides/availability-and-slates#the-120-day-look-ahead-ceiling). |
 | No supplier availability at all for a package's location/window | `NO_AVAILABILITY` | `200`, per entry | Also per-entry, not a request failure. Try a different location or a later `lookAheadStartDate`. |
 | `lookAheadStartDate` has a `Z` suffix instead of a numeric offset | `VALIDATION_ERROR` | `400` | Use a numeric `±HH:MM` offset, e.g. `-04:00`. |
+| `timezone` is an abbreviation or offset (`EST`, `GMT+5`) rather than an IANA identifier | `VALIDATION_ERROR` | `400` | Send an IANA zone, e.g. `America/Toronto`. See [Timezones](/concepts/timezones#valid-timezones). |
 | Neither `locationId` nor `lat`+`lng`+`address` provided | `VALIDATION_ERROR` | `400` | Send one location form — a stored `locationId`, or the full travel-zone trio. |
 | Listing business models instead of packages | — | — | Not an API error — a modeling mistake. `GET .../business-models` rows have no `creditCount`/`pricing`; use `GET .../packages` instead. |
 

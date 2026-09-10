@@ -219,10 +219,11 @@ export async function POST(request: Request) {
 `-04:00`) — a `Z` suffix is rejected. That offset must also match the
 timezone's **actual UTC offset for that date, including daylight saving** —
 Toronto is `-04:00` in summer (EDT) but `-05:00` in winter (EST), so a
-copy-pasted `-04:00` will be wrong off-season. `rrule` must include a
+copy-pasted `-04:00` will be wrong off-season. `timezone` must be an **IANA
+identifier** (`America/Toronto`, never `EST`). `rrule` must include a
 **bounded, positive `COUNT`** (e.g. `COUNT=8`) — an unbounded rrule almost
-always returns nothing bookable. Both are enforced request-shape validation,
-not just convention.
+always returns nothing bookable. All three are enforced request-shape
+validation (`400`), not just convention.
 </Warning>
 
 A successful response carries `status: "OK"` and the `primarySlate` — the
@@ -541,6 +542,7 @@ will not consume your own hold and returns `409 SLOT_HELD` naming the
 | No complete slate for the request under the project's supplier policy | `NO_COMPLETE_SLATE` | `422` | Widen the `rrule`/`lookAheadStartDate` window, try a different location, or ask the project to enable `suggestionConfig.allowPartialPackages` if a partial plan is acceptable. |
 | No availability at all in the requested window | `NO_AVAILABILITY` | `422` | Try a different location, timezone, or a later `lookAheadStartDate`. |
 | `lookAheadStartDate` has a `Z` suffix instead of a numeric offset | `VALIDATION_ERROR` | `400` | Use a numeric `±HH:MM` offset, e.g. `-04:00`. |
+| `timezone` or `bookingTz` is an abbreviation or offset (`EST`, `GMT+5`) rather than an IANA identifier | `VALIDATION_ERROR` | `400` | Send an IANA zone, e.g. `America/Toronto`. See [Timezones](/concepts/timezones#valid-timezones). |
 | `rrule` has no bounded `COUNT` | `VALIDATION_ERROR` | `400` | Add a positive `COUNT`, e.g. `FREQ=WEEKLY;BYDAY=MO;COUNT=8`. |
 | Provided more than one (or none) of `sessions` / `slateId` / `slotIds` | `VALIDATION_ERROR` | `400` | Provide exactly one booking source — `slateId` for the primary flow. |
 | Chosen slot went stale between building and booking | `SLOT_NO_LONGER_BOOKABLE` | `409` | The response includes `freshSuggestions` — rebuild from it and retry. |

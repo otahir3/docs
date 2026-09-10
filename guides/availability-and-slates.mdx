@@ -162,7 +162,7 @@ Each entry in `slots[]`:
 | `slotId` | Id of one session. Pass a subset of these as `slotIds` to cherry-pick instead of booking the whole slate. |
 | `sessionIndex` | **1-based** position within the slate. |
 | `supplierId`, `serviceId`, `offeringId` | Resolved identifiers for this session. |
-| `bookingStartUtc`, `bookingEndUtc`, `bookingTz` | The resolved time. |
+| `bookingStartUtc`, `bookingEndUtc`, `bookingTz` | The resolved time. `bookingTz` is the session's **home zone** — the service location's zone, else the supplier's, else the project default — not the `timezone` you sent on the request. |
 | `locationType`, `locationId`, `latitude`, `longitude`, `address` | The resolved location — for `TRAVEL_ZONE` slates the engine fills `locationId` (the supplier's travel-zone id) and stamps the request's `address` onto every slot. |
 | `travelTimeMins` | Travel time to this session. |
 | `capacity` | Session capacity. |
@@ -649,8 +649,8 @@ validation layer prepends the field path to every schema error.
 ❌ 2026-07-09T00:00:00Z
 ```
 
-The recurring builder derives the request's UTC offset from the **last six
-characters** of `lookAheadStartDate`, so a `Z` suffix produces a garbage
+The slate builder derives the request's UTC offset from the **last six
+characters** of `lookAheadStartDate`, so a `Z` suffix would produce a garbage
 offset and silently wrong results — the API rejects it outright instead:
 
 ```json
@@ -661,6 +661,16 @@ offset and silently wrong results — the API rejects it outright instead:
   "requestId": "a6d3f9e8-2b5c-4d17-9e04-6a8c3f1b5d92"
 }
 ```
+
+Make the offset the zone's real offset for that date — Toronto is `-04:00`
+in summer but `-05:00` in winter. The `timezone` alongside it must be an
+IANA identifier (`America/Toronto`, never `EST`); see
+[Timezones](/concepts/timezones#valid-timezones).
+
+<Note>
+This guard is specific to the two package endpoints. Recurring
+`POST …/availability/search` accepts a `Z` instant since September 10, 2026.
+</Note>
 
 ### The 120-day look-ahead ceiling
 
@@ -1264,6 +1274,7 @@ convert. See [Concurrency](/concepts/concurrency).
 | --- | --- | --- | --- |
 | `rrule` has no bounded `COUNT` | `VALIDATION_ERROR` | `400` | Add a positive `COUNT`, e.g. `FREQ=WEEKLY;BYDAY=MO;COUNT=8`. |
 | `lookAheadStartDate` has a `Z` suffix instead of a numeric offset | `VALIDATION_ERROR` | `400` | Use a numeric `±HH:MM` offset, e.g. `-04:00`. |
+| `timezone` is an abbreviation or offset (`EST`, `GMT+5`) rather than an IANA identifier | `VALIDATION_ERROR` | `400` | Send an IANA zone, e.g. `America/Toronto`. See [Timezones](/concepts/timezones#valid-timezones). |
 | Cadence needs more than 120 days to fit the package's `creditCount` sessions, and `cadenceFlexibility` is `NONE` | `NO_COMPLETE_SLATE` | `422` | `reason` names the exact window required. Use a denser cadence (more days per week), fewer sessions per call, or set `cadenceFlexibility` — with flexibility on, the window **clamps to 120 days and the engine runs**, since a denser cadence needs a shorter window. |
 | No availability at all for the requested window/location | `NO_AVAILABILITY` | `422` | Try a different location, timezone, or `lookAheadStartDate`. |
 | No complete single-supplier slate under the project's supplier policy | `NO_COMPLETE_SLATE` | `422` | Check `alternates`/`partial` in the response first — they may still be usable. Set `cadenceFlexibility` to also get complete plans at a denser cadence in `cadenceAlternatives`. Otherwise widen the window or location. |

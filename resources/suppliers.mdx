@@ -92,6 +92,13 @@ pick the locale you want client-side.
 profile** — a project whose suppliers all work in one place often leaves it
 unset.
 
+On create and update it must be an IANA identifier such as `America/Toronto`;
+an abbreviation like `EST` or an offset is a `400 VALIDATION_ERROR` (see
+[Timezones](/concepts/timezones#valid-timezones)). The value does real work:
+it decides when the supplier's daily agenda email fires, and availability
+responses report it in `supplierZones` as the fallback `bookingTz` for
+virtual bookings. Unset inherits the project's default timezone.
+
 The list endpoint returns it as-is, absent and all. The detail endpoint
 additionally resolves it for you:
 
