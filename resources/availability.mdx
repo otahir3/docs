@@ -61,6 +61,7 @@ slots, open slots, and (for recurring requests) recurrence patterns.
 | `timeSuggestionsLimit` | Cap on suggested slots returned.                                     |
 | `sortBy`               | `leastTravelTime` or `nearestDate`.                                  |
 | `daysOfWeek`           | Allow-list of weekdays a slot may fall on (`0 = Sunday … 6 = Saturday`). Omit for any day. See the note below. |
+| `skills`               | Supplier skill ids. A supplier must hold **all** of them to be considered. Omit for no skill filter. |
 
 <Note>
   **`daysOfWeek` is a hard allow-list, not a preference.** A weekday you

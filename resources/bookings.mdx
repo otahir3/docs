@@ -32,7 +32,7 @@ SCHEDULED ──► STARTED ──► AWAITING_CONFIRMATION ──► COMPLETED
 | `CLIENT_NO_SHOW` | The client did not attend. | The platform (from the supplier's report), your key, or the supplier — after a grace period past the start. |
 | `SUPPLIER_NO_SHOW` | The supplier did not attend. | The platform (from the client's report), your key, or the client — after the same grace period. |
 | `CANCELLED` | Called off. **Hard-terminal**: money may have moved, so nothing leaves this state. | Your key, or either party, before `bookingEndUtc`. |
-| `NO_SHOW` | **Deprecated.** The pre-split no-show, which does not say which side was absent. Nothing transitions out of it. | Still accepted on the status endpoint for now; will be removed. |
+| `NO_SHOW` | **Legacy, read-only.** The pre-split no-show, which does not say which side was absent. Nothing transitions out of it. | Nothing, any more. Bookings recorded before the split keep it indefinitely. |
 
 You move a booking with
 `POST /v1/projects/{projectId}/bookings/{bookingId}/status`. The request
@@ -53,12 +53,57 @@ body's `status` enum is narrower than the response's: `SCHEDULED` and
 A transition the booking cannot make from where it stands is a
 `400 BAD_REQUEST` whose `message` names the booking's **current** status, so a
 rejection tells you what to retry from. `409 VERSION_CONFLICT` means the
-booking changed underneath you — re-read it and decide again. Prefer
-`CLIENT_NO_SHOW` / `SUPPLIER_NO_SHOW` over the deprecated `NO_SHOW`: they
-record which side was absent, and `NO_SHOW` will stop being accepted in a
-later version. Cancelling releases the supplier's time; for a package session
-it also returns the credit to the order item. See
+booking changed underneath you — re-read it and decide again. See
 [Errors](/concepts/errors).
+
+### `NO_SHOW` can no longer be set
+
+Send `CLIENT_NO_SHOW` or `SUPPLIER_NO_SHOW` to record which side was absent.
+Sending `NO_SHOW` is a `400` whose `message` names the value.
+
+`NO_SHOW` is still a status a booking can **carry**. Bookings recorded before
+the split keep it and are not being migrated, because nobody recorded which
+party failed to show. If you switch exhaustively on `status`, keep a case for
+it.
+
+### Cancelling and the package credit
+
+Send `status: "CANCELLED"` to cancel. In the same atomic write, MarketBox
+releases the supplier's time and settles the order item the booking drew on.
+What happens to the session depends on the order item:
+
+| Booking drew on | Default outcome | `creditTreatment` |
+| --- | --- | --- |
+| A `PACKAGE` order item | The session goes back to the order item: `quantityRemaining` rises and a `CREDIT_REVERSAL` transaction offsets the original `CREDIT_REDEMPTION`. | Send `"FORFEIT"` to keep the session spent, for example for a late cancellation. `"RETURN"` states the default explicitly. |
+| A `SINGLE_SESSION` order item | The allocation is closed. No quantity comes back, because a single session holds no reusable credit. | Don't send it. It is a `422 NO_SESSION_CREDIT`, and nothing is cancelled. |
+
+```json
+{
+  "status": "CANCELLED",
+  "cancellationReason": "Client called the morning of the session",
+  "creditTreatment": "FORFEIT"
+}
+```
+
+`creditTreatment` is only valid with `CANCELLED`. The status route never moves
+money: a forfeited session is not refunded, and a returned one is not charged
+again.
+
+The cancellation email to the client reports what happened to their session
+credit. It does not include your `cancellationReason` text, which stays on the
+booking.
+
+Every booking response now carries the cancellation record, when there is one:
+
+| Field | Meaning |
+| --- | --- |
+| `creditTreatment` | What was decided about the session credit: `RETURN`, `FORFEIT`, `REFUND_ORIGINAL_PAYMENT`, or `NOT_APPLICABLE` (the booking held no package credit). Absent on bookings cancelled before this field existed. |
+| `cancellationInitiatedBy` | `CLIENT`, `SUPPLIER` or `BUSINESS`, when the cancellation recorded it. |
+| `cancellationReasonCode` | A reportable reason, such as `WEATHER` or `BOOKED_IN_ERROR`, when the cancellation recorded one. |
+
+`REFUND_ORIGINAL_PAYMENT`, `cancellationInitiatedBy` and
+`cancellationReasonCode` are set by cancellations made in the MarketBox
+console. You can read them, but the public API does not set them.
 
 Every booking also records who last moved it. `statusUpdatedAt` is the
 instant, `statusUpdatedBy` is the actor, and `statusUpdatedByCapacity` is one
@@ -70,7 +115,13 @@ is the question an incident asks.
 A booking is **soft-deleted** with
 `DELETE /v1/projects/{projectId}/bookings/{bookingId}`. Soft-deleted
 bookings disappear from list endpoints but their data is retained for
-audit purposes.
+audit purposes. Reserve delete for bookings created in error; cancel a booking
+that was genuinely called off.
+
+A delete settles the booking exactly like a default cancel: it releases the
+supplier's time, returns a package session to its order item, and closes a
+single-session allocation. Deleting a booking that is already `CANCELLED`
+leaves that cancel's settlement as it stands.
 
 ## Anatomy
 
@@ -121,6 +172,24 @@ The server validates:
 - Every referenced offering exists and is `ACTIVE` (otherwise 400).
 - All service lines share a single currency (otherwise 400).
 - `bookingTz` is a valid IANA identifier.
+- `clientId` and `supplierId` belong to this project. An id from another
+  project is a `404 NOT_FOUND`, exactly as if it did not exist, and nothing is
+  written. The same check applies to `supplierId` on `PATCH`, to `clientId` on
+  `POST .../participants`, and to the ids on order create, package bookings,
+  holds and manual transactions.
+- A line that draws on an order item names a `businessModelType` that item is
+  sold as: a `SINGLE_SESSION` item books as `SINGLE_BOOKING`, a `PACKAGE` item
+  as `PACKAGE` or `SCHEDULED_PACKAGE`. Anything else is a
+  `400 ORDER_ITEM_BUSINESS_MODEL_MISMATCH`:
+
+```json
+{
+  "code": "ORDER_ITEM_BUSINESS_MODEL_MISMATCH",
+  "message": "Order item oi_01kx16f2a0h8a2my9u3f4tv0sp is a SINGLE_SESSION line and can only be booked as SINGLE_BOOKING, not PACKAGE",
+  "statusCode": 400,
+  "requestId": "5b0e6a2c-8f41-4d7e-9c3a-2e6d1f0b7a94"
+}
+```
 
 <Note>
   **Note fan-out is non-atomic.** If a note write fails after the
@@ -153,6 +222,11 @@ server-derived.
 
 If you change any time field, the server recomputes all four local
 fields against the (possibly new) `bookingTz`.
+
+A booking whose length deliberately differs from its service's duration carries
+`durationOverrideMinutes` and `durationOverrideReason`. Staff set them in the
+MarketBox console, and `bookingEndUtc` already reflects the override. Absent is
+the normal case: the booking runs as long as its service says.
 
 ## Listing bookings
 

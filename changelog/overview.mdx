@@ -3,6 +3,60 @@ title: "Changelog"
 description: "New features, updates, and fixes to the MarketBox API."
 ---
 
+<Update label="September 23, 2026" tags={["API"]}>
+
+## Orders settle from the ledger, cancels settle the credit, and clients carry their real names
+
+This release makes money and credit follow one rule. An order becomes `PAID` only when its ledger covers its total. Cancelling a package session returns or forfeits its credit in the same write. Onboarding also accepts the name your checkout collected, so a client who signed up with an email address is no longer shown under the part before the `@`.
+
+**Three breaking changes, the rest additive.** No field was removed or renamed. See **Breaking** below. Strict response decoders need a regeneration for the new booking, order, order-item, transaction and client-address fields.
+
+**Breaking**
+
+- **`PAID` can no longer be requested.** `POST …/orders/{orderId}/status` answers a `PAID` target with `409 ORDER_NOT_SETTLED`. An order becomes `PAID` when its ledger covers its total: record cash, external or comp money with `POST …/orders/{orderId}/transactions`, and let the Stripe webhook settle cards. `PENDING` → `PAID` is gone from the transition list.
+- **`NO_SHOW` can no longer be set.** Sending it to `POST …/bookings/{bookingId}/status` is a `400`. Send `CLIENT_NO_SHOW` or `SUPPLIER_NO_SHOW`. Bookings recorded before the split still carry `NO_SHOW` on every read, and will indefinitely.
+- **An order line the service is not sold as is refused.** `POST …/orders` and `POST …/orders/{orderId}/items` return `422 SERVICE_NOT_SOLD_AS` when the service has no active rate of the line's kind, such as a `SINGLE_SESSION` line with no active `SINGLE_BOOKING` rate. Such lines used to be written with no rate attached, and so without its fees.
+
+**New**
+
+- **`firstName` and `lastName` on `POST …/clients/me`**, beside `phone`. Each field you send overwrites the stored value and is copied to the client's record in Stripe. Blank or `null` means not sent. At most 80 characters after trimming.
+- **`PATCH …/clients/me`** — change the signed-in client's `firstName`, `lastName` or `phone`. Names can be changed but not cleared; `phone: null` clears the phone. Call it before `POST /orders` so emails use the new name.
+- **`creditTreatment` on `POST …/bookings/{bookingId}/status`**, with `CANCELLED` only. `RETURN` (the default for a package session) puts the session back on the order item and records a `CREDIT_REVERSAL`. `FORFEIT` keeps it spent. Sending it for a booking with no package credit is `422 NO_SESSION_CREDIT`, and nothing is cancelled.
+- **Three listing modes on `GET …/orders`.** `status` is no longer required. Send `status`, or `paymentMethod` (with `startSettledAt`/`endSettledAt`), or neither to list every order (with `startCreatedAt`/`endCreatedAt`). Mixing modes is a `400`. The no-filter mode is missing orders created before this release until a backfill runs.
+- **`reason` and `idempotencyKey` on `POST …/orders/{orderId}/transactions`.** `reason` is required with `source: "COMP"`. The same `idempotencyKey` on the same order returns the first row as `200` with `replayed: true` instead of recording the money twice. A first recording is `201` with `replayed: false`.
+- **`skills` on `POST …/availability/search`** — supplier skill ids a supplier must all hold to be considered.
+- **`bio: null` on `PUT …/suppliers/{supplierId}`** clears the bio. Omitting it still keeps it.
+- **New response fields.**
+  - Order: `paymentMethod`, `settledAt`, `amountComped`.
+  - Order item: `priceSource` (`RULE` or `MANUAL`).
+  - Booking: `creditTreatment`, `cancellationInitiatedBy`, `cancellationReasonCode`, `durationOverrideMinutes`, `durationOverrideReason`.
+  - Transaction: `channel`, `reason`, and the `CREDIT_REVERSAL` kind.
+  - Client address: `latitude`, `longitude`.
+
+**Changed**
+
+- **Cancelling settles the order item.** A cancelled package session returns its credit by default. A cancelled single session closes its allocation and returns no quantity. `DELETE …/bookings/{bookingId}` settles the same way as a default cancel.
+- **The card is saved on public-API checkout.** When the order's client has an email, the PaymentIntent sets `setup_future_usage: off_session`. Tell the client their card will be saved.
+- **Body ids are fenced to your project.** A `clientId` or `supplierId` from another project is a `404` with nothing written, on booking create and update, participants, order create, package bookings, holds and manual transactions.
+- **A booking line must match its order item's kind.** A `businessModelType` the order item is not sold as is `400 ORDER_ITEM_BUSINESS_MODEL_MISMATCH`.
+- **Cancellation emails** report what happened to the client's session credit, and do not include the `cancellationReason` text.
+
+**What this means for you**
+
+- **Stop setting orders to `PAID`.** Record the payment instead, and read `status` back.
+- **Send an `idempotencyKey`** on every manual transaction you might retry, and branch on `replayed`.
+- **Send `reason` with every comp.**
+- **Replace `NO_SHOW` in requests** with `CLIENT_NO_SHOW` or `SUPPLIER_NO_SHOW`. Keep handling it in responses.
+- **Decide your late-cancel policy.** Send `creditTreatment: "FORFEIT"` when a package session should stay spent. Otherwise it goes back to the client.
+- **Send `firstName` and `lastName` on onboarding**, especially for email-and-password sign-ups.
+- **Handle `422 SERVICE_NOT_SOLD_AS`** on order create, and check the rates on services you sell.
+- **Don't treat the no-filter orders list as complete** for historical data. List by `status` when you need every order.
+- **Tell clients at checkout that their card will be saved.**
+
+Full detail: [Orders → Settling an order](/resources/orders#settling-an-order), [Orders → Listing orders](/resources/orders#listing-orders), [Bookings → Cancelling and the package credit](/resources/bookings#cancelling-and-the-package-credit), [Booking flow auth → Onboard the client](/guides/booking-flow-auth#onboard-the-client), [Errors](/concepts/errors).
+
+</Update>
+
 <Update label="September 10, 2026" tags={["API"]}>
 
 ## Every slot time is one instant, every zone is IANA, and bookings say who moved them

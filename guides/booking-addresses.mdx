@@ -37,6 +37,14 @@ country-specific pattern. `country` is the odd one out: it's the only field
 checked against a format (ISO-2), everything else is just "non-empty string."
 </Note>
 
+<Tip>
+**Reuse a client's saved address.** Each entry in a client profile's
+`addresses[]` now carries `latitude` and `longitude` as well as the structured
+fields. That is everything a `TRAVEL_ZONE` booking needs, so you can book a
+visit to a saved address without geocoding it again. Either coordinate can be
+`null` when the address was saved without one; geocode those before booking.
+</Tip>
+
 ## Where it's required
 
 `address` is only required where a booking's location is a **travel zone** —

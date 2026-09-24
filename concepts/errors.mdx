@@ -81,6 +81,7 @@ A **hold-lifecycle** failure (`409`, see the table below) is the plain envelope:
 | `403`  | The `x-api-key` header is missing or the key isn't recognised — rejected at the edge, before any scope check runs — or the key is valid but its `projectScope` does not allow the `{projectId}` in the URL. |
 | `404`  | The resource you targeted doesn't exist (or has been soft-deleted).                                |
 | `409`  | Version conflict on an optimistic update, the supplier's time is already booked or held, capacity exceeded, or duplicate registration. |
+| `422`  | The request is well-formed but asks for something the data cannot support: a package plan that no availability can fill, a line the service is not sold as, or a credit treatment for a booking with no credit. Nothing was written. |
 | `5xx`  | Something went wrong on our side. Safe to retry idempotent requests with backoff.                  |
 
 ## Common error codes
@@ -91,12 +92,17 @@ A **hold-lifecycle** failure (`409`, see the table below) is the plain envelope:
 | `BAD_REQUEST`                           | 400    | Generic client-input failure covering several situations: an illegal status transition (e.g. nothing leaves `CANCELLED`; the `message` names the booking's current status), a mismatched currency between an order and an item you're adding to it, an offering that isn't `ACTIVE`, an unparseable pagination `cursor`, and other malformed input. `message` names the specific problem. |
 | `UNAUTHORIZED`                          | 401    | Rare. Reachable only on the routes that need no API key at the edge (`/health`, `/v1/openapi.json`), where the application's own middleware rejects the request. Everywhere else a missing or unrecognised key is `FORBIDDEN`. |
 | `FORBIDDEN`                             | 403    | API key is missing, isn't recognised, or cannot access this project. The first two are rejected at the edge before the request reaches the application, so `message` — not `code` — is what distinguishes them. |
-| `NOT_FOUND`                             | 404    | Resource doesn't exist or has been soft-deleted.                                        |
+| `NOT_FOUND`                             | 404    | Resource doesn't exist or has been soft-deleted. Also returned for a `clientId` or `supplierId` in the request body that belongs to a different project — never a `403`, so a foreign id is indistinguishable from a missing one. |
 | `VERSION_CONFLICT`                      | 409    | Concurrent modification — re-read the resource and try again.                           |
 | `CONFLICT`                              | 409    | Generic write conflict covering situations like a booking that's already at capacity, or a client that's already registered as a participant on it. `message` names the specific problem. |
 | `SLOT_BOOKED`                           | 409    | The supplier's time is already taken by a confirmed booking. `conflicts[]` names the `bookingId`. Not retryable — search availability again. |
 | `SLOT_HELD`                             | 409    | The supplier's time is claimed by a live hold — often **your own**. `conflicts[]` names the `reservationId`; convert it instead of booking directly. See [Hold slots during checkout](/guides/hold-slots-for-checkout#handling-a-held-slot). |
 | `OCCUPANCY_CONTENTION`                  | 409    | Too many concurrent writes on one supplier's day; the internal retry gave up. **Retryable** — resend after a short backoff. |
+| `ORDER_ITEM_BUSINESS_MODEL_MISMATCH`    | 400    | A booking line names a `businessModelType` its order item is not sold as, such as `PACKAGE` against a `SINGLE_SESSION` item. Send the kind the order item was sold as. See [Bookings](/resources/bookings#creating-a-booking). |
+| `ORDER_NOT_SETTLED`                     | 409    | You asked `POST .../orders/{orderId}/status` for `PAID`. An order becomes `PAID` only when its ledger covers its total. Record the payment instead of retrying. See [Orders](/resources/orders#settling-an-order). |
+| `TRANSACTION_IDEMPOTENCY_RECORD_MISSING` | 409   | An `idempotencyKey` matched an earlier recording whose row could not be read back. **Terminal** — do not retry. Re-read the order's transactions and contact support with the `requestId`. |
+| `NO_SESSION_CREDIT`                     | 422    | `creditTreatment` was sent when cancelling a booking that holds no package credit. Nothing was cancelled. Resend without `creditTreatment`. |
+| `SERVICE_NOT_SOLD_AS`                   | 422    | An order line implies a rate the service does not actively sell, such as a `SINGLE_SESSION` line on a service with no active `SINGLE_BOOKING` rate. Nothing was written. See [Orders](/resources/orders#creating-an-order). |
 
 The exact list of codes is also captured in
 [`/v1/openapi.json`](/api-reference/introduction). New codes may be added

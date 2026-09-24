@@ -457,12 +457,13 @@ API exposes it too, so you can keep a roster in sync from your own system:
 Use `externalId` to carry your own primary key onto the supplier, so you can
 reconcile without storing a second id map.
 
-Two profile fields have write rules worth knowing:
+Three profile fields have write rules worth knowing:
 
 | Field | On `POST` | On `PUT` |
 | --- | --- | --- |
 | `phone` | Optional. E.164 or a national NANP number (`(416) 555-0134`); stored as E.164 (`+14165550134`). Numbers outside North America must carry `+` and a country code. | Omit to keep, `null` to clear, anything else is validated and normalized. |
 | `defaultLocale` | Optional BCP-47 tag (`fr-CA`), normalized (`fr-ca` is stored as `fr-CA`). Omit to inherit the project default. | Omit to keep, `null` to clear. |
+| `bio` | Optional free text. | Omit to keep, `null` to clear. |
 
 An unparseable phone or a malformed locale is a `400 VALIDATION_ERROR` — the
 row is not written. A `PUT` with `"phone": "(416) 555-0134"` reads back as

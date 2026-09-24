@@ -218,6 +218,50 @@ On the first call it provisions the signed-in user as a **client** of the
 project — a project membership and a client profile, plus a Stripe Connect
 `stripeCustomerId` on that profile when the project has payments configured.
 
+### Send the name your checkout collected
+
+The body is optional. Send `firstName`, `lastName` and `phone` when your
+checkout collected them:
+
+```json
+{
+  "firstName": "Emma",
+  "lastName": "Bishop",
+  "phone": "(416) 555-0134"
+}
+```
+
+Without names, the client is recorded under the names from their sign-in. A
+Google sign-in supplies real names. An email-and-password sign-up supplies only
+the email address, so the business would see the client as the part of it
+before the `@` on orders, bookings and emails.
+
+Each field you send overwrites the stored value on every call, including for a
+client who is already onboarded, and is copied to the client's record in Stripe.
+A blank or `null` field counts as not sent and never clears a stored value.
+Names are trimmed and must be at most 80 characters. The phone is stored in
+E.164 form (`+14165550134`). An invalid name or phone is a `400`, and nothing is
+written.
+
+The name is the client's record in this project only. It does not rename the
+person's MarketBox account.
+
+### Change the name or phone later
+
+`PATCH /v1/projects/{projectId}/clients/me` changes the signed-in client's
+`firstName`, `lastName` or `phone`. It takes the same two credentials as
+onboarding, and the client must already be onboarded, or it is a `404`.
+
+- Send only the fields to change. A body with nothing to update is a `400`.
+- Names are 1–80 characters after trimming. They can be changed but not
+  cleared, so a blank or `null` name is a `400`.
+- Send `phone: null` to clear the phone.
+
+Call it **before** `POST /orders`, so booking and order emails use the new name.
+The change is also copied to the client's record in Stripe. If that copy fails,
+the profile is still updated and the call still returns `200`. The response is
+the whole profile, with its saved addresses.
+
 Call it immediately after the code exchange succeeds, before redirecting into
 your app:
 
@@ -274,7 +318,8 @@ They are per-environment, not per-application.
 
 | Endpoint | Method | Auth required | Description |
 | --- | --- | --- | --- |
-| `/v1/projects/{projectId}/clients/me` | `POST` | `x-api-key` + `Bearer` | Onboard the signed-in client. `201` first call, `200` if already onboarded. |
+| `/v1/projects/{projectId}/clients/me` | `POST` | `x-api-key` + `Bearer` | Onboard the signed-in client, optionally with `firstName`, `lastName` and `phone`. `201` first call, `200` if already onboarded. |
+| `/v1/projects/{projectId}/clients/me` | `PATCH` | `x-api-key` + `Bearer` | Change the signed-in client's name or phone. |
 | `/v1/projects/{projectId}/clients/me/credits` | `GET` | `x-api-key` + `Bearer` | The client's remaining package credits. |
 
 ### Error and status cases

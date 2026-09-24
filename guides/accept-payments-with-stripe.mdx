@@ -23,7 +23,17 @@ SAQ-A).
 The money flow has one rule worth memorizing: **an order becomes `PAID` only
 when Stripe confirms the charge through a webhook** — never from the browser's
 confirmation response. You mark nothing as paid yourself; you wait for MarketBox
-to.
+to. Asking `POST .../orders/{orderId}/status` for `PAID` is refused with
+`409 ORDER_NOT_SETTLED`.
+
+<Note>
+**The card is saved to the client.** When the order's client has an email on
+file, the PaymentIntent is created with `setup_future_usage: off_session`, so
+the card is saved to that client's record in Stripe for future bookings. Tell
+the client at checkout that their card will be saved. An intent reused from an
+earlier call is updated to save the card too, provided it has not been
+confirmed yet.
+</Note>
 
 ```mermaid
 sequenceDiagram
@@ -354,7 +364,11 @@ A package order (buying a block of session credits) charges exactly like a
 single order — the amount is the package's price, and the same Payment Element
 flow applies. After payment, the order's ledger shows the `PAYMENT` plus a
 `CREDIT_REDEMPTION` transaction for each session booked against the package, so
-you can see both the money in and the credits drawn down.
+you can see both the money in and the credits drawn down. A cancelled session
+whose credit goes back to the package adds a `CREDIT_REVERSAL` that points at
+its redemption through `relatedTransactionId`. Credit actually used is
+redemptions minus reversals. Neither is money: both have
+`source: "PACKAGE_CREDIT"`.
 
 ## Show the card a client last paid with
 

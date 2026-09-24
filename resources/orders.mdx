@@ -13,14 +13,38 @@ owed?".
 ## The order lifecycle
 
 ```
-DRAFT ──► OPEN ──► PAID ──► COMPLETED
-   │        │
-   └────────┴─► CANCELLED
+DRAFT ◄──► PENDING ══► PAID
+  │           │          │
+  └───────────┴──────────┴──► CANCELLED
 ```
 
-Move an order through these states with
-`POST /v1/projects/{projectId}/orders/{orderId}/status`. Disallowed
-transitions return `400 BAD_REQUEST`.
+`POST /v1/projects/{projectId}/orders/{orderId}/status` moves an order along
+the single arrows:
+
+- `DRAFT` → `PENDING`, `CANCELLED`
+- `PENDING` → `DRAFT`, `CANCELLED`
+- `PAID` → `CANCELLED`
+- `CANCELLED` → nothing. Cancellation is terminal, so issue a new order
+  instead.
+
+Any other transition is a `400 BAD_REQUEST`.
+
+**You cannot request `PAID`.** An order becomes `PAID` (the double arrow) when
+its ledger covers its total, in the same write that records the money. See
+[Settling an order](#settling-an-order). Asking for `PAID` is a `409`, and
+retrying will not help:
+
+```json
+{
+  "code": "ORDER_NOT_SETTLED",
+  "message": "Order ord_01kx16f2a0h8a2my9u3f4tv0sp cannot be marked PAID by hand. Record a payment (or a comp) instead; the order becomes PAID when the ledger covers its total.",
+  "statusCode": 409,
+  "requestId": "0f3b8d2e-6a1c-4e97-b5d4-8c2a7e9f1b36"
+}
+```
+
+A `409 VERSION_CONFLICT` from the same route still means the order changed
+underneath you: re-read it and decide again.
 
 `DELETE /v1/projects/{projectId}/orders/{orderId}` is a **soft-delete** —
 the order is hidden from lists but its data is retained.
@@ -114,6 +138,31 @@ The server validates:
 
 - Every offering exists and is `ACTIVE` (else 404 / 400).
 - Every offering's currency equals the order's currency (else 400).
+- `clientId` belongs to this project. A client from another project is a
+  `404 NOT_FOUND`, and nothing is written.
+- The service is sold the way the line implies. A `SINGLE_SESSION` line needs
+  an active `SINGLE_BOOKING` rate on the service; a `PACKAGE` line needs an
+  active `PACKAGE` or `SCHEDULED_PACKAGE` rate. Otherwise the order is refused
+  with a `422`. The same check runs on `POST .../orders/{orderId}/items`:
+
+```json
+{
+  "code": "SERVICE_NOT_SOLD_AS",
+  "message": "Service srv_01kv60qg12e82acr78edfnjhvv is not sold as a single booking; it has no active SINGLE_BOOKING rate",
+  "statusCode": 422,
+  "requestId": "7c1e4b9a-2d53-4f08-a6e1-3b9d0c5f2a71"
+}
+```
+
+Previously such a line was written with no rate attached, and so priced without
+the rate's fees. Activate the rate in the MarketBox console, or sell the service
+another way.
+
+Each item carries `priceSource`. `RULE` means the `unitPrice` came from the
+offering or package pricing rules (see `priceRuleId`). `MANUAL` means staff set
+the price in the MarketBox console when they created the order, so
+`priceRuleId` is null and `unitPrice` matches no rule. Items written before the
+field existed have no `priceSource`.
 
 ## Managing items
 
@@ -153,22 +202,100 @@ the fee's tax in the value you send, or add and update line items and let tax
 resolve from the snapshots instead. See [Service fees](/concepts/service-fees).
 </Warning>
 
+## Settling an order
+
+The ledger is the source of truth for money. An order's `amountPaid`,
+`amountComped`, `paymentMethod`, `settledAt` and `PAID` status are all derived
+from its transactions. An order moves from `DRAFT` or `PENDING` to `PAID` when
+`amountPaid` plus `amountComped` covers `total`.
+
+Money reaches the ledger in two ways:
+
+- **Cards** go through the payment-intent flow and settle when Stripe's webhook
+  arrives. See [Accept payments with Stripe](/guides/accept-payments-with-stripe).
+- **Cash, bank transfers and comps** are recorded with
+  `POST /v1/projects/{projectId}/orders/{orderId}/transactions`.
+
+```json
+{
+  "kind": "PAYMENT",
+  "source": "CASH",
+  "amount": { "amount": 4500, "currency": "CAD" },
+  "idempotencyKey": "9f8c0f7a-1f3f-4c8e-9a2b-6c7d8e9f0a1b"
+}
+```
+
+A recording that covers the balance moves the order to `PAID` in the same
+write, and stamps two fields on it:
+
+| Field | Meaning |
+| --- | --- |
+| `paymentMethod` | How the order was settled: `STRIPE`, `CASH`, `EXTERNAL`, `COMP`, `MIXED` (more than one source contributed), or `LEGACY` (migrated from MarketBox v1 with no settling ledger rows). Absent until the order is `PAID`. |
+| `settledAt` | The instant the money that completed the order was recorded — your "cash received" date. |
+
+`amountComped` totals the comps on the order. Treat it as zero when absent.
+
+Two rules on the transaction body:
+
+- **`source: "COMP"` requires `reason`**, 1–500 characters. Record why the
+  charge was waived, such as `"Service recovery — late supplier"`. A comp with
+  no reason is a `400`.
+- **Send `idempotencyKey` on any recording you might retry.** A first recording
+  returns `201` with `replayed: false`. The same key on the same order returns
+  the row the first call created, as `200` with `replayed: true`, and records
+  nothing. Branch on the status or on `replayed`, never on "any 2xx means I
+  just took a payment". A key belongs to one order and does not expire.
+
+A `409 TRANSACTION_IDEMPOTENCY_RECORD_MISSING` means the key matched an earlier
+recording whose row could not be read back. It is terminal. Do not retry it.
+Re-read the order's transactions and contact support with the `requestId`.
+
+Every transaction also carries `channel`, the path that wrote it (`OPEN_API`
+for your key, `BACKOFFICE`, `STRIPE_WEBHOOK`, and others), and `reason`.
+
 ## Listing orders
 
 | Endpoint                                                     | Notes                                              |
 | ------------------------------------------------------------ | -------------------------------------------------- |
-| `GET /v1/projects/{projectId}/orders?status=OPEN`            | List by status — `status` is **required**.         |
+| `GET /v1/projects/{projectId}/orders`                        | One of three listing modes, chosen by the filter you send. |
 | `GET /v1/projects/{projectId}/clients/{clientId}/orders`     | All orders for one client (any status).            |
 
-The project-scoped list **requires** `status` as a query param. This
-is a deliberate design choice driven by the underlying index — listing
-"all orders across all statuses" isn't a supported access pattern.
-If you need that, query each status in turn.
+`GET /v1/projects/{projectId}/orders` answers exactly one question per request:
+
+| Send | Lists | Narrow with |
+| --- | --- | --- |
+| `status` | Orders in that status. | `startCreatedAt`, `endCreatedAt` |
+| `paymentMethod` | Settled orders, by how they were paid. `DRAFT` and `PENDING` orders never appear. This is the reconciliation read: "what did we take in cash last month?" | `startSettledAt`, `endSettledAt` |
+| Neither | Every order. | `startCreatedAt`, `endCreatedAt` |
+
+Start bounds are inclusive. End bounds are **exclusive**, so pass the next
+period's start to cover a whole month:
+
+```bash
+curl "$MARKETBOX_API_URL/v1/projects/$MARKETBOX_PROJECT_ID/orders?paymentMethod=CASH&startSettledAt=2026-09-01T00:00:00.000Z&endSettledAt=2026-10-01T00:00:00.000Z" \
+  -H "x-api-key: $MARKETBOX_API_KEY"
+```
+
+Each of these is a `400`:
+
+- Sending both `status` and `paymentMethod`.
+- Sending `startSettledAt` or `endSettledAt` without `paymentMethod`.
+- Sending `startCreatedAt` or `endCreatedAt` with `paymentMethod`.
+- Replaying a `cursor` after switching listing mode. A cursor belongs to the
+  filters that produced it, so start a fresh request instead.
+
+<Warning>
+  **The no-filter mode is incomplete for older orders.** It reads an index that
+  is written only when an order is created. Orders created before this listing
+  mode shipped, and orders migrated from MarketBox v1, are missing from it until
+  a backfill runs. An empty or short result there does not mean the project has
+  no orders. List by `status` when you need every historical order.
+</Warning>
 
 ## Endpoint index
 
 - `POST /v1/projects/{projectId}/orders`
-- `GET  /v1/projects/{projectId}/orders` (requires `?status=`)
+- `GET  /v1/projects/{projectId}/orders`
 - `GET  /v1/projects/{projectId}/orders/{orderId}`
 - `GET  /v1/projects/{projectId}/orders/{orderId}/aggregate`
 - `PATCH /v1/projects/{projectId}/orders/{orderId}`

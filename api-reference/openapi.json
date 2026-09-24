@@ -157,6 +157,42 @@
             "type": "string",
             "nullable": true
           },
+          "cancellationInitiatedBy": {
+            "type": "string",
+            "enum": ["CLIENT", "SUPPLIER", "BUSINESS"]
+          },
+          "cancellationReasonCode": {
+            "type": "string",
+            "enum": [
+              "CLIENT_REQUESTED",
+              "CLIENT_UNWELL",
+              "SUPPLIER_UNAVAILABLE",
+              "WEATHER",
+              "FACILITY_UNAVAILABLE",
+              "BOOKED_IN_ERROR",
+              "OTHER"
+            ]
+          },
+          "creditTreatment": {
+            "type": "string",
+            "enum": [
+              "RETURN",
+              "FORFEIT",
+              "REFUND_ORIGINAL_PAYMENT",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "durationOverrideMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 1440
+          },
+          "durationOverrideReason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
           "counts": {
             "type": "object",
             "properties": {
@@ -417,6 +453,17 @@
             "type": "string",
             "nullable": true
           },
+          "paymentMethod": {
+            "type": "string",
+            "enum": ["STRIPE", "CASH", "EXTERNAL", "COMP", "MIXED", "LEGACY"]
+          },
+          "settledAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "amountComped": {
+            "$ref": "#/components/schemas/Money"
+          },
           "pricingRegion": {
             "type": "object",
             "nullable": true,
@@ -618,6 +665,11 @@
             "nullable": true,
             "enum": ["DEFAULT", "COUNTRY", "STATE", "POSTAL", null],
             "description": "Specificity of the matched rule: DEFAULT, COUNTRY, STATE or POSTAL. DEFAULT means no regional rule matched and the fallback price was used."
+          },
+          "priceSource": {
+            "type": "string",
+            "enum": ["RULE", "MANUAL"],
+            "description": "Where this line’s price came from. RULE: resolved from the offering or package `pricing[]` (see `priceRuleId`). MANUAL: set by staff when the order was created, in place of the rule price; `priceRuleId` is null and `unitPrice` will not match any rule. Absent on items written before this field existed."
           },
           "expiresAt": {
             "type": "string",
@@ -988,6 +1040,14 @@
                 "source": {
                   "type": "string",
                   "enum": ["BOOKING", "MANUAL"]
+                },
+                "latitude": {
+                  "type": "number",
+                  "nullable": true
+                },
+                "longitude": {
+                  "type": "number",
+                  "nullable": true
                 }
               },
               "required": [
@@ -1284,7 +1344,7 @@
             }
           },
           "400": {
-            "description": "Validation error",
+            "description": "Validation error, or an order-item pre-check failed: INVALID_ORDER_REFERENCE, INVALID_ORDER_ITEM_REFERENCE, ORDER_ITEM_SERVICE_MISMATCH, ORDER_ITEM_BUSINESS_MODEL_MISMATCH (the line names a businessModelType the sku of the order item is not sold as), ORDER_ITEM_QUANTITY_UNAVAILABLE",
             "content": {
               "application/json": {
                 "schema": {
@@ -1314,7 +1374,7 @@
             }
           },
           "404": {
-            "description": "Offering or project not found",
+            "description": "Client, supplier, offering or project not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -1762,7 +1822,7 @@
             }
           },
           "404": {
-            "description": "Booking not found",
+            "description": "Booking or supplier not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -1786,7 +1846,7 @@
       "delete": {
         "tags": ["Bookings"],
         "summary": "Soft-delete a booking",
-        "description": "Marks the booking deleted and hides it from lists, retaining the record so history stays auditable. This is not how you cancel: use `POST /status` with `CANCELLED` for a booking that genuinely was called off — that path releases supplier time and returns package credits. Reserve delete for bookings created in error. Returns 204 with no body.",
+        "description": "Marks the booking deleted and hides it from lists, retaining the record so history stays auditable. This is not how you cancel: use `POST /status` with `CANCELLED` for a booking that genuinely was called off — it keeps the booking visible, records a reason and lets you choose the credit treatment. Reserve delete for bookings created in error. A delete still releases the supplier time and settles the order item exactly as a default cancel does: a package session goes back to its order item, a single-session allocation is closed. Deleting a booking that is already cancelled leaves the settlement of that cancel as it stands. Returns 204 with no body.",
         "parameters": [
           {
             "schema": {
@@ -2354,7 +2414,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Change a booking status",
-        "description": "Moves the booking through its lifecycle. The `status` enum on the request body is the authoritative list of what a caller may ASK for — it is narrower than the `status` on the response, because `SCHEDULED` and `DISPUTED` are states a booking is put into by the platform and can only be observed, never requested.\n\nWhich of the settable statuses your key may actually use also depends on where the booking is now and on the capacity of the caller. An API key cannot resolve a dispute, and cannot reverse a settled booking back to `AWAITING_CONFIRMATION`: both decide between two accounts of what happened, and are reserved for an operator in the MarketBox console.\n\n`NO_SHOW` is deprecated in favour of `CLIENT_NO_SHOW` and `SUPPLIER_NO_SHOW`, which record which side was absent. It is accepted for now and will be removed in a later version.\n\nA transition the booking cannot make from where it currently stands is a 400 naming that current status, so a rejection tells you what to retry from. Cancelling releases the supplier time; for a package session it also returns the credit to the order item. Returns 409 if the booking changed underneath you.",
+        "description": "Moves the booking through its lifecycle. The `status` enum on the request body is the authoritative list of what a caller may ASK for — it is narrower than the `status` on the response, because `SCHEDULED` and `DISPUTED` are states a booking is put into by the platform and can only be observed, never requested.\n\nWhich of the settable statuses your key may actually use also depends on where the booking is now and on the capacity of the caller. An API key cannot resolve a dispute, and cannot reverse a settled booking back to `AWAITING_CONFIRMATION`: both decide between two accounts of what happened, and are reserved for an operator in the MarketBox console.\n\n`NO_SHOW` can no longer be SET. Use `CLIENT_NO_SHOW` or `SUPPLIER_NO_SHOW`, which record which side was absent; sending `NO_SHOW` returns a 400 naming the value. It remains a status a booking can CARRY and is still returned by every read: bookings recorded before the split keep it indefinitely and are not being migrated, because nobody ever recorded which party failed to show and we will not guess. A consumer switching exhaustively on booking status must keep handling it.\n\nA transition the booking cannot make from where it currently stands is a 400 naming that current status, so a rejection tells you what to retry from. Returns 409 if the booking changed underneath you.\n\nCancelling releases the supplier time and settles the order item the booking drew on, atomically with the status change. For a PACKAGE session the credit goes back to the order item by default (`quantityRemaining` rises by the quantity the session used, and a `CREDIT_REVERSAL` transaction is recorded against the original `CREDIT_REDEMPTION`). Send `creditTreatment: \"FORFEIT\"` to keep the session spent instead — a late cancellation, say; `\"RETURN\"` states the default explicitly. A booking made against a single-session order item holds no reusable credit: cancelling it closes its allocation and returns no quantity, and sending `creditTreatment` for one is a 422 `NO_SESSION_CREDIT` with nothing cancelled. `creditTreatment` is only valid with `CANCELLED`. This route never moves money.",
         "parameters": [
           {
             "schema": {
@@ -2397,13 +2457,18 @@
                       "COMPLETED",
                       "CANCELLED",
                       "CLIENT_NO_SHOW",
-                      "SUPPLIER_NO_SHOW",
-                      "NO_SHOW"
+                      "SUPPLIER_NO_SHOW"
                     ]
                   },
                   "cancellationReason": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "creditTreatment": {
+                    "type": "string",
+                    "enum": ["RETURN", "FORFEIT"],
+                    "description": "CANCELLED only. What happens to a package session credit: RETURN (the default when omitted) puts the session back on the order item; FORFEIT keeps it spent. Sending it for a booking that is not a package session is a 422 NO_SESSION_CREDIT.",
+                    "example": "FORFEIT"
                   }
                 },
                 "required": ["status"]
@@ -2470,6 +2535,16 @@
           },
           "409": {
             "description": "Version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`creditTreatment` was sent for a booking with no session credit; nothing was cancelled",
             "content": {
               "application/json": {
                 "schema": {
@@ -2945,7 +3020,7 @@
             }
           },
           "404": {
-            "description": "Booking not found",
+            "description": "Booking or client not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5052,7 +5127,17 @@
             }
           },
           "404": {
-            "description": "Offering, project, reservation, or location not found (including a caller-supplied reservationId/locationId that does not resolve)",
+            "description": "Client, offering, project, reservation, or location not found (including a caller-supplied clientId/reservationId/locationId that does not resolve in this project)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The service has no active rate of the kind the line implies, e.g. a SINGLE_SESSION line on a service with no active SINGLE_BOOKING rate (SERVICE_NOT_SOLD_AS)",
             "content": {
               "application/json": {
                 "schema": {
@@ -5065,8 +5150,8 @@
       },
       "get": {
         "tags": ["Orders"],
-        "summary": "List orders for a project by status",
-        "description": "`status` is REQUIRED, not a convenience filter: orders are indexed by status, so there is no way to page every order in a project in one call. To sweep them all, call this once per status (DRAFT, PENDING, PAID, CANCELLED). Paginate with `limit` and `cursor`; `nextCursor: null` is the last page. To list one client's orders instead, use `GET /projects/{projectId}/clients/{clientId}/orders`, which needs no status.",
+        "summary": "List orders by status, by payment method, or every order in a date range",
+        "description": "Exactly one listing mode per request, chosen by which filter you send:\n\n- `status` — orders in that status, narrowed by `startCreatedAt`/`endCreatedAt`.\n- `paymentMethod` — how orders were settled (`STRIPE`, `CASH`, `EXTERNAL`, `COMP`, `MIXED`, `LEGACY`), narrowed by `startSettledAt`/`endSettledAt`. This is the reconciliation read: \"what did we take in cash last month\".\n- neither — every order, narrowed by `startCreatedAt`/`endCreatedAt`.\n\nSending both `status` and `paymentMethod` is a 400, as is a date range belonging to the other mode (`startSettledAt` without `paymentMethod`, or `startCreatedAt` with it) — each index carries only one date, so the pairing is not a preference.\n\n⚠️ The no-filter mode reads an index whose key attributes are written only when an order is created, so every order created before this feature shipped, and every order migrated from MarketBox v1, is MISSING from it until a backfill runs. An empty or short page there does not mean the project has no orders — list by `status` when you need completeness over historical data.\n\nPaginate with `limit` and `cursor`; `nextCursor: null` is the last page. A cursor belongs to the filter set that minted it — replaying one after switching listing mode is rejected with a 400 `BAD_REQUEST` (\"Invalid cursor\") rather than silently returning the wrong page, so start a fresh request instead. To list one client's orders, use `GET /projects/{projectId}/clients/{clientId}/orders`.",
         "parameters": [
           {
             "schema": {
@@ -5083,10 +5168,73 @@
           {
             "schema": {
               "type": "string",
-              "enum": ["DRAFT", "PENDING", "PAID", "CANCELLED"]
+              "enum": ["DRAFT", "PENDING", "PAID", "CANCELLED"],
+              "description": "List only orders in this status. Mutually exclusive with `paymentMethod`; with neither, every order in the created-date window is listed.",
+              "example": "PAID"
             },
-            "required": true,
+            "required": false,
+            "description": "List only orders in this status. Mutually exclusive with `paymentMethod`; with neither, every order in the created-date window is listed.",
             "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["STRIPE", "CASH", "EXTERNAL", "COMP", "MIXED", "LEGACY"],
+              "description": "List by how the order was settled. This mode reads a settled-date index, so pair it with `startSettledAt`/`endSettledAt` and never with the created-date parameters. Only settled orders carry a payment method, so DRAFT and PENDING orders never appear in this mode. Mutually exclusive with `status`.",
+              "example": "CASH"
+            },
+            "required": false,
+            "description": "List by how the order was settled. This mode reads a settled-date index, so pair it with `startSettledAt`/`endSettledAt` and never with the created-date parameters. Only settled orders carry a payment method, so DRAFT and PENDING orders never appear in this mode. Mutually exclusive with `status`.",
+            "name": "paymentMethod",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Inclusive lower bound on `createdAt`, as an ISO 8601 instant. Valid in the `status` and no-filter modes only.",
+              "example": "2026-09-01T00:00:00.000Z"
+            },
+            "required": false,
+            "description": "Inclusive lower bound on `createdAt`, as an ISO 8601 instant. Valid in the `status` and no-filter modes only.",
+            "name": "startCreatedAt",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Upper bound on `createdAt`, as an ISO 8601 instant, EXCLUSIVE of the instant itself — pass the next period's start to cover a whole day or month. Valid in the `status` and no-filter modes only.",
+              "example": "2026-10-01T00:00:00.000Z"
+            },
+            "required": false,
+            "description": "Upper bound on `createdAt`, as an ISO 8601 instant, EXCLUSIVE of the instant itself — pass the next period's start to cover a whole day or month. Valid in the `status` and no-filter modes only.",
+            "name": "endCreatedAt",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Inclusive lower bound on `settledAt`, as an ISO 8601 instant. Requires `paymentMethod`.",
+              "example": "2026-09-01T00:00:00.000Z"
+            },
+            "required": false,
+            "description": "Inclusive lower bound on `settledAt`, as an ISO 8601 instant. Requires `paymentMethod`.",
+            "name": "startSettledAt",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Upper bound on `settledAt`, as an ISO 8601 instant, EXCLUSIVE of the instant itself — pass the next period's start to cover a whole day or month. Requires `paymentMethod`.",
+              "example": "2026-10-01T00:00:00.000Z"
+            },
+            "required": false,
+            "description": "Upper bound on `settledAt`, as an ISO 8601 instant, EXCLUSIVE of the instant itself — pass the next period's start to cover a whole day or month. Requires `paymentMethod`.",
+            "name": "endSettledAt",
             "in": "query"
           },
           {
@@ -5139,7 +5287,7 @@
             }
           },
           "400": {
-            "description": "Invalid cursor, limit, or missing status",
+            "description": "Invalid cursor or limit; both status and paymentMethod; or a date range paired with the wrong listing mode",
             "content": {
               "application/json": {
                 "schema": {
@@ -5859,7 +6007,7 @@
       "post": {
         "tags": ["Orders"],
         "summary": "Change order status",
-        "description": "Moves the order through its lifecycle. Only these transitions are allowed, and anything else is a 400:\n\n- `DRAFT` -\u003E `PENDING`, `CANCELLED`\n- `PENDING` -\u003E `PAID`, `CANCELLED`, `DRAFT`\n- `PAID` -\u003E `CANCELLED`\n- `CANCELLED` -\u003E nothing. Cancellation is terminal; a cancelled order cannot be revived, so issue a new one instead.\n\nPass `cancellationReason` when moving to `CANCELLED` — it is recorded with the caller as `cancelledBy` and ignored for every other target status. Returns 409 if the order changed underneath you.",
+        "description": "Moves the order through its lifecycle. Only these transitions are allowed, and anything else is a 400:\n\n- `DRAFT` -\u003E `PENDING`, `CANCELLED`\n- `PENDING` -\u003E `CANCELLED`, `DRAFT`\n- `PAID` -\u003E `CANCELLED`\n- `CANCELLED` -\u003E nothing. Cancellation is terminal; a cancelled order cannot be revived, so issue a new one instead.\n\n`PAID` cannot be requested: an order becomes PAID when its ledger covers its total (`POST /projects/{projectId}/orders/{orderId}/transactions` for cash, external or comp; the payment-intent flow for cards). Asking for it is a 409 `ORDER_NOT_SETTLED` — record the payment instead of retrying.\n\nPass `cancellationReason` when moving to `CANCELLED` — it is recorded with the caller as `cancelledBy` and ignored for every other target status. A 409 `VERSION_CONFLICT` means the order changed underneath you.",
         "parameters": [
           {
             "schema": {
@@ -5966,7 +6114,7 @@
             }
           },
           "409": {
-            "description": "Version conflict",
+            "description": "Version conflict (VERSION_CONFLICT), or a `PAID` target (ORDER_NOT_SETTLED)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6317,6 +6465,16 @@
           },
           "404": {
             "description": "Order or offering not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The service has no active rate of the kind the line implies, e.g. a SINGLE_SESSION line on a service with no active SINGLE_BOOKING rate (SERVICE_NOT_SOLD_AS)",
             "content": {
               "application/json": {
                 "schema": {
@@ -7242,7 +7400,7 @@
             }
           },
           "404": {
-            "description": "Order / item / offering not found",
+            "description": "Order / item / offering / supplier not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -12115,7 +12273,9 @@
                     "example": "America/Toronto"
                   },
                   "bio": {
-                    "type": "string"
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Omit to leave the current bio unchanged; pass null to clear it."
                   },
                   "maxTravelTime": {
                     "type": "integer",
@@ -14632,6 +14792,15 @@
                   "sortBy": {
                     "type": "string",
                     "enum": ["leastTravelTime", "nearestDate"]
+                  },
+                  "skills": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "description": "Supplier skill IDs. A supplier must hold ALL of them to be considered. Omit for no skill filter.",
+                    "example": ["skl_01kv60qg12e82acr78edfnjhvv"]
                   },
                   "interval": {
                     "type": "integer",
@@ -26814,6 +26983,16 @@
               }
             }
           },
+          "404": {
+            "description": "Supplier not found in this project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Supplier time already held/booked, or the slate/slot is stale",
             "content": {
@@ -27546,7 +27725,7 @@
       "post": {
         "tags": ["Clients"],
         "summary": "Onboard the authenticated client to a project",
-        "description": "Idempotently registers the signed-in end user as a CLIENT of the project: ensures a ProjectUsers membership, creates Stripe's own Customer object on the project's connected account (when Stripe is configured, stored as stripeCustomerId), and writes the ClientProfile. Requires both an API key (`x-api-key`) and a client user JWT (`Authorization: Bearer`). Returns 201 on first onboarding, 200 if the client was already onboarded.",
+        "description": "Idempotently registers the signed-in end user as a CLIENT of the project: ensures a ProjectUsers membership, creates Stripe's own Customer object on the project's connected account (when Stripe is configured, stored as stripeCustomerId), and writes the ClientProfile. Requires both an API key (`x-api-key`) and a client user JWT (`Authorization: Bearer`). Returns 201 on first onboarding, 200 if the client was already onboarded.\n\nThe body is optional; a call with no body (or `{}`) onboards without touching the name or phone. Send `firstName`, `lastName` and/or `phone` to record what your checkout collected: each provided field ALWAYS overwrites the value already stored, on every path (first onboarding, claiming an existing profile by email, or already onboarded), and is also copied to the client's Stripe customer. A blank or `null` field counts as not provided and never clears a stored value; use PATCH /clients/me to clear the phone.\n\nWithout names, the client is recorded under the names from their sign-in. A Google sign-in supplies real names, but an email/password sign-up has only the email address, so the client would appear under the part of it before the `@`. Names are trimmed and must be at most 80 characters. They are the client's record in this project only; they do not rename the person's MarketBox account. The phone is validated and stored in E.164 form (`+14165550134`). Send it as E.164, or as a national North American (NANP) number such as `(416) 555-0134`; numbers outside North America must start with `+` and the country code, or they are rejected. An invalid number is a 400 and nothing is written.",
         "parameters": [
           {
             "schema": {
@@ -27561,6 +27740,36 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "The client's first name as your checkout collected it, at most 80 characters after trimming. Overwrites the stored first name; blank or null means not provided.",
+                    "example": "Emma"
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "The client's last name as your checkout collected it, at most 80 characters after trimming. Overwrites the stored last name; blank or null means not provided.",
+                    "example": "Bishop"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Phone number. Accepts E.164 or a national NANP number; stored as E.164 (e.g. +14165550134).",
+                    "example": "+14165550134"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Client already onboarded",
@@ -27590,6 +27799,16 @@
                     }
                   },
                   "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid name or phone number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
                 }
               }
             }
@@ -27626,6 +27845,115 @@
           },
           "409": {
             "description": "Email already belongs to a different linked client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Clients"],
+        "summary": "Update the authenticated client's contact details",
+        "description": "Changes the signed-in client's first name, last name and/or phone number in this project. The profile is resolved from the client user JWT, never from the URL, and requires both the API key (`x-api-key`) and the JWT (`Authorization: Bearer`). The caller must already be onboarded: POST /clients/me first, or this is a 404.\n\nSend only the fields to change; an omitted field is left unchanged, but a body with nothing to update is a 400. Names are trimmed and must be 1–80 characters: they can be changed but not cleared, so a blank or `null` name is a 400. The name is the client's record in this project only (what the business sees on orders, bookings and emails); it does not rename the person's MarketBox account. Send `phone: null` (or a blank string) to clear the stored phone. The phone is validated and stored in E.164 form (`+14165550134`). Send it as E.164, or as a national North American (NANP) number such as `(416) 555-0134`; numbers outside North America must start with `+` and the country code, or they are rejected. An invalid number is a 400 and nothing is written.\n\nCall it before creating the order (`POST /orders`) so booking and order emails use the updated name. The change is also copied to the client's Stripe customer on the project's connected account; if that copy fails, the profile is still updated and this still returns 200. Returns the whole profile, with its saved addresses.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+              "example": "prj_01kv60qgnef2kt3pvqgwmkbzfr"
+            },
+            "required": true,
+            "description": "The project (tenant) that owns the resource. Every resource in this API is scoped to a project, and your API key is restricted to the projects it was issued for — a project outside that scope returns 403.",
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "description": "The client's new first name (1–80 characters, trimmed). Omit to leave it unchanged.",
+                    "example": "Emma"
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "description": "The client's new last name (1–80 characters, trimmed). Omit to leave it unchanged.",
+                    "example": "Bishop"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Phone number. Accepts E.164 or a national NANP number; stored as E.164 (e.g. +14165550134).",
+                    "example": "+14165550134"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Client updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ClientProfile"
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid name or phone number, or nothing to update",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid user token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to project or unregistered user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No client profile for this project",
             "content": {
               "application/json": {
                 "schema": {
@@ -33736,7 +34064,7 @@
       "post": {
         "tags": ["Transactions"],
         "summary": "Record a manual (cash/external/comp) transaction against an order",
-        "description": "Books money that moved outside Stripe — cash at the door, a bank transfer, a comped session. Card payments do not belong here: `source` accepts only CASH, EXTERNAL and COMP, and STRIPE is rejected, because Stripe rows are created by the payment-intent flow and settled by webhook. `kind: \"REFUND\"` is likewise rejected; refunds are not yet supported.\n\nThe two kinds behave differently and the difference is easy to miss. PAYMENT adds to the order's `amountPaid` in the same atomic write, so it changes what the order still owes. ADJUSTMENT records a ledger row and leaves `amountPaid` alone — use it for corrections you want visible in history without moving the balance. Either way the row is written SUCCEEDED immediately, with no pending state to poll.\n\n`amount.currency` must equal the order's currency exactly or the call is a 400; the order's currency is fixed at creation and cannot be converted here. A 409 means the order changed between this call reading it and writing — re-read the order and retry, rather than assuming the payment was recorded. `clientId` defaults to the order's client.",
+        "description": "Books money that moved outside Stripe — cash at the door, a bank transfer, a comped session. Card payments do not belong here: `source` accepts only CASH, EXTERNAL and COMP, and STRIPE is rejected, because Stripe rows are created by the payment-intent flow and settled by webhook. `kind: \"REFUND\"` is likewise rejected; refunds are not yet supported.\n\nThe two kinds behave differently and the difference is easy to miss. PAYMENT adds to the order's `amountPaid` in the same atomic write, so it changes what the order still owes. ADJUSTMENT records a ledger row and leaves `amountPaid` alone — use it for corrections you want visible in history without moving the balance. Either way the row is written SUCCEEDED immediately, with no pending state to poll.\n\n`amount.currency` must equal the order's currency exactly or the call is a 400; the order's currency is fixed at creation and cannot be converted here. A 409 means the order changed between this call reading it and writing — re-read the order and retry, rather than assuming the payment was recorded. `clientId` defaults to the order's client.\n\n`source: \"COMP\"` REQUIRES `reason` — a waived charge with no justification on the ledger is refused with a 400. Record why the charge was waived (\"Service recovery — late supplier\"), not that it was waived; the row already says that.\n\nSend `idempotencyKey` on any recording you might retry. The same key on the same order returns the row the FIRST call created, as HTTP 200 with `replayed: true`, instead of recording the money a second time; a first recording is 201 with `replayed: false`. Branch on the status or on `replayed` — never on \"a 2xx means I just took a payment\". A key belongs to one order and does not expire.\n\nThe order settles as a consequence of this write, not through a separate call: once the ledger covers the order's total the order moves to `PAID` in the same atomic write, with `settledAt` and `paymentMethod` stamped on it. `PAID` cannot be asked for directly — `POST /orders/{orderId}/status` answers a `PAID` target with a 409.",
         "parameters": [
           {
             "schema": {
@@ -33790,6 +34118,20 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "description": "Why the charge was waived. REQUIRED when source is COMP.",
+                    "example": "Service recovery — late supplier"
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Replay guard. The same key on the same order returns the row the first call created instead of recording the money twice.",
+                    "example": "9f8c0f7a-1f3f-4c8e-9a2b-6c7d8e9f0a1b"
                   }
                 },
                 "required": ["kind", "source", "amount"]
@@ -33798,8 +34140,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Transaction recorded",
+          "200": {
+            "description": "Replay of an earlier idempotencyKey — the original row, unchanged",
             "content": {
               "application/json": {
                 "schema": {
@@ -33823,7 +34165,8 @@
                             "PAYMENT",
                             "REFUND",
                             "CREDIT_REDEMPTION",
-                            "ADJUSTMENT"
+                            "ADJUSTMENT",
+                            "CREDIT_REVERSAL"
                           ]
                         },
                         "source": {
@@ -33909,6 +34252,21 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "BACKOFFICE",
+                            "OPEN_API",
+                            "STRIPE_WEBHOOK",
+                            "SCHEDULER",
+                            "ORDER_CASCADE",
+                            "MIGRATION"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "deleted": {
                           "type": "boolean"
                         },
@@ -33947,15 +34305,195 @@
                         "createdBy",
                         "updatedBy"
                       ]
+                    },
+                    "replayed": {
+                      "type": "boolean",
+                      "enum": [true]
                     }
                   },
-                  "required": ["data"]
+                  "required": ["data", "replayed"]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Transaction recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "tenantId": {
+                          "type": "string"
+                        },
+                        "transactionId": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "PAYMENT",
+                            "REFUND",
+                            "CREDIT_REDEMPTION",
+                            "ADJUSTMENT",
+                            "CREDIT_REVERSAL"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "STRIPE",
+                            "CASH",
+                            "EXTERNAL",
+                            "PACKAGE_CREDIT",
+                            "COMP"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": ["PENDING", "SUCCEEDED", "FAILED", "CANCELED"]
+                        },
+                        "amount": {
+                          "$ref": "#/components/schemas/Money"
+                        },
+                        "platformFee": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/Money"
+                            },
+                            {
+                              "nullable": true
+                            }
+                          ]
+                        },
+                        "relatedTransactionId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "orderId": {
+                          "type": "string"
+                        },
+                        "orderItemId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "allocationId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "bookingId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "clientId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "stripePaymentIntentId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "stripeChargeId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "stripeRefundId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "stripeAccountId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "connectChargeType": {
+                          "type": "string",
+                          "nullable": true,
+                          "enum": ["DIRECT"]
+                        },
+                        "failureCode": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "failureMessage": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "note": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "BACKOFFICE",
+                            "OPEN_API",
+                            "STRIPE_WEBHOOK",
+                            "SCHEDULER",
+                            "ORDER_CASCADE",
+                            "MIGRATION"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "deleted": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "createdBy": {
+                          "type": "string"
+                        },
+                        "updatedBy": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "projectId",
+                        "tenantId",
+                        "transactionId",
+                        "kind",
+                        "source",
+                        "status",
+                        "amount",
+                        "orderId",
+                        "deleted",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "createdBy",
+                        "updatedBy"
+                      ]
+                    },
+                    "replayed": {
+                      "type": "boolean",
+                      "enum": [false]
+                    }
+                  },
+                  "required": ["data", "replayed"]
                 }
               }
             }
           },
           "400": {
-            "description": "Validation error / currency mismatch",
+            "description": "Validation error / currency mismatch / a COMP with no reason",
             "content": {
               "application/json": {
                 "schema": {
@@ -33965,7 +34503,7 @@
             }
           },
           "404": {
-            "description": "Order not found",
+            "description": "Order or client not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -33975,7 +34513,7 @@
             }
           },
           "409": {
-            "description": "Order modified concurrently",
+            "description": "Order modified concurrently (VERSION_CONFLICT), or a replay whose original row could not be read (TRANSACTION_IDEMPOTENCY_RECORD_MISSING — terminal, do not retry)",
             "content": {
               "application/json": {
                 "schema": {
@@ -33991,7 +34529,7 @@
       "get": {
         "tags": ["Transactions"],
         "summary": "List transactions (filter by order, client, or status)",
-        "description": "The money ledger for the project, newest first, for reconciliation and payment history.\n\nThe filters are not combinable, and this is the mistake to avoid: exactly one of `orderId`, `clientId` and `status` takes effect, in that order of precedence, and the others are ignored without an error. Sending `orderId` with `status=FAILED` returns EVERY transaction on that order, failed or not — so filter by status client-side when you also need one of the others. With none of the three set, the whole project is listed. `startDate` and `endDate` are the exception: they narrow whichever of the four queries runs.\n\nResults are paginated with an opaque cursor that is only valid for the same filters that produced it. Both settled and unsettled rows come back, so sum only `status: \"SUCCEEDED\"` when computing what was actually collected — a PENDING Stripe row is an intent, not money.",
+        "description": "The money ledger for the project, newest first, for reconciliation and payment history.\n\nThe filters are not combinable, and this is the mistake to avoid: exactly one of `orderId`, `clientId` and `status` takes effect, in that order of precedence, and the others are ignored without an error. Sending `orderId` with `status=FAILED` returns EVERY transaction on that order, failed or not — so filter by status client-side when you also need one of the others. With none of the three set, the whole project is listed. `startDate` and `endDate` are the exception: they narrow whichever of the four queries runs.\n\nResults are paginated with an opaque cursor that is only valid for the same filters that produced it. Both settled and unsettled rows come back, so sum only `status: \"SUCCEEDED\"` when computing what was actually collected — a PENDING Stripe row is an intent, not money.\n\nThe ledger is append-only, so a correction is always a NEW row pointing at the one it corrects through `relatedTransactionId`, never an edit. Amounts are always positive; the `kind` carries the direction. A `REFUND` offsets a `PAYMENT`, and a `CREDIT_REVERSAL` offsets the `CREDIT_REDEMPTION` of a package session that was cancelled and returned to its package — so package credit actually used is redemptions minus reversals. Neither credit kind is money: both have `source: \"PACKAGE_CREDIT\"`. A consumer switching exhaustively on `kind` should tolerate values it does not know.",
         "parameters": [
           {
             "schema": {
@@ -34103,7 +34641,8 @@
                               "PAYMENT",
                               "REFUND",
                               "CREDIT_REDEMPTION",
-                              "ADJUSTMENT"
+                              "ADJUSTMENT",
+                              "CREDIT_REVERSAL"
                             ]
                           },
                           "source": {
@@ -34194,6 +34733,21 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "BACKOFFICE",
+                              "OPEN_API",
+                              "STRIPE_WEBHOOK",
+                              "SCHEDULER",
+                              "ORDER_CASCADE",
+                              "MIGRATION"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "deleted": {
                             "type": "boolean"
                           },
@@ -34261,7 +34815,7 @@
       "post": {
         "tags": ["Transactions"],
         "summary": "Create a Stripe PaymentIntent for an order (client-side confirmation)",
-        "description": "Starts a card payment for whatever the order still owes. Returns a `clientSecret` to confirm with Stripe.js in the browser — the card details never reach this API. The charge is created on the project's connected account for `total - amountPaid`, so part-paid orders are billed only for the remainder and a fully-paid order is a 400.\n\nSafe to call more than once: if an open PENDING intent already exists for the order, its existing `clientSecret` is returned instead of a second intent being created, so a user who reloads checkout is not charged twice. Reuse means the amount comes from the original intent, though — if the order total changed in between, cancel the outstanding intent rather than expecting a fresh figure here.\n\nThe order must be DRAFT or PENDING; anything further along its lifecycle is a 400. A 409 means the project has no Stripe account connected or is not yet cleared to take charges, which is a setup problem no retry will fix. Confirming the intent does NOT settle the transaction here: the row stays PENDING until Stripe's webhook confirms it, so treat payment as complete only once the transaction reads SUCCEEDED.",
+        "description": "Starts a card payment for whatever the order still owes. Returns a `clientSecret` to confirm with Stripe.js in the browser — the card details never reach this API. The charge is created on the project's connected account for `total - amountPaid`, so part-paid orders are billed only for the remainder and a fully-paid order is a 400.\n\nSafe to call more than once: if an open PENDING intent already exists for the order, its existing `clientSecret` is returned instead of a second intent being created, so a user who reloads checkout is not charged twice. Reuse means the amount comes from the original intent, though — if the order total changed in between, cancel the outstanding intent rather than expecting a fresh figure here.\n\nThe order must be DRAFT or PENDING; anything further along its lifecycle is a 400. A 409 means the project has no Stripe account connected or is not yet cleared to take charges, which is a setup problem no retry will fix. Confirming the intent does NOT settle the transaction here: the row stays PENDING until Stripe's webhook confirms it, so treat payment as complete only once the transaction reads SUCCEEDED.\n\nWhen the order's client has an email on file, the card is saved to that client for future bookings (the intent is created with `setup_future_usage: off_session`), so tell the client at checkout that their card will be saved. An intent reused from an earlier call is updated to save the card as well, provided the payment has not been confirmed yet.",
         "parameters": [
           {
             "schema": {
