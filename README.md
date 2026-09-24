@@ -31,6 +31,12 @@ OpenAPI spec at its source (the `apps/open-api-mb` workspace in the
 
 ## Regenerating the OpenAPI spec
 
+With Claude Code, ask it to "sync the API docs": the `sync-api-docs` skill
+(`.claude/skills/sync-api-docs/`) runs the steps below end to end — freshness
+and deploy checks, the sync, a semantic spec diff
+(`scripts/spec-diff.mjs` in the skill), prose and changelog updates,
+validation, publishing, and a change doc for integrators.
+
 Both files under `api-reference/` are **generated artifacts committed in
 `mb-core`** (`apps/open-api-mb/openapi.json` and `docs-contract.json`),
 where CI fails any change to a route that does not regenerate them. Do not

@@ -1,7 +1,9 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 
-const SKIP_DIRS = new Set(['node_modules', '.git', '.github', 'scripts', 'images', 'logo']);
+// `.claude` holds agent skills (instructions about this repo, not pages in it).
+// Mintlify never publishes it, so the reader-facing rules don't apply there.
+const SKIP_DIRS = new Set(['node_modules', '.git', '.github', '.claude', 'scripts', 'images', 'logo']);
 
 /**
  * Yields every .mdx/.md page under `root`, with YAML frontmatter blanked out
