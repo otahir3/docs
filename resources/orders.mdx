@@ -179,28 +179,66 @@ Items have their own sub-resource under an order:
 The snapshot pattern is deliberate: an order is a historical record of
 "what the client bought at the price it was when they bought it."
 
+## How tax is computed
+
+The platform computes tax. You never send a rate or a tax amount.
+
+Each line takes its tax settings from the price rule it matched. When that rule
+sets no tax, the line inherits from the rule's parents, most specific first:
+`STATE`, then `COUNTRY`, then `DEFAULT`. When no rule sets tax, the line uses
+the service's own `taxSettings`. The result is frozen on the line as
+`taxSnapshot`.
+
+`PACKAGE` lines are taxed by the same rule as every other line. Package lines
+written between June and September 2026, while package purchases were
+untaxed, keep their zero tax.
+
+A line with no tax says why in `taxExemptReason`:
+
+| Value | Meaning |
+| --- | --- |
+| `NO_RATE` | Neither the matched price rule, its parent rules, nor the service set a rate. |
+| `NOT_TAXABLE` | The resolved tax settings mark the line not taxable. |
+| `ZERO_RATE` | Taxable at 0%. |
+| `MIGRATED_V1` | Imported from MarketBox v1, which recorded tax on the order rather than per line. |
+| `PACKAGE_EXEMPT_LEGACY` | A package line written while package purchases were untaxed (June–September 2026). |
+
+`taxExemptReason` is absent when the line is taxed at a positive rate. It is
+also absent on lines written before the field existed. Treat the list as open:
+new values can be added.
+
+The order's tax is the sum of its line tax plus the tax on any taxable service
+fee. See [Service fees](/concepts/service-fees) for how a fee is taxed.
+
 ## Updating an order
 
-`PATCH /v1/projects/{projectId}/orders/{orderId}` accepts a narrow set
-of mutable fields — currently just `tax`. Client, currency and locale are not
-mutable. To change them, cancel the order and create a new one.
+`PATCH /v1/projects/{projectId}/orders/{orderId}` changes nothing you can set.
+Client, currency and locale are fixed. To change them, cancel the order and
+create a new one. Change the line items to change the total.
 
-Sending `tax` also **rewrites the order's stored `total`**, recomputed as
-`subtotal + feeTotal + tax`. The fee is preserved: patching tax on an order
-carrying service fees never drops them from the total.
+`tax` is not editable. The platform recomputes it when the order is created and
+whenever its lines change. The body still accepts `tax` for compatibility, but
+only when it equals both the tax the lines compute and the tax the order
+stores. Omit it.
 
-<Warning>
-The `tax` you send is treated as the order's **entire** tax — line tax **and**
-the tax on any taxable service fee. It is stored verbatim, not reconciled
-against the line items.
+Any other figure is refused, and nothing is written:
 
-On an order with taxable fees, computing tax against `subtotal` alone
-therefore persists a `tax` and `total` lower than the figures
-`GET .../orders/{orderId}/aggregate` computes from the line snapshots, and
-your order header will disagree with the summary you display. Either include
-the fee's tax in the value you send, or add and update line items and let tax
-resolve from the snapshots instead. See [Service fees](/concepts/service-fees).
-</Warning>
+```json
+{
+  "code": "TAX_MISMATCH",
+  "message": "tax 2000 CAD disagrees with order ord_01kv8m3n5p7q9r1s3t5v7w9x1z: its lines compute 2600 CAD and it stores 2600 CAD. Omit tax — the platform computes it from the line items.",
+  "statusCode": 400,
+  "requestId": "5b8e2d41-7c9a-4f13-b6e0-9a2c4d7f1e38"
+}
+```
+
+The same `400 TAX_MISMATCH` is returned when you send `tax` on an order whose
+lines are in a different currency from the order. The `message` then names
+both currencies.
+
+On an order whose stored tax no longer matches its lines, no figure passes.
+That is deliberate: rewriting tax on a paid order could drop its total below
+what was already paid.
 
 ## Settling an order
 

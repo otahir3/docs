@@ -3,6 +3,38 @@ title: "Changelog"
 description: "New features, updates, and fixes to the MarketBox API."
 ---
 
+<Update label="September 24, 2026" tags={["API"]}>
+
+## Package purchases are taxed, and order tax is computed, not set
+
+The platform now computes every order's tax, and package lines are taxed like any other line. A line with no tax says why. `PATCH …/orders/{orderId}` no longer lets you overwrite tax.
+
+**One breaking change, the rest a behaviour change and additive fields.** No field was removed or renamed. Strict response decoders need a regeneration for `taxExemptReason` on order items.
+
+**Breaking**
+
+- **`tax` on `PATCH …/orders/{orderId}` can no longer change the order.** It is accepted only when it equals both the tax the lines compute and the tax the order stores. Any other figure is `400 TAX_MISMATCH`, and nothing is written. The same code is returned when the order has lines in a different currency. Omit `tax`.
+
+**Changed**
+
+- **Package lines are taxed.** A `PACKAGE` line now takes the tax its price rule resolves, like a single-session line. Package lines written between June and September 2026 keep their zero tax.
+- **The service's tax settings are the last fallback.** When neither the matched price rule nor its parent rules set tax, a line uses the service's `taxSettings`. Lines that used to carry no tax can now be taxed.
+- **A taxable fee borrows the rate of the first line taxed at a positive rate.** Untaxed and 0% lines no longer shadow a taxed line listed after them, so line order no longer changes a fee's tax.
+
+**New**
+
+- **`taxExemptReason` on order items** — why a line carries no tax: `NO_RATE`, `NOT_TAXABLE`, `ZERO_RATE`, `MIGRATED_V1` or `PACKAGE_EXEMPT_LEGACY`. Absent when the line is taxed at a positive rate, and on lines written before the field existed.
+
+**What this means for you**
+
+- **Stop sending `tax` on `PATCH …/orders/{orderId}`.** Handle `400 TAX_MISMATCH` if you can't remove it yet.
+- **Show the tax the API returns on package checkouts.** Package totals now include tax where the price rule or service sets a rate.
+- **Branch on `taxExemptReason`, not on `skuType`,** to explain a zero tax.
+
+Full detail: [Orders → How tax is computed](/resources/orders#how-tax-is-computed), [Orders → Updating an order](/resources/orders#updating-an-order), [Service fees → A taxable fee borrows the rate of a taxed line](/concepts/service-fees#a-taxable-fee-borrows-the-rate-of-a-taxed-line), [Errors](/concepts/errors).
+
+</Update>
+
 <Update label="September 23, 2026" tags={["API"]}>
 
 ## Orders settle from the ledger, cancels settle the credit, and clients carry their real names

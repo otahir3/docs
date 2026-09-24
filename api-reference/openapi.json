@@ -637,7 +637,7 @@
                 "taxable": {
                   "type": "boolean",
                   "default": false,
-                  "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                  "description": "When true, the fee is taxed at the rate of the order lines it is charged alongside (sessions or packages sold under this business model) that are taxed at a positive rate. Lines that are not taxable or taxed at 0% lend no rate; if none of the lines is taxed, the fee is not taxed either.",
                   "example": false
                 }
               },
@@ -670,6 +670,17 @@
             "type": "string",
             "enum": ["RULE", "MANUAL"],
             "description": "Where this line’s price came from. RULE: resolved from the offering or package `pricing[]` (see `priceRuleId`). MANUAL: set by staff when the order was created, in place of the rule price; `priceRuleId` is null and `unitPrice` will not match any rule. Absent on items written before this field existed."
+          },
+          "taxExemptReason": {
+            "type": "string",
+            "enum": [
+              "NO_RATE",
+              "NOT_TAXABLE",
+              "ZERO_RATE",
+              "MIGRATED_V1",
+              "PACKAGE_EXEMPT_LEGACY"
+            ],
+            "description": "Why this line carries no tax. NO_RATE: neither the matched price rule, its parent rules, nor the service set a rate. NOT_TAXABLE: the resolved tax settings mark it not taxable. ZERO_RATE: taxable at 0%. MIGRATED_V1: imported from MarketBox v1, which recorded tax on the order rather than per line. PACKAGE_EXEMPT_LEGACY: a package line written while package purchases were untaxed (June–September 2026). Absent when the line is taxed at a positive rate, and on lines written before this field existed."
           },
           "expiresAt": {
             "type": "string",
@@ -5020,7 +5031,7 @@
                                       }
                                     },
                                     "required": ["amount", "currency"],
-                                    "description": "Tax on this fee, at the rate its governing lines resolved. Zero when the fee is not taxable, and zero on a package-only order because package lines are tax-exempt and carry no rate to inherit."
+                                    "description": "Tax on this fee, at the rate of its governing lines that are taxed at a positive rate. Zero when the fee is not taxable, or when none of those lines is taxed (each untaxed line says why in its taxExemptReason)."
                                   },
                                   "taxable": {
                                     "type": "boolean"
@@ -5402,7 +5413,7 @@
       "patch": {
         "tags": ["Orders"],
         "summary": "Update an order",
-        "description": "Deliberately narrow: `tax` is the only field you can change. Currency is fixed at creation, and totals derive from the line items, so neither is editable here — that is what stops an order and its items disagreeing about money. Change the line items to change the total, and use `POST /status` to move the order through its lifecycle. Returns 409 if the order changed underneath you.",
+        "description": "Deliberately narrow, and tax is not editable: the platform computes it — line tax plus tax on taxable service fees — when the order is created and whenever its lines change. `tax` is still accepted for compatibility, but only when it equals both the computed and the stored figure, i.e. when it changes nothing; any other figure returns 400 TAX_MISMATCH naming both. Omit it. Currency is fixed at creation and totals derive from the line items, so neither is editable here — that is what stops an order and its items disagreeing about money. Change the line items to change the total, and use `POST /status` to move the order through its lifecycle. Returns 409 if the order changed underneath you.",
         "parameters": [
           {
             "schema": {
@@ -5463,7 +5474,7 @@
             }
           },
           "400": {
-            "description": "Validation error",
+            "description": "Validation error, or TAX_MISMATCH: the tax sent is not both the computed and the stored figure, or the order has lines in a different currency than the order itself",
             "content": {
               "application/json": {
                 "schema": {
@@ -5782,7 +5793,7 @@
                                       }
                                     },
                                     "required": ["amount", "currency"],
-                                    "description": "Tax on this fee, at the rate its governing lines resolved. Zero when the fee is not taxable, and zero on a package-only order because package lines are tax-exempt and carry no rate to inherit."
+                                    "description": "Tax on this fee, at the rate of its governing lines that are taxed at a positive rate. Zero when the fee is not taxable, or when none of those lines is taxed (each untaxed line says why in its taxExemptReason)."
                                   },
                                   "taxable": {
                                     "type": "boolean"
@@ -6357,7 +6368,7 @@
                                       }
                                     },
                                     "required": ["amount", "currency"],
-                                    "description": "Tax on this fee, at the rate its governing lines resolved. Zero when the fee is not taxable, and zero on a package-only order because package lines are tax-exempt and carry no rate to inherit."
+                                    "description": "Tax on this fee, at the rate of its governing lines that are taxed at a positive rate. Zero when the fee is not taxable, or when none of those lines is taxed (each untaxed line says why in its taxExemptReason)."
                                   },
                                   "taxable": {
                                     "type": "boolean"
@@ -6707,7 +6718,7 @@
                                       }
                                     },
                                     "required": ["amount", "currency"],
-                                    "description": "Tax on this fee, at the rate its governing lines resolved. Zero when the fee is not taxable, and zero on a package-only order because package lines are tax-exempt and carry no rate to inherit."
+                                    "description": "Tax on this fee, at the rate of its governing lines that are taxed at a positive rate. Zero when the fee is not taxable, or when none of those lines is taxed (each untaxed line says why in its taxExemptReason)."
                                   },
                                   "taxable": {
                                     "type": "boolean"
@@ -7027,7 +7038,7 @@
                                       }
                                     },
                                     "required": ["amount", "currency"],
-                                    "description": "Tax on this fee, at the rate its governing lines resolved. Zero when the fee is not taxable, and zero on a package-only order because package lines are tax-exempt and carry no rate to inherit."
+                                    "description": "Tax on this fee, at the rate of its governing lines that are taxed at a positive rate. Zero when the fee is not taxable, or when none of those lines is taxed (each untaxed line says why in its taxExemptReason)."
                                   },
                                   "taxable": {
                                     "type": "boolean"
@@ -28642,7 +28653,7 @@
                               "taxable": {
                                 "type": "boolean",
                                 "default": false,
-                                "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                                "description": "When true, the fee is taxed at the rate of the order lines it is charged alongside (sessions or packages sold under this business model) that are taxed at a positive rate. Lines that are not taxable or taxed at 0% lend no rate; if none of the lines is taxed, the fee is not taxed either.",
                                 "example": false
                               }
                             },
@@ -30013,7 +30024,7 @@
                                 "taxable": {
                                   "type": "boolean",
                                   "default": false,
-                                  "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                                  "description": "When true, the fee is taxed at the rate of the order lines it is charged alongside (sessions or packages sold under this business model) that are taxed at a positive rate. Lines that are not taxable or taxed at 0% lend no rate; if none of the lines is taxed, the fee is not taxed either.",
                                   "example": false
                                 }
                               },
@@ -30222,7 +30233,7 @@
                         "taxable": {
                           "type": "boolean",
                           "default": false,
-                          "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                          "description": "When true, the fee is taxed at the rate of the order lines it is charged alongside (sessions or packages sold under this business model) that are taxed at a positive rate. Lines that are not taxable or taxed at 0% lend no rate; if none of the lines is taxed, the fee is not taxed either.",
                           "example": false
                         }
                       },
@@ -30358,7 +30369,7 @@
                               "taxable": {
                                 "type": "boolean",
                                 "default": false,
-                                "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                                "description": "When true, the fee is taxed at the rate of the order lines it is charged alongside (sessions or packages sold under this business model) that are taxed at a positive rate. Lines that are not taxable or taxed at 0% lend no rate; if none of the lines is taxed, the fee is not taxed either.",
                                 "example": false
                               }
                             },
@@ -30575,7 +30586,7 @@
                         "taxable": {
                           "type": "boolean",
                           "default": false,
-                          "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                          "description": "When true, the fee is taxed at the rate of the order lines it is charged alongside (sessions or packages sold under this business model) that are taxed at a positive rate. Lines that are not taxable or taxed at 0% lend no rate; if none of the lines is taxed, the fee is not taxed either.",
                           "example": false
                         }
                       },
@@ -30708,7 +30719,7 @@
                               "taxable": {
                                 "type": "boolean",
                                 "default": false,
-                                "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                                "description": "When true, the fee is taxed at the rate of the order lines it is charged alongside (sessions or packages sold under this business model) that are taxed at a positive rate. Lines that are not taxable or taxed at 0% lend no rate; if none of the lines is taxed, the fee is not taxed either.",
                                 "example": false
                               }
                             },
@@ -30968,7 +30979,7 @@
                               "taxable": {
                                 "type": "boolean",
                                 "default": false,
-                                "description": "When true, the fee is taxed at the rate the governing lines already resolved for their region. A taxable fee on a PACKAGE-only order resolves to zero tax: package lines are tax-exempt, so there is no rate to inherit.",
+                                "description": "When true, the fee is taxed at the rate of the order lines it is charged alongside (sessions or packages sold under this business model) that are taxed at a positive rate. Lines that are not taxable or taxed at 0% lend no rate; if none of the lines is taxed, the fee is not taxed either.",
                                 "example": false
                               }
                             },
